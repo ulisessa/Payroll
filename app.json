@@ -1,0 +1,48 @@
+{
+  "id": "d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890",
+  "name": "Liquidación Sueldos Pesca",
+  "version": "1.0.0.98",
+  "brief": "Sistema de liquidación de sueldos para la industria pesquera argentina",
+  "description": "Liquidación paramétrica de sueldos pesqueros con soporte para múltiples CCTs, mareas y contribuciones.",
+  "publisher": "Grupo Arbumasa",
+  "platform": "25.2.0.0",
+  "application": "25.2.0.0",
+  "runtime": "14.0",
+  "target": "OnPrem",
+  "dependencies": [
+      {
+          "id": "a423950b-02e9-4ee0-ab32-61517ce330cb",
+          "name": "Final Version Customization Extension - Tables Only",
+          "publisher": "Grupo Arbumasa",
+          "version": "2.0.0.0"
+      },
+      {
+          "id": "63ca2fa4-4f03-4f2b-a480-172fef340d3f",
+          "name": "System Application",
+          "publisher": "Microsoft",
+          "version": "25.2.0.0"
+      },
+      {
+          "id": "f3552374-a1f2-4356-848e-196002525837",
+          "name": "Business Foundation",
+          "publisher": "Microsoft",
+          "version": "25.2.0.0"
+      },
+      {
+          "id": "437dbf0e-84ff-417a-965d-ed2bb9650972",
+          "name": "Base Application",
+          "publisher": "Microsoft",
+          "version": "25.2.0.0"
+      }
+    ],
+  "screenshots": [],
+  "idRanges": [
+    {
+      "from": 50000,
+      "to": 61000
+    }
+  ],
+  "features": [
+    "TranslationFile"
+  ]    
+}

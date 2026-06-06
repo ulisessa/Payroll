@@ -1,0 +1,1070 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report MustUnderstand="df" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="DataSource">
+      <ConnectionProperties>
+        <DataProvider>SQL</DataProvider>
+        <ConnectString />
+      </ConnectionProperties>
+      <rd:DataSourceID>a1b2c3d4-e5f6-7890-abcd-ef1234567890</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Tablix Name="TablixRecibo">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>18cm</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.6cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtCompany">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=First(Fields!CompanyName.Value)</Value>
+                                  <Style>
+                                    <FontSize>11pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtCompanyAddr">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=First(Fields!CompanyAddress.Value) &amp; "  |  CUIT: " &amp; First(Fields!CompanyCUIT.Value)</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                    <Color>Gray</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.8cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtTitle">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="RECIBO DE HABERES — " &amp; First(Fields!PeriodoDesc.Value) &amp; "  (" &amp; First(Fields!LiqTipoLiq.Value) &amp; ")"</Value>
+                                  <Style>
+                                    <FontSize>12pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <BackgroundColor>LightSteelBlue</BackgroundColor>
+                            <PaddingTop>3pt</PaddingTop>
+                            <PaddingBottom>3pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.5cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtEmpNo">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="Legajo: " &amp; First(Fields!LiqEmployeeNo.Value) &amp; "   " &amp; First(Fields!LiqEmployeeName.Value)</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <PaddingTop>2pt</PaddingTop>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtEmpData">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="CUIL: " &amp; First(Fields!EmpCUIL.Value) &amp; "   Domicilio: " &amp; First(Fields!EmpDomicilio.Value) &amp; "   Ingreso: " &amp; First(Fields!EmpFechaIngreso.Value)</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtCCT">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="CCT: " &amp; First(Fields!LiqConvenioDesc.Value) &amp; "   Categoría: " &amp; First(Fields!LiqCategoriaDesc.Value) &amp; IIF(First(Fields!LiqNoProyecto.Value) &lt;&gt; "", "   Marea: " &amp; First(Fields!LiqNoProyecto.Value), "")</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                            <PaddingBottom>3pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtPeriodDates">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="Período: " &amp; First(Fields!PeriodoFechaDesde.Value) &amp; " al " &amp; First(Fields!PeriodoFechaHasta.Value) &amp; "   Fecha de liquidación: " &amp; First(Fields!LiqFechaLiq.Value)</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                    <Color>Gray</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.55cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Rectangle Name="RectConceptHdr">
+                          <ReportItems>
+                            <Textbox Name="HdrConcepto">
+                              <Left>0cm</Left>
+                              <Top>0cm</Top>
+                              <Width>10cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>CONCEPTO</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                        <Color>White</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <BackgroundColor>SteelBlue</BackgroundColor>
+                                <PaddingLeft>4pt</PaddingLeft>
+                                <PaddingTop>3pt</PaddingTop>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="HdrHaberes">
+                              <Left>10cm</Left>
+                              <Top>0cm</Top>
+                              <Width>4cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>HABERES</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                        <Color>White</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <BackgroundColor>SteelBlue</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="HdrDescuentos">
+                              <Left>14cm</Left>
+                              <Top>0cm</Top>
+                              <Width>4cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>DESCUENTOS</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                        <Color>White</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <BackgroundColor>SteelBlue</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
+                              </Style>
+                            </Textbox>
+                          </ReportItems>
+                          <Style>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                            </BottomBorder>
+                          </Style>
+                        </Rectangle>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.5cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Tablix Name="TablixConceptos">
+                          <TablixBody>
+                            <TablixColumns>
+                              <TablixColumn>
+                                <Width>10cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>4cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>4cm</Width>
+                              </TablixColumn>
+                            </TablixColumns>
+                            <TablixRows>
+                              <TablixRow>
+                                <Height>0.5cm</Height>
+                                <TablixCells>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtLinNombre">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=Fields!LinNombre.Value</Value>
+                                                <Style>
+                                                  <FontSize>8pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingLeft>4pt</PaddingLeft>
+                                          <PaddingTop>2pt</PaddingTop>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtLinHaber">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=IIF(Fields!LinEsHaber.Value, Format(Fields!LinImporte.Value, "N2"), "")</Value>
+                                                <Style>
+                                                  <FontSize>8pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                          <PaddingTop>2pt</PaddingTop>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtLinDescuento">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=IIF(Fields!LinEsDescuento.Value, Format(Fields!LinImporte.Value, "N2"), "")</Value>
+                                                <Style>
+                                                  <FontSize>8pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                          <PaddingTop>2pt</PaddingTop>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                </TablixCells>
+                              </TablixRow>
+                            </TablixRows>
+                          </TablixBody>
+                          <TablixRowHierarchy>
+                            <TablixMembers>
+                              <TablixMember>
+                                <Group Name="GrpConceptos">
+                                  <GroupExpressions>
+                                    <GroupExpression>=Fields!LinCodConcepto.Value</GroupExpression>
+                                  </GroupExpressions>
+                                  <Filters>
+                                    <Filter>
+                                      <FilterExpression>=IIF(Fields!LinEsContrib.Value, 1, 0)</FilterExpression>
+                                      <Operator>Equal</Operator>
+                                      <FilterValues>
+                                        <FilterValue>=0</FilterValue>
+                                      </FilterValues>
+                                    </Filter>
+                                  </Filters>
+                                </Group>
+                                <SortExpressions>
+                                  <SortExpression>
+                                    <Value>=Fields!LinTipoConcepto.Value</Value>
+                                  </SortExpression>
+                                  <SortExpression>
+                                    <Value>=Fields!LinOrden.Value</Value>
+                                  </SortExpression>
+                                </SortExpressions>
+                              </TablixMember>
+                            </TablixMembers>
+                          </TablixRowHierarchy>
+                          <TablixColumnHierarchy>
+                            <TablixMembers>
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                            </TablixMembers>
+                          </TablixColumnHierarchy>
+                          <DataSetName>DataSet_Result</DataSetName>
+                          <Style>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Tablix>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.55cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Rectangle Name="RectSubtotales">
+                          <ReportItems>
+                            <Textbox Name="TxtLblSubtot">
+                              <Left>0cm</Left>
+                              <Top>0cm</Top>
+                              <Width>10cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>SUBTOTALES</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingLeft>4pt</PaddingLeft>
+                                <PaddingTop>3pt</PaddingTop>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtSubtotHaberes">
+                              <Left>10cm</Left>
+                              <Top>0cm</Top>
+                              <Width>4cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Format(First(Fields!LiqTotalHaberes.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtSubtotDescuentos">
+                              <Left>14cm</Left>
+                              <Top>0cm</Top>
+                              <Width>4cm</Width>
+                              <Height>0.55cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Format(First(Fields!LiqTotalDescuentos.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                              </Style>
+                            </Textbox>
+                          </ReportItems>
+                          <Style>
+                            <TopBorder>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </TopBorder>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                              <Width>1pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Rectangle>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.8cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Rectangle Name="RectNeto">
+                          <ReportItems>
+                            <Textbox Name="TxtLblNeto">
+                              <Left>0cm</Left>
+                              <Top>0cm</Top>
+                              <Width>13cm</Width>
+                              <Height>0.8cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>NETO A PAGAR</Value>
+                                      <Style>
+                                        <FontSize>11pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                        <Color>White</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <BackgroundColor>DarkSlateBlue</BackgroundColor>
+                                <PaddingLeft>6pt</PaddingLeft>
+                                <PaddingTop>5pt</PaddingTop>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtNeto">
+                              <Left>13cm</Left>
+                              <Top>0cm</Top>
+                              <Width>5cm</Width>
+                              <Height>0.8cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>="$ " &amp; Format(First(Fields!LiqNeto.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>12pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                        <Color>White</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <BackgroundColor>DarkSlateBlue</BackgroundColor>
+                                <PaddingRight>6pt</PaddingRight>
+                                <PaddingTop>4pt</PaddingTop>
+                              </Style>
+                            </Textbox>
+                          </ReportItems>
+                        </Rectangle>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtContribHdr">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>APORTES PATRONALES (informativo)</Value>
+                                  <Style>
+                                    <FontSize>7pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                    <Color>Gray</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingLeft>2pt</PaddingLeft>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Tablix Name="TablixContrib">
+                          <TablixBody>
+                            <TablixColumns>
+                              <TablixColumn>
+                                <Width>14cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>4cm</Width>
+                              </TablixColumn>
+                            </TablixColumns>
+                            <TablixRows>
+                              <TablixRow>
+                                <Height>0.4cm</Height>
+                                <TablixCells>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtContribNombre">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=Fields!LinNombre.Value</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <Color>Gray</Color>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingLeft>4pt</PaddingLeft>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtContribImporte">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=Format(Fields!LinImporte.Value, "N2")</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <Color>Gray</Color>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                </TablixCells>
+                              </TablixRow>
+                            </TablixRows>
+                          </TablixBody>
+                          <TablixRowHierarchy>
+                            <TablixMembers>
+                              <TablixMember>
+                                <Group Name="GrpContrib">
+                                  <GroupExpressions>
+                                    <GroupExpression>=Fields!LinCodConcepto.Value</GroupExpression>
+                                  </GroupExpressions>
+                                  <Filters>
+                                    <Filter>
+                                      <FilterExpression>=IIF(Fields!LinEsContrib.Value, 1, 0)</FilterExpression>
+                                      <Operator>Equal</Operator>
+                                      <FilterValues>
+                                        <FilterValue>=1</FilterValue>
+                                      </FilterValues>
+                                    </Filter>
+                                  </Filters>
+                                </Group>
+                              </TablixMember>
+                            </TablixMembers>
+                          </TablixRowHierarchy>
+                          <TablixColumnHierarchy>
+                            <TablixMembers>
+                              <TablixMember />
+                              <TablixMember />
+                            </TablixMembers>
+                          </TablixColumnHierarchy>
+                          <DataSetName>DataSet_Result</DataSetName>
+                        </Tablix>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.45cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="TxtTotalContrib">
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>="Total aportes patronales: $ " &amp; Format(First(Fields!LiqTotalContrib.Value), "N2")</Value>
+                                  <Style>
+                                    <FontSize>7pt</FontSize>
+                                    <Color>Gray</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Right</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <PaddingRight>4pt</PaddingRight>
+                            <TopBorder>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                              <Color>LightGray</Color>
+                            </TopBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>1.5cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Rectangle Name="RectFirmas">
+                          <ReportItems>
+                            <Textbox Name="TxtFirmaEmp">
+                              <Left>1cm</Left>
+                              <Top>1cm</Top>
+                              <Width>6cm</Width>
+                              <Height>0.4cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Firma y aclaración del empleado</Value>
+                                      <Style>
+                                        <FontSize>7pt</FontSize>
+                                        <Color>Gray</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <TopBorder>
+                                  <Style>Solid</Style>
+                                  <Width>0.5pt</Width>
+                                </TopBorder>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtFirmaEmpr">
+                              <Left>11cm</Left>
+                              <Top>1cm</Top>
+                              <Width>6cm</Width>
+                              <Height>0.4cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Firma del empleador</Value>
+                                      <Style>
+                                        <FontSize>7pt</FontSize>
+                                        <Color>Gray</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <TopBorder>
+                                  <Style>Solid</Style>
+                                  <Width>0.5pt</Width>
+                                </TopBorder>
+                              </Style>
+                            </Textbox>
+                          </ReportItems>
+                        </Rectangle>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="GrpLiquidacion">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!LiqNo.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <KeepTogether>true</KeepTogether>
+                  <TablixMembers>
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                  </TablixMembers>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <DataSetName>DataSet_Result</DataSetName>
+            <Top>0cm</Top>
+            <Left>0cm</Left>
+            <Width>18cm</Width>
+          </Tablix>
+        </ReportItems>
+        <Height>29cm</Height>
+        <Style />
+      </Body>
+      <Width>18cm</Width>
+      <Page>
+        <PageHeight>29.7cm</PageHeight>
+        <PageWidth>21cm</PageWidth>
+        <LeftMargin>1.5cm</LeftMargin>
+        <RightMargin>1.5cm</RightMargin>
+        <TopMargin>1cm</TopMargin>
+        <BottomMargin>1cm</BottomMargin>
+        <ColumnSpacing>0cm</ColumnSpacing>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <Language>es-AR</Language>
+  <ConsumeContainerWhitespace>true</ConsumeContainerWhitespace>
+  <rd:ReportUnitType>Cm</rd:ReportUnitType>
+  <DataSets>
+    <DataSet Name="DataSet_Result">
+      <Fields>
+        <Field Name="LiqNo">
+          <DataField>LiqNo</DataField>
+        </Field>
+        <Field Name="LiqCodPeriodo">
+          <DataField>LiqCodPeriodo</DataField>
+        </Field>
+        <Field Name="LiqEmployeeNo">
+          <DataField>LiqEmployeeNo</DataField>
+        </Field>
+        <Field Name="LiqEmployeeName">
+          <DataField>LiqEmployeeName</DataField>
+        </Field>
+        <Field Name="LiqCodConvenio">
+          <DataField>LiqCodConvenio</DataField>
+        </Field>
+        <Field Name="LiqConvenioDesc">
+          <DataField>LiqConvenioDesc</DataField>
+        </Field>
+        <Field Name="LiqCodCategoria">
+          <DataField>LiqCodCategoria</DataField>
+        </Field>
+        <Field Name="LiqCategoriaDesc">
+          <DataField>LiqCategoriaDesc</DataField>
+        </Field>
+        <Field Name="LiqTipoLiq">
+          <DataField>LiqTipoLiq</DataField>
+        </Field>
+        <Field Name="LiqNoProyecto">
+          <DataField>LiqNoProyecto</DataField>
+        </Field>
+        <Field Name="LiqFechaLiq">
+          <DataField>LiqFechaLiq</DataField>
+        </Field>
+        <Field Name="LiqTotalHaberes">
+          <DataField>LiqTotalHaberes</DataField>
+        </Field>
+        <Field Name="LiqTotalHaberesFormat">
+          <DataField>LiqTotalHaberesFormat</DataField>
+        </Field>
+        <Field Name="LiqTotalDescuentos">
+          <DataField>LiqTotalDescuentos</DataField>
+        </Field>
+        <Field Name="LiqTotalDescuentosFormat">
+          <DataField>LiqTotalDescuentosFormat</DataField>
+        </Field>
+        <Field Name="LiqTotalContrib">
+          <DataField>LiqTotalContrib</DataField>
+        </Field>
+        <Field Name="LiqTotalContribFormat">
+          <DataField>LiqTotalContribFormat</DataField>
+        </Field>
+        <Field Name="LiqNeto">
+          <DataField>LiqNeto</DataField>
+        </Field>
+        <Field Name="LiqNetoFormat">
+          <DataField>LiqNetoFormat</DataField>
+        </Field>
+        <Field Name="PeriodoDesc">
+          <DataField>PeriodoDesc</DataField>
+        </Field>
+        <Field Name="PeriodoFechaDesde">
+          <DataField>PeriodoFechaDesde</DataField>
+        </Field>
+        <Field Name="PeriodoFechaHasta">
+          <DataField>PeriodoFechaHasta</DataField>
+        </Field>
+        <Field Name="CompanyName">
+          <DataField>CompanyName</DataField>
+        </Field>
+        <Field Name="CompanyAddress">
+          <DataField>CompanyAddress</DataField>
+        </Field>
+        <Field Name="CompanyCUIT">
+          <DataField>CompanyCUIT</DataField>
+        </Field>
+        <Field Name="EmpDomicilio">
+          <DataField>EmpDomicilio</DataField>
+        </Field>
+        <Field Name="EmpCUIL">
+          <DataField>EmpCUIL</DataField>
+        </Field>
+        <Field Name="EmpFechaIngreso">
+          <DataField>EmpFechaIngreso</DataField>
+        </Field>
+        <Field Name="LinOrden">
+          <DataField>LinOrden</DataField>
+        </Field>
+        <Field Name="LinCodConcepto">
+          <DataField>LinCodConcepto</DataField>
+        </Field>
+        <Field Name="LinNombre">
+          <DataField>LinNombre</DataField>
+        </Field>
+        <Field Name="LinTipoConcepto">
+          <DataField>LinTipoConcepto</DataField>
+        </Field>
+        <Field Name="LinTipoConceptoTxt">
+          <DataField>LinTipoConceptoTxt</DataField>
+        </Field>
+        <Field Name="LinImporte">
+          <DataField>LinImporte</DataField>
+        </Field>
+        <Field Name="LinImporteFormat">
+          <DataField>LinImporteFormat</DataField>
+        </Field>
+        <Field Name="LinEsHaber">
+          <DataField>LinEsHaber</DataField>
+        </Field>
+        <Field Name="LinEsDescuento">
+          <DataField>LinEsDescuento</DataField>
+        </Field>
+        <Field Name="LinEsContrib">
+          <DataField>LinEsContrib</DataField>
+        </Field>
+        <Field Name="LinImporteHaber">
+          <DataField>LinImporteHaber</DataField>
+        </Field>
+        <Field Name="LinImporteHaberFormat">
+          <DataField>LinImporteHaberFormat</DataField>
+        </Field>
+        <Field Name="LinImporteDescuento">
+          <DataField>LinImporteDescuento</DataField>
+        </Field>
+        <Field Name="LinImporteDescuentoFormat">
+          <DataField>LinImporteDescuentoFormat</DataField>
+        </Field>
+        <Field Name="LinImporteContrib">
+          <DataField>LinImporteContrib</DataField>
+        </Field>
+        <Field Name="LinImporteContribFormat">
+          <DataField>LinImporteContribFormat</DataField>
+        </Field>
+      </Fields>
+      <Query>
+        <DataSourceName>DataSource</DataSourceName>
+        <CommandText />
+      </Query>
+    </DataSet>
+  </DataSets>
+</Report>

@@ -1,0 +1,16 @@
+# Business Central/AL generated artifacts
+.alpackages/
+.altestrunner/
+.alcache/
+.snapshots/
+
+# Build outputs
+*.app
+
+# Common local/tooling artifacts
+.vscode/.alcache/
+.vscode/*.code-workspace
+
+# OS artifacts
+Thumbs.db
+desktop.ini

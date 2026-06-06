@@ -1,0 +1,70 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Publish & debug (mimir)",
+            "request": "launch",
+            "type": "al",
+            "environmentType": "OnPrem",
+            "server": "https://mimir.arbumasa.com/BC252",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "tenant": "default",
+            "breakOnError": "All",
+            "schemaUpdateMode": "Synchronize",
+            "startupObjectType": "Page",
+            "startupObjectId": 50149
+        },
+        {
+            "name": "Attach to my next web-client action",
+            "request": "attach",
+            "type": "al",
+            "environmentType": "OnPrem",
+            "server": "https://mimir.arbumasa.com/BC252",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "tenant": "default",
+            "breakOnNext": "WebClient",
+            "breakOnError": "All",
+            "breakOnRecordWrite": "All",
+            "sessionId": 782,
+            "enableLongRunningSqlStatements": true,
+            "enableSqlInformationDebugger": true
+        },
+        {
+            "name": "Attach (record writes too)",
+            "request": "attach",
+            "type": "al",
+            "environmentType": "OnPrem",
+            "server": "https://mimir.arbumasa.com/BC252",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "tenant": "default",
+            "breakOnNext": "WebClient",
+            "breakOnError": "All",
+            "breakOnRecordWrite": "All"
+        },
+        {
+            "name": "Lanzar página de OCR (mimir2 — distinto servidor)",
+            "request": "launch",
+            "type": "al",
+            "server": "http://mimir2.arbumasa.com/BC252",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "port": 7049,
+            "startupObjectId": 50199
+        },
+        {
+            "name": "AL: Generated Snapshot request",
+            "request": "snapshotInitialize",
+            "type": "al",
+            "server": "http://localhost",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "port": 7049,
+            "sessionId": 782,
+            "breakOnNext": "WebClient",
+            "executionContext": "DebugAndProfile"
+        }
+    ]
+}
