@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<presentacion>
+  <periodo>202406</periodo>
+  <nroPresentacion>001</nroPresentacion>
+  <fechaPresentacion>2024-06-30</fechaPresentacion>
+  <cuit>20666666667</cuit>
+
+  <deducciones>
+    <deduccion tipo="1">
+      <montoTotal>1500.00</montoTotal>
+      <descripcion>Cuotas Médico-Asistenciales</descripcion>
+    </deduccion>
+    <deduccion tipo="2">
+      <montoTotal>2000.00</montoTotal>
+      <descripcion>Primas de Seguro</descripcion>
+    </deduccion>
+    <deduccion tipo="4">
+      <montoTotal>5000.00</montoTotal>
+      <descripcion>Intereses Préstamo Hipotecario</descripcion>
+    </deduccion>
+  </deducciones>
+
+  <cargasFamilia>
+    <cargaFamilia>
+      <tipoDoc>DNI</tipoDoc>
+      <nroDoc>30777777776</nroDoc>
+      <apellido>García</apellido>
+      <nombre>María</nombre>
+      <fechaNac>1990-05-15</fechaNac>
+      <parentesco>1</parentesco>
+    </cargaFamilia>
+    <cargaFamilia>
+      <tipoDoc>DNI</tipoDoc>
+      <nroDoc>40888888885</nroDoc>
+      <apellido>García</apellido>
+      <nombre>Juan</nombre>
+      <fechaNac>2010-03-20</fechaNac>
+      <parentesco>3</parentesco>
+    </cargaFamilia>
+    <cargaFamilia>
+      <tipoDoc>DNI</tipoDoc>
+      <nroDoc>40999999994</nroDoc>
+      <apellido>García</apellido>
+      <nombre>Carlos</nombre>
+      <fechaNac>2006-07-10</fechaNac>
+      <parentesco>3</parentesco>
+    </cargaFamilia>
+  </cargasFamilia>
+</presentacion>
