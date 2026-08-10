@@ -1,0 +1,432 @@
+src\Reports\Rep50043.CrearLiqParaEmpleado.al:29:                Periodo.Get(FCodPeriodo);
+src\Reports\Rep50043.CrearLiqParaEmpleado.al:32:                HRSetup.Get();
+src\Reports\Rep50043.CrearLiqParaEmpleado.al:43:                if not Personal.FindSet() then
+src\Reports\Rep50043.CrearLiqParaEmpleado.al:100:        if not ExistLiq.IsEmpty() then
+src\Reports\Rep50043.CrearLiqParaEmpleado.al:114:        Liq.Insert(true);
+src\Tables\Tab50576.CuotaPrestamo.al:79:    trigger OnModify()
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:31:        if Job.Get(PersProy."No. Proyecto") then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:40:            if Estado.FindFirst() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:41:                Estado.Delete(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:48:        if Estado.FindFirst() then begin
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:57:            Estado.Modify(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:65:            Estado.Insert(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:79:        if Estado.FindFirst() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:80:            Estado.Delete(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:99:        CodEstado.Get(StateCode);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:109:        if EstadoEmp.FindFirst() then begin
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:115:                EstadoEmp.Modify(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:123:            EstadoEmp.Insert(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:135:        if not CodEstado.Get(EstadoEmp."Cód. Estado") then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:151:        if not CodSiguiente.Get(CodEstado."Estado Siguiente") then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:164:        if not Interrupcion.IsEmpty() then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:187:        if not CodEstNuevo.Get(EstadoEmp."Cód. Estado") then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:192:        if not CodEstPrev.Get(EstadoPrev."Cód. Estado") then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:202:        if MareaJob.Get(NoProyMarea) then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:205:            if HRSetup.Get() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:210:        if not PersInact.Get(EstadoEmp."No. Empleado", NoProyInact) then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:211:            if PersMarea.Get(EstadoEmp."No. Empleado", NoProyMarea) and
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:220:                PersInact.Insert(true);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:233:        if PersProy.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:235:                if Job.Get(PersProy."No. Proyecto") and (Job."Starting Date" <> 0D) and (Job."Starting Date" <= Fecha) then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:257:        if not CodEst.Get(Estado."Cód. Estado") then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:272:        if not Siguiente.IsEmpty() then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:294:        CodEstadoNuevo.Get(StateCode);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:299:            if CodEstadoPrev.Get(EstadoPrev."Cód. Estado") then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:326:        if Job.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:329:                if PersProy.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:333:                                if CodEst.Get(EstadoActual."Cód. Estado") and (CodEst."Estado Siguiente" <> '') then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:351:        if not CodEstado.Get(StateCode) then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:361:        if Job.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:364:                if PersProy.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:380:        if not Empleado.FindSet() then exit(0);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:396:        if not DimValue.FindSet() then exit(0);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:412:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:416:        exit(EstadoEmp.FindLast());
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:421:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:424:        exit(EstadoEmp.FindLast());
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:433:        exit(not EstadoEmp.IsEmpty());
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:515:        if not Emp.Get(EmployeeNo) then exit(0);
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:517:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:521:        if EstadoEmp.FindSet() then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:523:                if CodEst.Get(EstadoEmp."Cód. Estado") then
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:594:        if not Liq.FindSet() then exit;
+src\Codeunits\Cod50017.GestionEstadoEmpleado.al:596:            if Periodo.Get(Liq."Cód. Período") then
+src\Tables\Tab50575.PrestamoEmpleado.al:33:                if Emp.Get("No. Empleado") then
+src\Tables\Tab50575.PrestamoEmpleado.al:106:    trigger OnInsert()
+src\Tables\Tab50575.PrestamoEmpleado.al:112:            HRSetup.Get();
+src\Tables\Tab50575.PrestamoEmpleado.al:119:    trigger OnDelete()
+src\Tables\Tab50575.PrestamoEmpleado.al:125:        if not Cuota.IsEmpty() then
+src\Tables\Tab50575.PrestamoEmpleado.al:128:        Cuota.DeleteAll();
+src\Codeunits\Cod50051.GestionPrestamos.al:25:        Cuota.DeleteAll();
+src\Codeunits\Cod50051.GestionPrestamos.al:39:            Cuota.Insert(true);
+src\Codeunits\Cod50051.GestionPrestamos.al:57:        if not Cuota.FindSet() then exit;
+src\Codeunits\Cod50051.GestionPrestamos.al:61:                if Prestamo.Get(Cuota."No. Préstamo") then
+src\Codeunits\Cod50051.GestionPrestamos.al:64:                        if not Incid.Get(Liq."No.", Prestamo."Cód. Concepto Descuento") then begin
+src\Codeunits\Cod50051.GestionPrestamos.al:71:                            Incid.Insert();
+src\Codeunits\Cod50051.GestionPrestamos.al:76:                            Incid.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:79:                        Cuota.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:92:        if Cuota.FindSet(true) then
+src\Codeunits\Cod50051.GestionPrestamos.al:97:                Cuota.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:113:        if Cuota.FindSet(true) then
+src\Codeunits\Cod50051.GestionPrestamos.al:116:                Cuota.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:121:        Incid.DeleteAll();
+src\Codeunits\Cod50051.GestionPrestamos.al:134:        if Cuota.FindSet(true) then
+src\Codeunits\Cod50051.GestionPrestamos.al:140:                Cuota.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:147:        if Cuota.FindSet(true) then
+src\Codeunits\Cod50051.GestionPrestamos.al:150:                Cuota.Modify();
+src\Codeunits\Cod50051.GestionPrestamos.al:156:        Incid.DeleteAll();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:64:        if Periodo.Get(CodPeriodo) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:130:        if not Param.FindSet() then exit;
+src\Codeunits\Cod50016.ContextoLiquidacion.al:135:                Valor := ValorMap.Get(CodigoEfectivo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:136:                VigDate := VigMap.Get(CodigoEfectivo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:137:                Moneda := MonedaMap.Get(CodigoEfectivo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:171:                    ActualCod := FActualCodMap.Get(CodigoEfectivo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:220:        Candidatos.Get(1, CodigoEfectivo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:268:    // per Cód. Parámetro. Replaces one FindLast() per parameter (N queries → 1 scan).
+src\Codeunits\Cod50016.ContextoLiquidacion.al:277:        ParamVig.SetCurrentKey("Cód. Parámetro", "Vigencia Desde");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:279:        if not ParamVig.FindSet() then exit;
+src\Codeunits\Cod50016.ContextoLiquidacion.al:321:                    if ParamVig.Get(FParamBaseMap.Get(VarName), FParamCodMap.Get(VarName), FParamVigMap.Get(VarName)) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:324:                            ParamVig.Modify();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:337:        if not VarSis.FindSet() then exit;
+src\Codeunits\Cod50016.ContextoLiquidacion.al:353:                DetGan.Insert();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:375:                    if Cat.Get(FCodConvenio, FCodCategoria) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:445:        Fraccion.SetCurrentKey("Cód. Acumulador", "Vigencia Desde");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:449:        if not Fraccion.FindSet() then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:458:                LinLiq.CalcSums(Importe);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:480:        LinLiq.CalcSums(Importe);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:539:        if EmpRel.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:549:                        TipoFraccion.Set(CodTipo, TipoFraccion.Get(CodTipo) + Fraccion)
+src\Codeunits\Cod50016.ContextoLiquidacion.al:556:            Fraccion := TipoFraccion.Get(CodTipo);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:560:            if ParamVig.FindLast() then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:561:                if Param.Get(CodTipo) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:577:                    DetGan.Insert();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:585:        if not EmpDed.FindLast() then exit(Total);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:590:        if EmpDed.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:603:                    DetGan.Insert();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:661:        if not Periodo.Get(FCodPeriodo) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:680:        if not Periodo.Get(FCodPeriodo) then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:697:            exit(not FCalDateOverride.Get(Fecha));
+src\Codeunits\Cod50016.ContextoLiquidacion.al:715:        if (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:716:        if not Periodo.Get(FCodPeriodo) then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:760:        if (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:802:        if (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:840:        if (FEmployeeNo = '') or (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:847:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:850:        if not EstadoEmp.FindSet() then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:852:            if CodEst.Get(EstadoEmp."Cód. Estado") and CodEst."Devenga Francos" then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:874:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:877:        if not EstadoEmp.FindSet() then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:879:            if CodEst.Get(EstadoEmp."Cód. Estado") and
+src\Codeunits\Cod50016.ContextoLiquidacion.al:906:        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:909:        if not EstadoEmp.FindSet() then exit(0);
+src\Codeunits\Cod50016.ContextoLiquidacion.al:911:            if CodEst.Get(EstadoEmp."Cód. Estado") and
+src\Codeunits\Cod50016.ContextoLiquidacion.al:943:        if Periodo.Get(FCodPeriodo) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:979:        if Periodo.Get(FCodPeriodo) then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:985:        EstadoEmp.SetCurrentKey("No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50016.ContextoLiquidacion.al:987:        if EstadoEmp.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:989:                if CodEst.Get(EstadoEmp."Cód. Estado") then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1040:        if not CalChange.FindSet() then exit;
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1063:            exit(FCalDateOverride.Get(Fecha));
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1065:            exit(FCalWeekRule.Get(DiaSemana));
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1084:        if CalChange.FindFirst() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1090:        if CalChange.FindFirst() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1104:        if not Fuente.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1140:                Total := RecRef.Count();
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1142:                if (Fuente."No. Campo Valor" > 0) and RecRef.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1148:                if (Fuente."No. Campo Valor" > 0) and RecRef.FindSet() then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1158:                if (Fuente."No. Campo Valor" > 0) and RecRef.FindSet() then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1168:                if (Fuente."No. Campo Valor" > 0) and RecRef.FindLast() then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1173:                if (Fuente."No. Campo Fecha Inicio" > 0) and RecRef.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1190:                if (Fuente."No. Campo Fecha Inicio" > 0) and RecRef.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1204:                if (Fuente."No. Campo Fecha Inicio" > 0) and RecRef.FindSet() then begin
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1257:        if Rec2.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1276:        if FiltroFDS.FindSet() then
+src\Codeunits\Cod50016.ContextoLiquidacion.al:1383:        if Concepto.FindSet() then
+src\Tables\Tab60007.ConceptoLiquidacion.al:228:        NuevoConc.Insert(true);
+src\Tables\Tab60007.ConceptoLiquidacion.al:232:        if FracOrig.FindSet() then
+src\Tables\Tab60007.ConceptoLiquidacion.al:236:                FracNueva.Insert(true);
+src\Tables\Tab60007.ConceptoLiquidacion.al:256:        if Param.FindSet() then
+src\Tables\Tab60007.ConceptoLiquidacion.al:265:        if VarSis.FindSet() then
+src\Tables\Tab60007.ConceptoLiquidacion.al:272:        if Fuente.FindSet() then
+src\Tables\Tab60007.ConceptoLiquidacion.al:279:        if Acum.FindSet() then
+src\Codeunits\Cod50015.EvaluadorFormula.al:36:        // FTramoVigCache avoids the Cab.FindLast query after the first call per table.
+src\Codeunits\Cod50015.EvaluadorFormula.al:37:        // FTramoResultCache avoids the Det.FindLast query for repeated (table, value) pairs.
+src\Codeunits\Cod50015.EvaluadorFormula.al:67:            Value := FLastConceptoRefValues.Get(CodigoConcepto);
+src\Codeunits\Cod50015.EvaluadorFormula.al:487:            exit(FTramoResultCache.Get(ResultCacheKey));
+src\Codeunits\Cod50015.EvaluadorFormula.al:489:        // Vigencia cache: avoid repeating Cab.FindLast for the same table
+src\Codeunits\Cod50015.EvaluadorFormula.al:491:            VigenciaEfectiva := FTramoVigCache.Get(TableCode)
+src\Codeunits\Cod50015.EvaluadorFormula.al:495:            if not Cab.FindLast() then begin
+src\Codeunits\Cod50015.EvaluadorFormula.al:508:        Det.SetCurrentKey(Código, "Vigencia Desde", "Límite Inferior");
+src\Codeunits\Cod50015.EvaluadorFormula.al:513:        if not Det.FindLast() then begin
+src\Codeunits\Cod50015.EvaluadorFormula.al:549:        exit(FContext.Get(VarName));
+src\Codeunits\Cod50015.EvaluadorFormula.al:575:            exit(FLastConceptoRefValues.Get(CodigoConcepto));
+src\Codeunits\Cod50015.EvaluadorFormula.al:582:        if not Concepto.FindLast() then begin
+src\Codeunits\Cod50015.EvaluadorFormula.al:642:        if not Concepto.FindLast() then begin
+src\Codeunits\Cod50015.EvaluadorFormula.al:655:            exit(FContext.Get(CodigoConcepto));
+src\Reports\Rep50041.ReciboDeSueldo.al:228:                if Periodo.Get(Liq."Cód. Período") then begin
+src\Reports\Rep50041.ReciboDeSueldo.al:237:                if Convenio.Get(Liq."Cód. Convenio") then
+src\Reports\Rep50041.ReciboDeSueldo.al:241:                if Categoria.Get(Liq."Cód. Convenio", Liq."Cód. Categoría") then
+src\Reports\Rep50041.ReciboDeSueldo.al:245:                if TipoLiqRec.Get(Liq."Cód. Tipo Liq.") then
+src\Reports\Rep50041.ReciboDeSueldo.al:252:                if Emp.Get(Liq."No. Empleado") then begin
+src\Reports\Rep50041.ReciboDeSueldo.al:300:        CompanyInfo.Get();
+src\Reports\Rep50041.ReciboDeSueldo.al:361:        if not Lin.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:21:    //     cost a single CalcFields, restricted ones cost ~3 indexed lookups total.
+src\Codeunits\Cod50014.MotorLiquidacion.al:27:        Liq.Get(LiqNo);
+src\Codeunits\Cod50014.MotorLiquidacion.al:47:        Periodo.Get(Liq."Cód. Período");
+src\Codeunits\Cod50014.MotorLiquidacion.al:54:        if (Liq."No. Proyecto" <> '') and PersProy.Get(Liq."No. Empleado", Liq."No. Proyecto") then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:65:            if (Liq."No. Proyecto" <> '') and Job.Get(Liq."No. Proyecto") and (Job."Ending Date" <> 0D) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:102:        Liq.Modify();
+src\Codeunits\Cod50014.MotorLiquidacion.al:113:        if Ctx.ContainsKey('ES_GROSSING_UP') and (Ctx.Get('ES_GROSSING_UP') = 1) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:116:            Liq."Haberes Ordinarios Gravados" := Ctx.Get('BASE_IG4');
+src\Codeunits\Cod50014.MotorLiquidacion.al:120:        Liq.Modify(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:153:        if not Personal.Get(EmployeeNo, JobNo) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:172:        if CodEstado.Get(EstadoEmp."Cód. Estado") then
+src\Codeunits\Cod50014.MotorLiquidacion.al:180:        if not Concepto.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:183:               (Concepto."Vigencia Desde" = FLatestVersionMap.Get(Concepto.Código)) and
+src\Codeunits\Cod50014.MotorLiquidacion.al:222:        if CodEstado.Get(EstadoEmp."Cód. Estado") then
+src\Codeunits\Cod50014.MotorLiquidacion.al:232:        if not Concepto.FindSet() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:241:               (Concepto."Vigencia Desde" = FLatestVersionMap.Get(Concepto.Código)) and
+src\Codeunits\Cod50014.MotorLiquidacion.al:248:                if Incid.Get(Liq."No.", Concepto.Código) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:299:                        LinLiq.Cantidad := Ctx.Get(Concepto."Variable Cantidad");
+src\Codeunits\Cod50014.MotorLiquidacion.al:313:                        LinLiq."Base Cálculo" := Ctx.Get(Concepto."Variable Base");
+src\Codeunits\Cod50014.MotorLiquidacion.al:322:                    LinLiq.Insert(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:339:                        DetGan.Insert();
+src\Codeunits\Cod50014.MotorLiquidacion.al:368:        if not TempSlice.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:373:            if CatCCT.Get(TempSlice."Cód. Convenio", TempSlice."Cód. Categoría") and (CatCCT.Descripción <> '') then
+src\Codeunits\Cod50014.MotorLiquidacion.al:398:            LinLiq.Insert(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:416:        if not Incid.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:421:                if ExistingLine.IsEmpty() then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:424:                    if Concepto.FindLast() then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:450:                        LinLiq.Insert(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:472:        if not Concepto.FindSet() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:476:               (Concepto."Vigencia Desde" = LatestVersionMap.Get(Concepto.Código)) and
+src\Codeunits\Cod50014.MotorLiquidacion.al:479:                Valor := Ctx.Get(Concepto.Código);
+src\Codeunits\Cod50014.MotorLiquidacion.al:499:                LinLiq.Insert(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:515:        Concepto.SetCurrentKey("Orden Cálculo", Código);
+src\Codeunits\Cod50014.MotorLiquidacion.al:543:        if Concepto.FindSet() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:558:        if not Concepto.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:563:                if Concepto."Vigencia Desde" > LatestMap.Get(Concepto.Código) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:571:    // When restrictions exist, two indexed lookups (FindLast + Get) resolve the
+src\Codeunits\Cod50014.MotorLiquidacion.al:578:        Concepto.CalcFields("Vigencia CCT Más Reciente");
+src\Codeunits\Cod50014.MotorLiquidacion.al:584:        if CCTVig.IsEmpty() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:593:        if not CCTVig.FindLast() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:605:        if CCTVig.Get(Concepto.Código, VigenciaAplicable, CodConvenio, CodCategoria) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:607:        exit(CCTVig.Get(Concepto.Código, VigenciaAplicable, CodConvenio, ''));
+src\Codeunits\Cod50014.MotorLiquidacion.al:623:        if not Fraccion.FindSet() then exit;
+src\Codeunits\Cod50014.MotorLiquidacion.al:631:                if Fraccion."Vigencia Desde" > BestVig.Get(AccumKey) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:636:        Fraccion.FindSet();
+src\Codeunits\Cod50014.MotorLiquidacion.al:639:            if Fraccion."Vigencia Desde" = BestVig.Get(AccumKey) then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:650:                    if not ('|' + AccumList.Get(Fraccion."Cód. Concepto") + '|').Contains('|' + Fraccion."Cód. Acumulador" + '|') then
+src\Codeunits\Cod50014.MotorLiquidacion.al:652:                            AccumList.Get(Fraccion."Cód. Concepto") + '|' + Fraccion."Cód. Acumulador");
+src\Codeunits\Cod50014.MotorLiquidacion.al:671:        UpdCurrList := AccumList.Get(CodConcepto);
+src\Codeunits\Cod50014.MotorLiquidacion.al:677:                Ctx.Set(AccumCode, Ctx.Get(AccumCode) + Importe * AccumPct.Get(AccumKey) / 100);
+src\Codeunits\Cod50014.MotorLiquidacion.al:689:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:693:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:697:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:701:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:705:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:709:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:713:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:738:        Det.DeleteAll();
+src\Codeunits\Cod50014.MotorLiquidacion.al:740:        Resumen.DeleteAll();
+src\Codeunits\Cod50014.MotorLiquidacion.al:742:        DetGan.DeleteAll();
+src\Codeunits\Cod50014.MotorLiquidacion.al:744:        Lin.DeleteAll(true);
+src\Codeunits\Cod50014.MotorLiquidacion.al:776:                    Det.Valor := Ctx.Get(CtxKey);
+src\Codeunits\Cod50014.MotorLiquidacion.al:777:                    if Det.Insert() then;
+src\Codeunits\Cod50014.MotorLiquidacion.al:826:                        Result += FormatVarValue(Ctx.Get(CopyStr(Token, 2)))
+src\Codeunits\Cod50014.MotorLiquidacion.al:831:                        Result += FormatPercentValue(Ctx.Get(Token))
+src\Codeunits\Cod50014.MotorLiquidacion.al:833:                        Result += FormatVarValue(Ctx.Get(Token))
+src\Codeunits\Cod50014.MotorLiquidacion.al:894:            Valor := Ctx.Get(VarName);
+src\Codeunits\Cod50014.MotorLiquidacion.al:902:                if not Resumen.Insert() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:903:                    Resumen.Modify();
+src\Codeunits\Cod50014.MotorLiquidacion.al:935:        if FuenteDatos.Get(NombreCode) then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:942:        if VarSistema.Get(NombreCode) then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:950:        if Param.FindFirst() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:955:        if Concepto.FindFirst() then
+src\Codeunits\Cod50014.MotorLiquidacion.al:972:        if (Liq."No. Proyecto" <> '') and Job.Get(Liq."No. Proyecto") and (Job."Zona Desfavorable" > 0) then
+src\Codeunits\Cod50014.MotorLiquidacion.al:975:            if Emp.Get(Liq."No. Empleado") then
+src\Codeunits\Cod50014.MotorLiquidacion.al:980:        if Emp.Get(Liq."No. Empleado") then
+src\Codeunits\Cod50014.MotorLiquidacion.al:995:            if Ctx.Get('NETO_GU') > 0 then begin
+src\Codeunits\Cod50014.MotorLiquidacion.al:997:                NetoGU := Ctx.Get('NETO_GU');
+src\Codeunits\Cod50014.MotorLiquidacion.al:1024:        NetoObjetivo := Ctx.Get('NETO_GARANTIZADO');
+src\Codeunits\Cod50014.MotorLiquidacion.al:1026:            if Ctx.Get('DIAS_VAC_INICIO') > 0 then
+src\Codeunits\Cod50014.MotorLiquidacion.al:1027:                NetoObjetivo := NetoObjetivo + NetoObjetivo * Ctx.Get('DIAS_VAC_INICIO') / 150;
+src\Codeunits\Cod50014.MotorLiquidacion.al:1038:            NuevoComplemento := Ctx.Get('COMPLEMENTO_GU') + Delta;
+src\Codeunits\Cod50014.MotorLiquidacion.al:1063:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:1067:        Lin.CalcSums(Importe);
+src\Codeunits\Cod50014.MotorLiquidacion.al:1074:        Lin.CalcSums(Importe);
+src\Tables\Tab60010.PeriodoLiquidacion.al:73:            CalcFormula = Count(Liquidación WHERE("Cód. Período" = FIELD(Código)));
+src\Tables\Tab60010.PeriodoLiquidacion.al:97:    trigger OnInsert()
+src\Tables\Tab60010.PeriodoLiquidacion.al:109:    trigger OnDelete()
+src\Tables\Tab60010.PeriodoLiquidacion.al:116:        if not Liq.IsEmpty() then
+src\Tables\Tab60008.ParametroVigente.al:91:    trigger OnInsert()
+src\Tables\Tab60008.ParametroVigente.al:97:    trigger OnModify()
+src\Tables\Tab60008.ParametroVigente.al:108:    trigger OnDelete()
+src\Tables\Tab60008.ParametroVigente.al:125:        exit(not Liq.IsEmpty());
+src\Tables\Tab60008.ParametroVigente.al:136:        if Param.FindSet() then
+src\Codeunits\Cod50019.GestionLiquidacion.al:19:        Liq.Modify(true);
+src\Codeunits\Cod50019.GestionLiquidacion.al:45:        Liq.Modify(true);
+src\Codeunits\Cod50019.GestionLiquidacion.al:52:        if LinLiq.FindSet() then
+src\Codeunits\Cod50019.GestionLiquidacion.al:63:        if UsedVarNames.Count() = 0 then exit;
+src\Codeunits\Cod50019.GestionLiquidacion.al:64:        if not Periodo.Get(Liq."Cód. Período") then exit;
+src\Codeunits\Cod50019.GestionLiquidacion.al:69:            if (Liq."No. Proyecto" <> '') and Job.Get(Liq."No. Proyecto") and (Job."Ending Date" <> 0D) then
+src\Codeunits\Cod50019.GestionLiquidacion.al:75:            if Param.FindFirst() then begin
+src\Codeunits\Cod50019.GestionLiquidacion.al:88:                if ParamVig.FindLast() and ParamVig."En Uso" then begin
+src\Codeunits\Cod50019.GestionLiquidacion.al:92:                        ParamVig.Modify();
+src\Codeunits\Cod50019.GestionLiquidacion.al:124:        if not OtraLiq.FindSet() then exit(false);
+src\Codeunits\Cod50019.GestionLiquidacion.al:137:                if OtraPeriodo.Get(OtraLiq."Cód. Período") then
+src\Codeunits\Cod50019.GestionLiquidacion.al:140:                    if (OtraLiq."No. Proyecto" <> '') and OtraJob.Get(OtraLiq."No. Proyecto") and (OtraJob."Ending Date" <> 0D) then
+src\Codeunits\Cod50019.GestionLiquidacion.al:147:                    if OtraParamVig.FindLast() and (OtraParamVig."Vigencia Desde" = VigDesde) then begin
+src\Codeunits\Cod50019.GestionLiquidacion.al:150:                        if OtraLinLiq.FindSet() then
+src\Codeunits\Cod50019.GestionLiquidacion.al:175:        Liq.Modify(true);
+src\Codeunits\Cod50059.AuditoriaAfipInterface.al:19:        if Registro.FindLast() then
+src\Codeunits\Cod50059.AuditoriaAfipInterface.al:31:        Registro.Insert();
+src\Codeunits\Cod50059.AuditoriaAfipInterface.al:57:        if Detalle.FindLast() then
+src\Codeunits\Cod50059.AuditoriaAfipInterface.al:72:        Detalle.Insert();
+src\Tables\Tab60000.EstadoEmpleado.al:87:    trigger OnInsert()
+src\Tables\Tab60000.EstadoEmpleado.al:101:    trigger OnModify()
+src\Tables\Tab60000.EstadoEmpleado.al:110:    trigger OnDelete()
+src\Tables\Tab60000.EstadoEmpleado.al:123:        Siguiente.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Tables\Tab60000.EstadoEmpleado.al:128:        if Siguiente.FindFirst() then
+src\Tables\Tab60000.EstadoEmpleado.al:144:        if not Liq.FindSet() then exit;
+src\Tables\Tab60000.EstadoEmpleado.al:146:            if Periodo.Get(Liq."Cód. Período") then
+src\Codeunits\Cod50049.InstallParametroBase.al:25:        if not ParamVig.FindSet() then
+src\Codeunits\Cod50049.InstallParametroBase.al:32:            if Param.FindSet() then
+src\Codeunits\Cod50049.InstallParametroBase.al:49:        for i := 1 to CodList.Count() do
+src\Codeunits\Cod50049.InstallParametroBase.al:50:            if ParamVig.Get('', CodList.Get(i), VigList.Get(i)) then
+src\Codeunits\Cod50049.InstallParametroBase.al:51:                ParamVig.Rename(BaseList.Get(i), CodList.Get(i), VigList.Get(i));
+src\Tables\Tab60016.Parametro.al:93:    trigger OnDelete()
+src\Tables\Tab60016.Parametro.al:99:        if not Vigente.IsEmpty() then
+src\Tables\Tab60016.Parametro.al:102:        Vigente.DeleteAll();
+src\Tables\Tab60016.Parametro.al:115:        NuevoParam.Insert(true);
+src\Tables\Tab60016.Parametro.al:118:        if VigenteOrig.FindSet() then
+src\Tables\Tab60016.Parametro.al:134:                VigenteNuevo.Insert(true);
+src\Tables\Tab60009.PersonalProyecto.al:27:                if Emp.Get("No. Empleado") then begin
+src\Tables\Tab60009.PersonalProyecto.al:46:                if Job.Get("No. Proyecto") then begin
+src\Tables\Tab60009.PersonalProyecto.al:133:    trigger OnInsert()
+src\Tables\Tab60009.PersonalProyecto.al:142:    trigger OnModify()
+src\Tables\Tab60009.PersonalProyecto.al:149:    trigger OnDelete()
+src\Tables\Tab60013.TablaEscalonada.al:35:            CalcFormula = Count("Tabla Escalonada Det." WHERE(Código = FIELD(Código), "Vigencia Desde" = FIELD("Vigencia Desde")));
+src\Tables\Tab60013.TablaEscalonada.al:48:    trigger OnDelete()
+src\Tables\Tab60013.TablaEscalonada.al:54:        Det.DeleteAll(true);
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:46:                if not AllObj.FindFirst() then
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:57:                    Filtro.DeleteAll();
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:176:    trigger OnDelete()
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:181:        Filtro.DeleteAll();
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:192:        NuevaDef.Insert(true);
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:195:        if FiltroOrig.FindSet() then
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:200:                FiltroNuevo.Insert(true);
+src\Tables\Tab60015.FuenteDatosLiquidacion.al:209:        if not FieldRec.Get(IdTabla, NoCampo) then
+src\Tables\Tab60014.TablaEscalonadaDet.al:72:    trigger OnInsert()
+src\Tables\Tab60014.TablaEscalonadaDet.al:77:    trigger OnModify()
+src\Codeunits\Cod50055.GestionTipoLiq.al:25:        if TipoLiq.Get(Codigo) then
+src\Codeunits\Cod50055.GestionTipoLiq.al:34:        TipoLiq.Insert();
+src\Codeunits\Cod50055.GestionTipoLiq.al:44:        if Concepto.FindSet(true) then
+src\Codeunits\Cod50055.GestionTipoLiq.al:49:                    Concepto.Modify();
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:19:        Periodo.Get(CodPeriodo);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:24:        if not Personal.FindSet() then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:57:        if not Periodo.FindFirst() then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:76:        Periodo.Get(CodPeriodo);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:83:        Estado.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:86:        if Estado.FindSet() then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:89:                    if CodEst.Get(Estado."Cód. Estado") and (CodEst."Tipo Estado" = CodEst."Tipo Estado"::Francos) then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:108:        Periodo.Get(CodPeriodo);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:113:        if not Job.FindSet() then begin
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:136:        Total := Liq.Count();
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:140:        Liq.FindSet(true);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:193:        exit(not Liq.IsEmpty());
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:205:        exit(not Liq.IsEmpty());
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:219:        Periodo.Get(CodPeriodo);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:225:        if Emp.Get(EmpNo) then begin
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:239:        Liq.Insert(true);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:252:        if PersProy.FindSet() then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:273:        if Emp.Get(Personal."No. Empleado") then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:280:        if TipoLiqRec.EsArribo(TipoLiq) and Job.Get(Personal."No. Proyecto") and (Job."Ending Date" <> 0D) then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:283:            if Periodo.Get(CodPeriodo) then
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:289:        Liq.Insert(true);
+src\Codeunits\Cod50018.ProcesoLiqPorLotes.al:297:        HRSetup.Get();
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:41:        RegistroImportacion.Modify();
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:67:        for i := 0 to JsonArray.Count() - 1 do begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:68:            if JsonArray.Get(i, JsonToken) and JsonToken.IsObject() then begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:81:                        EsNuevo := not DedGananciasEmp.FindFirst();
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:85:                            DedGananciasEmp.Modify();
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:93:                            if DedGananciasEmp.Insert() then;
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:145:            if EmpleadoRelativo.FindFirst() then
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:152:        exit(EmpleadoRelativo.FindFirst());
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:171:        if not Empleado.Get(NoEmpleado) then
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:181:        if EmpleadoRelativo.FindLast() then
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:186:        for i := 0 to JsonArray.Count() - 1 do begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:187:            if JsonArray.Get(i, JsonToken) and JsonToken.IsObject() then begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:223:                        Escrito := EmpleadoRelativo.Insert()
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:225:                        Escrito := EmpleadoRelativo.Modify();
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:277:        if RegistroRef.FindFirst() then begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:284:            if RegistroRef.FindFirst() then begin
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:298:        if Empleado.FindSet() then
+src\Codeunits\Cod50048.ProcesadorImportacionSiradig.al:336:        if JsonObj.Get(PropName, JsonToken) then
+src\Tables\Tab60022.DedGananciasEmpleado.al:46:                    if DedVig.FindFirst() then
+src\Tables\Tab60012.LineaLiquidacion.al:212:    trigger OnDelete()
+src\Tables\Tab60012.LineaLiquidacion.al:218:        Det.DeleteAll();
+src\Tables\Tab60011.Liquidacion.al:39:                if Emp.Get("No. Empleado") then begin
+src\Tables\Tab60011.Liquidacion.al:157:    trigger OnDelete()
+src\Tables\Tab60011.Liquidacion.al:166:        LinLiq.DeleteAll(true);
+src\Tables\Tab60011.Liquidacion.al:173:        if OtraLiq.IsEmpty() then begin
+src\Tables\Tab60011.Liquidacion.al:175:            if ParamVig.FindSet(true) then
+src\Tables\Tab60011.Liquidacion.al:178:                    ParamVig.Modify();
+src\Codeunits\Cod50058.ImportadorArchivoSiradigSubido.al:31:        if not RegistroImportacion.Insert() then
+src\Codeunits\Cod50058.ImportadorArchivoSiradigSubido.al:35:        RegistroImportacion.Modify();
+src\Codeunits\Cod50047.GestorArchivosSiradig.al:27:        if TempNameValueBuffer.FindSet() then
+src\Codeunits\Cod50047.GestorArchivosSiradig.al:46:        if TempNameValueBuffer.FindSet() then
+src\Tables\Tab60020.IncidenciaLiquidacion.al:86:    trigger OnInsert()
+src\Tables\Tab60020.IncidenciaLiquidacion.al:91:    trigger OnModify()
+src\Tables\Tab60020.IncidenciaLiquidacion.al:96:    trigger OnDelete()
+src\Tables\Tab60020.IncidenciaLiquidacion.al:114:        if Liq.Get("No. Liquidación") then
+src\Codeunits\Cod50054.GestionMarea.al:47:        NewJob.Insert(true);
+src\Codeunits\Cod50054.GestionMarea.al:61:        exit(Job.Get(No));
+src\Codeunits\Cod50054.GestionMarea.al:74:        if not Periodo.FindFirst() then exit;
+src\Codeunits\Cod50054.GestionMarea.al:78:        if not Liq.IsEmpty() then
+src\Codeunits\Cod50054.GestionMarea.al:102:        GLSetup.Get();
+src\Codeunits\Cod50054.GestionMarea.al:105:        if DimVal.Get(DimCod, NuevoCod) then exit;
+src\Codeunits\Cod50054.GestionMarea.al:106:        if not Modelo.Get(DimCod, ModeloCod) then exit;
+src\Codeunits\Cod50054.GestionMarea.al:110:        DimVal.Insert(true);
+src\Codeunits\Cod50054.GestionMarea.al:119:        if Src.FindSet() then
+src\Codeunits\Cod50054.GestionMarea.al:123:                if Tgt.Insert(true) then;
+src\Codeunits\Cod50054.GestionMarea.al:134:        GLSetup.Get();
+src\Codeunits\Cod50054.GestionMarea.al:138:        if Src.FindSet() then
+src\Codeunits\Cod50054.GestionMarea.al:145:                if Tgt.Insert(true) then;
+src\Codeunits\Cod50054.GestionMarea.al:156:        if Src.FindSet() then
+src\Codeunits\Cod50054.GestionMarea.al:158:                if not Tgt.Get(Src."No. Empleado", TargetJob."No.") then begin
+src\Codeunits\Cod50054.GestionMarea.al:168:                    Tgt.Insert(true);
+src\Codeunits\Cod50052.GestionIncidenciaMasiva.al:25:        Existe := Incid.Get(Liq."No.", CodConcepto);
+src\Codeunits\Cod50052.GestionIncidenciaMasiva.al:43:            Incid.Modify(true)
+src\Codeunits\Cod50052.GestionIncidenciaMasiva.al:45:            Incid.Insert(true);
+src\Codeunits\Cod50053.GestionFrancos.al:62:        Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
+src\Codeunits\Cod50053.GestionFrancos.al:68:        if Lin.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:98:        if not Lin.FindSet() then exit;
+src\Codeunits\Cod50053.GestionFrancos.al:133:        TempSlice.DeleteAll();
+src\Codeunits\Cod50053.GestionFrancos.al:140:        if Lin.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:159:        if TempSlice.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:162:                TempSlice.Modify();
+src\Codeunits\Cod50053.GestionFrancos.al:171:        if TempSlice.FindFirst() then begin
+src\Codeunits\Cod50053.GestionFrancos.al:173:            TempSlice.Modify();
+src\Codeunits\Cod50053.GestionFrancos.al:182:            TempSlice.Insert();
+src\Codeunits\Cod50053.GestionFrancos.al:192:        if Lin.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:206:        Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
+src\Codeunits\Cod50053.GestionFrancos.al:209:        if Lin.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:222:        Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
+src\Codeunits\Cod50053.GestionFrancos.al:239:        if Concepto.FindSet() then
+src\Codeunits\Cod50053.GestionFrancos.al:244:        exit(Codigos.Count() > 0);
+src\Codeunits\Cod50053.GestionFrancos.al:268:        ParamVig.SetCurrentKey("Cód. Parámetro", "Vigencia Desde");
+src\Codeunits\Cod50053.GestionFrancos.al:271:        if ParamVig.FindLast() then
+src\Codeunits\Cod50046.OrquestadorSiradig.al:37:        TotalArchivos := ArchivosZip.Count() + ArchivosXml.Count();
+src\Codeunits\Cod50046.OrquestadorSiradig.al:100:        if not RegistroImportacion.Insert() then
+src\Codeunits\Cod50046.OrquestadorSiradig.al:104:        RegistroImportacion.Modify();
+src\Codeunits\Cod50046.OrquestadorSiradig.al:150:        if not RegistroImportacion.FindSet() then begin
+src\Codeunits\Cod50046.OrquestadorSiradig.al:161:                RegistroImportacion.Modify();
+src\Tables\Tab60029.FiltroFuenteDatosLiq.al:38:                if ("No. Campo" = 0) or not Fuente.Get("Nombre Variable") then exit;
+src\Tables\Tab60029.FiltroFuenteDatosLiq.al:40:                if not FieldRec.Get(Fuente."Id. Tabla", "No. Campo") then
+src\Tables\Tab60031.TipoLiquidacion.al:69:    trigger OnInsert()
+src\Tables\Tab60031.TipoLiquidacion.al:74:    trigger OnModify()
+src\Tables\Tab60031.TipoLiquidacion.al:88:        if Otro.FindFirst() then
+src\Tables\Tab60031.TipoLiquidacion.al:98:        if TipoLiq.FindFirst() then
+src\Tables\Tab60031.TipoLiquidacion.al:109:        if TipoLiq.FindFirst() then
+src\Tables\Tab60031.TipoLiquidacion.al:118:        exit(TipoLiq.Get(Codigo) and TipoLiq."Liquida al Arribo");

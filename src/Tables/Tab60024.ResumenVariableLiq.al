@@ -28,6 +28,13 @@ table 60024 "Resumen Variable Liq."
             Caption = 'Valor';
             DataClassification = CustomerContent;
         }
+        field(5; "Mostrar en Recibo"; Boolean)
+        {
+            Caption = 'Mostrar en Recibo';
+            DataClassification = CustomerContent;
+            // Copiado desde la fuente al guardar, para que el recibo impreso pueda
+            // filtrar y mostrar solo lo destinado a imprimirse (no lo de solo auditoría).
+        }
     }
 
     keys

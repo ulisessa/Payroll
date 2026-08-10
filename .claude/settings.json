@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($s = \"C:\\\\Users\\\\ULISES~1.SAS\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Users-ulises-sasovsky-OneDrive-Personal-OneDrive-Documentos-Proyectos-25-2-25-2---Custom-Extensiones-Payroll\\\\c60bb641-6f64-4ab1-9d8b-eabba2faf874\\\\scratchpad\"; & \"$s\\\\parse.ps1\" -Base \"$s\\\\xlsx\" -Sheet \"sheet2.xml\")",
+      "Bash(find 'd:/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll' -iname *.pdf)",
+      "Bash(ls ~/.vscode/extensions/ 2>/dev/null | grep -i \"al-\" ; ls ~/.vscode-insiders/extensions/ 2>/dev/null | grep -i \"ms-dynamics\"; find \"/c/Users/ulises.sasovsky/.vscode\" -iname \"alc.exe\" 2>/dev/null | head -3)",
+      "Read(//c/Users/ulises.sasovsky/.vscode/extensions/**)",
+      "Read(//c/Users/ulises.sasovsky/.vscode-insiders/**)",
+      "Read(//c/Users/ulises.sasovsky/.vscode/**)",
+      "Bash(cd \"C:/Users/ulises.sasovsky/.claude/projects/d--Users-ulises-sasovsky-OneDrive-Personal-OneDrive-Documentos-Proyectos-25-2-25-2---Custom-Extensiones-Payroll/memory\" 2>/dev/null && ls && echo \"=== MEMORY.md ===\" && cat MEMORY.md 2>/dev/null | head -30 || echo \"no memory dir yet\")",
+      "Read(//c/Users/ulises.sasovsky/.claude/projects/d--Users-ulises-sasovsky-OneDrive-Personal-OneDrive-Documentos-Proyectos-25-2-25-2---Custom-Extensiones-Payroll/memory/**)",
+      "Bash(xargs grep -l \"Días solapados\\\\|Duración desde inicio\")",
+      "Bash(grep -nE \"NombreFechaFin|NombreFechaInicio|var$|: Text|IsFuncFechas\" src/Pages/Pag50141.FuenteDatosCard.al)",
+      "WebFetch(domain:felectronica.lakaut.com.ar)"
+    ]
+  }
+}

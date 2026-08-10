@@ -6,6 +6,9 @@ page 50148 "Incidencias Liquidación Sub"
     Caption = 'Incidencias';
     PageType = ListPart;
     SourceTable = "Incidencia Liquidación";
+    InsertAllowed = true;
+    ModifyAllowed = true;
+    DeleteAllowed = true;
 
     layout
     {
@@ -21,7 +24,14 @@ page 50148 "Incidencias Liquidación Sub"
                     Editable = false;
                     ToolTip = 'Descripción del concepto seleccionado.';
                 }
-                field(Importe; Rec.Importe) { ApplicationArea = All; }
+                field(Cantidad; Rec.Cantidad) { ApplicationArea = All; }
+                field("Unidad Cantidad"; Rec."Unidad Cantidad") { ApplicationArea = All; }
+                field("Valor Unitario"; Rec."Valor Unitario") { ApplicationArea = All; }
+                field(Importe; Rec.Importe)
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Si cargás Cantidad y Valor Unitario se calcula solo; también podés escribirlo directamente.';
+                }
                 field(Observaciones; Rec.Observaciones) { ApplicationArea = All; }
             }
         }
@@ -38,6 +48,18 @@ page 50148 "Incidencias Liquidación Sub"
             DescConcepto := '';
     end;
 
+    trigger OnAfterGetCurrRecord()
+    var
+        Liq: Record "Liquidación";
+    begin
+        if Liq.Get(Rec."No. Liquidación") then
+            IsEditable := Liq.Estado = Liq.Estado::Borrador
+        else
+            IsEditable := true;
+        CurrPage.Editable(IsEditable);
+    end;
+
     var
         DescConcepto: Text[100];
+        IsEditable: Boolean;
 }

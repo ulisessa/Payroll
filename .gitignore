@@ -3,6 +3,7 @@
 .altestrunner/
 .alcache/
 .snapshots/
+.netpackages/
 
 # Build outputs
 *.app

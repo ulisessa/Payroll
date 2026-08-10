@@ -32,6 +32,19 @@ codeunit 50015 "Evaluador Fórmula"
         FParamLog: Text;
         FResolvedVars: Dictionary of [Text, Boolean]; // tracks which vars were actually used
         FLenient: Boolean; // when true, unknown variables resolve to 0 instead of throwing
+        // TRAMO caches — valid for the lifetime of one Init() call (one liquidation).
+        // FTramoVigCache avoids the Cab.FindLast query after the first call per table.
+        // FTramoResultCache avoids the Det.FindLast query for repeated (table, value) pairs.
+        FTramoVigCache: Dictionary of [Text, Date];
+        FTramoResultCache: Dictionary of [Text, Decimal];
+        // Pila de códigos de concepto en curso de resolución vía @CÓDIGO, para cortar
+        // referencias circulares (A depende de B que depende de A) en vez de recursión infinita.
+        FResolvingConceptos: List of [Text];
+        // Último valor calculado para cada @CÓDIGO resuelto. BuildFormulaEvaluada (Cod50014) lo
+        // lee para mostrar el número en el texto de auditoría SIN volver a evaluar la fórmula
+        // referenciada — evitaba esto una recomputación entera por cada @ en cada línea, que con
+        // referencias anidadas se multiplica rápido y puede volver el cálculo muy pesado.
+        FLastConceptoRefValues: Dictionary of [Text, Decimal];
 
     procedure Init(var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date)
     begin
@@ -39,6 +52,22 @@ codeunit 50015 "Evaluador Fórmula"
         FFechaRef := FechaRef;
         FParamLog := '';
         Clear(FResolvedVars);
+        Clear(FTramoVigCache);
+        Clear(FTramoResultCache);
+        Clear(FResolvingConceptos);
+        Clear(FLastConceptoRefValues);
+    end;
+
+    // Lee el valor calculado en la última evaluación real de @CÓDIGO (misma línea, sin recalcular).
+    // Devuelve false si esa referencia no llegó a evaluarse (ej. rama muerta de un IF perezoso) —
+    // en ese caso el llamador debe resolverla de cero con ResolveConceptoRefPublic.
+    procedure TryGetConceptoRefValue(CodigoConcepto: Text; var Value: Decimal): Boolean
+    begin
+        if FLastConceptoRefValues.ContainsKey(CodigoConcepto) then begin
+            Value := FLastConceptoRefValues.Get(CodigoConcepto);
+            exit(true);
+        end;
+        exit(false);
     end;
 
     // Call this (instead of Init) when only the context needs refreshing mid-calculation.
@@ -85,12 +114,26 @@ codeunit 50015 "Evaluador Fórmula"
     [TryFunction]
     procedure TryEvalFormula(Formula: Text; var Result: Decimal)
     begin
+        // Punto de entrada de nivel superior (nunca se llama recursivamente desde
+        // ResolveConceptoRef, que usa EvalFormula directo) — acá es seguro limpiar la memo de
+        // @CÓDIGO: arranca "fresca" para esta fórmula/concepto, pero se reutiliza dentro de toda
+        // la cadena de referencias anidadas que dispare (ver ResolveConceptoRef).
+        Clear(FLastConceptoRefValues);
         Result := EvalFormula(Formula);
+    end;
+
+    // Punto de entrada público para resolver @CÓDIGO fuera de una expresión — lo usa
+    // BuildFormulaEvaluada (Cod50014) para mostrar el valor real de una referencia @ en el
+    // texto de "Fórmula con Valores", en vez de dejar "@2498" sin expandir.
+    procedure ResolveConceptoRefPublic(CodigoConcepto: Text): Decimal
+    begin
+        exit(ResolveConceptoRef(CodigoConcepto));
     end;
 
     [TryFunction]
     procedure TryEvalCondicion(Condicion: Text; var Result: Boolean)
     begin
+        Clear(FLastConceptoRefValues);
         Result := EvalCondicion(Condicion);
     end;
 
@@ -432,21 +475,34 @@ codeunit 50015 "Evaluador Fórmula"
         Cab: Record "Tabla Escalonada";
         Det: Record "Tabla Escalonada Det.";
         VigenciaEfectiva: Date;
+        ResultCacheKey: Text;
+        Result: Decimal;
     begin
         if Value <= 0 then
             exit(0);
 
-        // Find the most recent version of the table effective on FFechaRef
-        Cab.SetRange(Código, TableCode);
-        Cab.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
-        if not Cab.FindLast() then begin
-            if FLenient then
-                exit(0);
-            Error(ErrTablaEscalonada, TableCode, FFechaRef);
-        end;
+        // Result cache: exact (TableCode, Value) pair seen before in this liquidation
+        ResultCacheKey := TableCode + '|' + Format(Value);
+        if FTramoResultCache.ContainsKey(ResultCacheKey) then
+            exit(FTramoResultCache.Get(ResultCacheKey));
 
-        VigenciaEfectiva := Cab."Vigencia Desde";
-        AppendParamLog('TRAMO:' + TableCode + '|' + Format(VigenciaEfectiva));
+        // Vigencia cache: avoid repeating Cab.FindLast for the same table
+        if FTramoVigCache.ContainsKey(TableCode) then
+            VigenciaEfectiva := FTramoVigCache.Get(TableCode)
+        else begin
+            Cab.SetRange(Código, TableCode);
+            Cab.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
+            if not Cab.FindLast() then begin
+                if FLenient then begin
+                    FTramoResultCache.Add(ResultCacheKey, 0);
+                    exit(0);
+                end;
+                Error(ErrTablaEscalonada, TableCode, FFechaRef);
+            end;
+            VigenciaEfectiva := Cab."Vigencia Desde";
+            FTramoVigCache.Add(TableCode, VigenciaEfectiva);
+            AppendParamLog('TRAMO:' + TableCode + '|' + Format(VigenciaEfectiva));
+        end;
 
         // Find the tramo that contains Value
         Det.SetCurrentKey(Código, "Vigencia Desde", "Límite Inferior");
@@ -455,12 +511,16 @@ codeunit 50015 "Evaluador Fórmula"
         Det.SetFilter("Límite Inferior", '<=%1', Value);
         Det.SetFilter("Límite Superior", '%1|>=%2', 0, Value); // 0 = unbounded
         if not Det.FindLast() then begin
-            if FLenient then
+            if FLenient then begin
+                FTramoResultCache.Add(ResultCacheKey, 0);
                 exit(0);
+            end;
             Error(ErrTramoNoEncontrado, TableCode, Value);
         end;
 
-        exit(Det."Monto Fijo" + (Det.Porcentaje / 100) * (Value - Det."Límite Inferior"));
+        Result := Det."Monto Fijo" + (Det.Porcentaje / 100) * (Value - Det."Límite Inferior");
+        FTramoResultCache.Add(ResultCacheKey, Result);
+        exit(Result);
     end;
 
     procedure SetLenientMode(Lenient: Boolean)
@@ -470,6 +530,12 @@ codeunit 50015 "Evaluador Fórmula"
 
     local procedure ResolveVariable(VarName: Text): Decimal
     begin
+        if VarName.StartsWith('@') then
+            exit(ResolveConceptoRef(CopyStr(VarName, 2)));
+
+        if VarName.StartsWith('#') then
+            exit(ResolveConceptoCalculado(CopyStr(VarName, 2)));
+
         if not FContext.ContainsKey(VarName) then begin
             if FLenient then
                 exit(0);
@@ -481,6 +547,113 @@ codeunit 50015 "Evaluador Fórmula"
             AppendParamLog('VAR:' + VarName);
         end;
         exit(FContext.Get(VarName));
+    end;
+
+    // @CÓDIGO referencia OTRO concepto directamente: evalúa su Condición y Fórmula ahora mismo
+    // (no lee un importe ya calculado), así no depende del Orden Cálculo relativo entre ambos.
+    // Reentrante: como el tokenizer vive en variables de instancia, hay que guardar y restaurar
+    // su estado alrededor de la evaluación anidada para no romper la fórmula que llamó a esta.
+    // Memoizado por FLastConceptoRefValues durante UNA sola llamada de nivel superior (ver
+    // TryEvalFormula/TryEvalCondicion, que la limpian al arrancar): si @2498 aparece varias veces
+    // en la misma fórmula, sea directo o porque varios términos lo referencian transitivamente
+    // (ej. @1013, @1083, @1053 referencian @2498 cada uno), se recalcula una sola vez en vez de
+    // una vez por aparición — antes esto podía explotar combinatoriamente con fórmulas de muchos
+    // términos @ y causar el bloqueo/lentitud reportado.
+    local procedure ResolveConceptoRef(CodigoConcepto: Text): Decimal
+    var
+        Concepto: Record "Concepto Liquidación";
+        SavedExpr: Text;
+        SavedPos: Integer;
+        SavedLen: Integer;
+        SavedTokKind: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
+        SavedTokText: Text;
+        SavedTokNum: Decimal;
+        CondValor: Boolean;
+        Resultado: Decimal;
+    begin
+        if FLastConceptoRefValues.ContainsKey(CodigoConcepto) then
+            exit(FLastConceptoRefValues.Get(CodigoConcepto));
+
+        if FResolvingConceptos.Contains(CodigoConcepto) then
+            Error(ErrReferenciaCircular, CodigoConcepto);
+
+        Concepto.SetRange(Código, CopyStr(CodigoConcepto, 1, 20));
+        Concepto.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
+        if not Concepto.FindLast() then begin
+            if FLenient then
+                exit(0);
+            Error(ErrConceptoRefNoEncontrado, CodigoConcepto);
+        end;
+
+        if not FResolvedVars.ContainsKey('@' + CodigoConcepto) then begin
+            FResolvedVars.Add('@' + CodigoConcepto, true);
+            AppendParamLog('VAR:@' + CodigoConcepto);
+        end;
+
+        SavedExpr := FExpr;
+        SavedPos := FPos;
+        SavedLen := FLen;
+        SavedTokKind := FTokKind;
+        SavedTokText := FTokText;
+        SavedTokNum := FTokNum;
+
+        FResolvingConceptos.Add(CodigoConcepto);
+
+        if Concepto.Condición <> '' then
+            CondValor := EvalCondicion(Concepto.Condición)
+        else
+            CondValor := true;
+
+        if CondValor then
+            Resultado := EvalFormula(Concepto.Fórmula)
+        else
+            Resultado := 0;
+
+        FResolvingConceptos.Remove(CodigoConcepto);
+
+        if FLastConceptoRefValues.ContainsKey(CodigoConcepto) then
+            FLastConceptoRefValues.Set(CodigoConcepto, Resultado)
+        else
+            FLastConceptoRefValues.Add(CodigoConcepto, Resultado);
+
+        FExpr := SavedExpr;
+        FPos := SavedPos;
+        FLen := SavedLen;
+        FTokKind := SavedTokKind;
+        FTokText := SavedTokText;
+        FTokNum := SavedTokNum;
+
+        exit(Resultado);
+    end;
+
+    // #CÓDIGO lee el Importe YA CALCULADO para ese concepto en esta misma liquidación (tal cual
+    // quedó reflejado en Ctx — incluida cualquier Incidencia que lo haya sobrescrito), a diferencia
+    // de @CÓDIGO que reevalúa la fórmula del concepto desde cero. Por eso depende del Orden Cálculo:
+    // si el concepto referenciado todavía no corrió (o su Condición dio falso), se lee como 0 — igual
+    // que un acumulador que todavía no recibió nada — en vez de dar error, tanto en la validación de
+    // la fórmula al guardar el concepto (que corre en un contexto simulado) como en el cálculo real.
+    local procedure ResolveConceptoCalculado(CodigoConcepto: Text): Decimal
+    var
+        Concepto: Record "Concepto Liquidación";
+        VarName: Text;
+    begin
+        Concepto.SetRange(Código, CopyStr(CodigoConcepto, 1, 20));
+        Concepto.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
+        if not Concepto.FindLast() then begin
+            if FLenient then
+                exit(0);
+            Error(ErrConceptoCalculadoNoEncontrado, CodigoConcepto);
+        end;
+
+        VarName := '#' + CodigoConcepto;
+        if not FResolvedVars.ContainsKey(VarName) then begin
+            FResolvedVars.Add(VarName, true);
+            AppendParamLog('VAR:' + VarName);
+        end;
+
+        if FContext.ContainsKey(CodigoConcepto) then
+            exit(FContext.Get(CodigoConcepto));
+        exit(0);
     end;
 
     // ── Tokenizer ─────────────────────────────────────────────────────────────
@@ -607,9 +780,15 @@ codeunit 50015 "Evaluador Fórmula"
                     FTokKind := FTokKind::Number;
                     FTokText := NumText;
                 end;
-            IsAlpha(C) or (C = '_'):
+            IsAlpha(C) or (C = '_') or (C = '@') or (C = '#'):
                 begin
+                    // '@' referencia el importe de OTRO concepto directamente (ej. @1003), sin
+                    // pasar por un acumulador. '#' lee el Importe YA CALCULADO de otro concepto
+                    // en esta misma liquidación (ej. #1003), sin reevaluar su fórmula. Ambos se
+                    // consumen como parte del mismo identificador; el código de concepto puede
+                    // ser numérico, por eso sigue con IsAlphaNum.
                     Start := FPos;
+                    FPos += 1;
                     while (FPos <= FLen) and (IsAlphaNum(FExpr[FPos]) or (FExpr[FPos] = '_')) do
                         FPos += 1;
                     FTokText := CopyStr(FExpr, Start, FPos - Start);
@@ -718,4 +897,7 @@ codeunit 50015 "Evaluador Fórmula"
         ErrNumeroInvalido: Label 'Número inválido en la fórmula: "%1".';
         ErrTablaEscalonada: Label 'No se encontró la tabla escalonada "%1" vigente al %2.';
         ErrTramoNoEncontrado: Label 'El valor %2 no corresponde a ningún tramo de la tabla "%1".';
+        ErrConceptoRefNoEncontrado: Label 'Variable desconocida: la fórmula referencia @%1, pero no existe ningún concepto "%1" vigente (no existe).';
+        ErrReferenciaCircular: Label 'Referencia circular en la fórmula: @%1 depende, directa o indirectamente, de sí mismo.';
+        ErrConceptoCalculadoNoEncontrado: Label 'Variable desconocida: la fórmula referencia #%1, pero no existe ningún concepto "%1" vigente (no existe).';
 }

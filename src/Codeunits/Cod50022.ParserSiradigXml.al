@@ -1,24 +1,16 @@
 namespace UAS.Payroll;
 
-using System.IO;
-
 codeunit 50022 "Parser SIRADIG XML"
 {
     Access = Internal;
 
     var
+        GestorArchivos: Codeunit "Gestor Archivos SIRADIG";
         ErrorXmlInvalido: Label 'El archivo XML no tiene estructura válida de SIRADIG: %1';
         ErrorCuilNoEncontrado: Label 'No se encontró CUIL en el elemento empleado';
 
-    procedure ExtraerDatosDelXml(var ArchivoXmlPath: Text; var DatosExtraidos: Record "Importación SIRADIG")
-    var
-        XmlContent: Text;
+    procedure ExtraerDatosDelXml(var XmlContent: Text; var DatosExtraidos: Record "Importación SIRADIG")
     begin
-        if not File.Exists(ArchivoXmlPath) then
-            Error('El archivo XML no existe: %1', ArchivoXmlPath);
-
-        XmlContent := ReadFileAsText(ArchivoXmlPath);
-
         if XmlContent = '' then
             Error(ErrorXmlInvalido, 'Archivo vacío');
 
@@ -28,42 +20,14 @@ codeunit 50022 "Parser SIRADIG XML"
         ExtractPresentacionData(XmlContent, DatosExtraidos);
     end;
 
-    procedure ObtenerDeduccionesDelXml(var ArchivoXmlPath: Text): Text
-    var
-        XmlContent: Text;
+    procedure ObtenerDeduccionesDelXml(var XmlContent: Text): Text
     begin
-        if not File.Exists(ArchivoXmlPath) then
-            exit('[]');
-
-        XmlContent := ReadFileAsText(ArchivoXmlPath);
         exit(ExtractDeduccionesJson(XmlContent));
     end;
 
-    procedure ObtenerCargasFamiliaDelXml(var ArchivoXmlPath: Text): Text
-    var
-        XmlContent: Text;
+    procedure ObtenerCargasFamiliaDelXml(var XmlContent: Text): Text
     begin
-        if not File.Exists(ArchivoXmlPath) then
-            exit('[]');
-
-        XmlContent := ReadFileAsText(ArchivoXmlPath);
         exit(ExtractCargasJson(XmlContent));
-    end;
-
-    local procedure ReadFileAsText(var FilePath: Text): Text
-    var
-        FileObject: File;
-        InStream: InStream;
-        TextContent: Text;
-        Char: Char;
-    begin
-        if FileObject.Open(FilePath) then begin
-            FileObject.CreateInStream(InStream);
-            while InStream.Read(Char) > 0 do
-                TextContent += Format(Char);
-            FileObject.Close();
-        end;
-        exit(TextContent);
     end;
 
     local procedure ExtractPresentacionData(var XmlContent: Text; var DatosExtraidos: Record "Importación SIRADIG")
@@ -76,22 +40,23 @@ codeunit 50022 "Parser SIRADIG XML"
         // Extraer período
         Periodo := ExtractXmlValue(XmlContent, 'periodo');
         if Periodo <> '' then
-            if Evaluate(DatosExtraidos."Período", Periodo) then ;
+            if Evaluate(DatosExtraidos."Período", Periodo) then;
 
         // Extraer número de presentación
         NroPresentacion := ExtractXmlValue(XmlContent, 'nroPresentacion');
         if NroPresentacion <> '' then
-            if Evaluate(DatosExtraidos."Nro. Presentación", NroPresentacion) then ;
+            if Evaluate(DatosExtraidos."Nro. Presentación", NroPresentacion) then;
 
         // Extraer fecha de presentación
         FechaPresentacion := ExtractXmlValue(XmlContent, 'fechaPresentacion');
         if FechaPresentacion <> '' then
-            if Evaluate(DatosExtraidos."Fecha Presentación", FechaPresentacion) then ;
+            if Evaluate(DatosExtraidos."Fecha Presentación", FechaPresentacion) then;
 
-        // Extraer CUIL
+        // Extraer CUIL (puede venir con guiones, 23-28454586-9, o sin guiones, 23284545869;
+        // se normaliza a solo dígitos para que coincida con el valor tomado del nombre de archivo)
         CuilValue := ExtractXmlValue(XmlContent, 'cuit');
         if CuilValue <> '' then
-            DatosExtraidos."CUIL Empleado" := CopyStr(CuilValue, 1, 20)
+            DatosExtraidos."CUIL Empleado" := GestorArchivos.NormalizarCuil(CuilValue)
         else
             Error(ErrorCuilNoEncontrado);
 
@@ -147,7 +112,7 @@ codeunit 50022 "Parser SIRADIG XML"
         StartPos: Integer;
         EndPos: Integer;
         CargaText: Text;
-        TipoDoc, NroDoc, Apellido, Nombre, FechaNac, Parentesco: Text;
+        TipoDoc, NroDoc, Apellido, Nombre, FechaNac, Parentesco : Text;
     begin
         JsonText := '[';
         SearchPos := 1;

@@ -23,6 +23,17 @@ tableextension 52000 "Empleado Pesca Ext." extends Employee
             DataClassification = CustomerContent;
             TableRelation = "Categoría CCT".Código WHERE("Cód. Convenio" = FIELD("Cód. Convenio"));
         }
+        field(52004; "Fecha Jubilación"; Date)
+        {
+            Caption = 'Fecha Jubilación';
+            DataClassification = CustomerContent;
+        }
+        field(52003; "Zona Desfavorable"; Integer)
+        {
+            Caption = 'Zona Desfavorable';
+            DataClassification = CustomerContent;
+            MinValue = 0;
+        }
         field(52002; "Antigüedad Reconocida"; Decimal)
         {
             Caption = 'Antigüedad Reconocida (años)';

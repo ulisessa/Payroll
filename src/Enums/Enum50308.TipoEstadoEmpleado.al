@@ -8,4 +8,5 @@ enum 50308 "Tipo Estado Empleado"
     value(1; Alta) { Caption = 'Alta'; }
     value(2; Baja) { Caption = 'Baja'; }
     value(3; Vacaciones) { Caption = 'Vacaciones'; }
+    value(4; Francos) { Caption = 'Francos'; }
 }

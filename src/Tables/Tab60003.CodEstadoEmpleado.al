@@ -37,8 +37,29 @@ table 60003 "Cód. Estado Empleado"
             DataClassification = CustomerContent;
             // Alta: opens an employment period for seniority calculation.
             // Baja: closes the current employment period.
-            // Vacaciones: triggers auto-calculation of Fecha Fin when entered in state history.
+            // Vacaciones: its effective window is capped at the LCT day entitlement when counting DIAS_VAC_PERIODO.
             // Normal: all other states (Enfermedad, Suspensión, etc.) — included in seniority automatically.
+        }
+        field(6; "Ámbito"; Enum "Ámbito Estado")
+        {
+            Caption = 'Ámbito';
+            DataClassification = CustomerContent;
+            // Whether this state applies to employees, vessels, or both. Vessels use a subset.
+        }
+        field(7; "Estado Siguiente"; Code[20])
+        {
+            Caption = 'Estado Siguiente';
+            DataClassification = CustomerContent;
+            TableRelation = "Cód. Estado Empleado".Código;
+            // Auto-transition target: when this state's condition ends (e.g. francos balance used up),
+            // the entity moves to this state. Blank = terminal (stays until a new state is set).
+        }
+        field(8; "Devenga Francos"; Boolean)
+        {
+            Caption = 'Devenga Francos';
+            DataClassification = CustomerContent;
+            // Productive/embarked state: its calendar days on a marea count toward DIAS_ENROLAMIENTO,
+            // the base for the franco accrual. Francos are enjoyed later in a "Tipo Estado = Francos" state.
         }
     }
 

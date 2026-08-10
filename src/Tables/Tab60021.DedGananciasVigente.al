@@ -4,6 +4,8 @@ table 60021 "Ded. Ganancias Vigente"
 {
     Caption = 'Tabla Deducciones Ganancias';
     DataClassification = CustomerContent;
+    LookupPageId = "Ded. Ganancias Vigente";
+    DrillDownPageId = "Ded. Ganancias Vigente";
     // AFIP-published annual deduction amounts by type, versioned by effective date.
     // Each new AFIP resolution inserts new rows; old rows are kept for reliquidation/audit.
     //
@@ -59,5 +61,12 @@ table 60021 "Ded. Ganancias Vigente"
     keys
     {
         key(PK; Código, "Vigencia Desde") { Clustered = true; }
+    }
+
+    fieldgroups
+    {
+        // Sin esto el lookup de "Cód. Tipo" (Ded. Ganancias Empleado) solo muestra la clave
+        // primaria — código y vigencia — y no se ve de qué deducción se trata al elegirla.
+        fieldgroup(DropDown; Código, Descripción, "Importe Anual") { }
     }
 }

@@ -117,6 +117,52 @@ table 60010 "Período Liquidación"
             Error(ErrConLiquidaciones);
     end;
 
+    // Período que toda pantalla debería proponer sin que el usuario lo tipee: el que contiene la
+    // fecha de trabajo. Si la fecha de trabajo cae fuera de todo período, el último abierto es el que
+    // se está por liquidar; y si no hay ninguno abierto, el último cargado — mejor uno viejo que
+    // ninguno. Vive acá para que la hoja de novedades y el asistente de fórmulas no lo repitan.
+    procedure PeriodoPorDefecto(): Code[10]
+    var
+        Periodo: Record "Período Liquidación";
+    begin
+        Periodo.SetFilter("Fecha Desde", '<=%1', WorkDate());
+        Periodo.SetFilter("Fecha Hasta", '>=%1', WorkDate());
+        if Periodo.FindFirst() then
+            exit(Periodo.Código);
+
+        Periodo.Reset();
+        Periodo.SetCurrentKey("Fecha Desde");
+        Periodo.SetRange(Estado, Periodo.Estado::Abierto);
+        if Periodo.FindLast() then
+            exit(Periodo.Código);
+
+        Periodo.SetRange(Estado);
+        if Periodo.FindLast() then
+            exit(Periodo.Código);
+        exit('');
+    end;
+
+    // Período inmediatamente anterior por fecha de inicio. No se usa Año/Mes porque un período puede
+    // no ser mensual (quincenas, períodos especiales) y ahí la resta de meses miente.
+    procedure PeriodoAnterior(CodPeriodo: Code[10]): Code[10]
+    var
+        Actual: Record "Período Liquidación";
+        Previo: Record "Período Liquidación";
+    begin
+        if not Actual.Get(CodPeriodo) then
+            exit('');
+        Previo.SetCurrentKey("Fecha Desde");
+        Previo.SetFilter("Fecha Desde", '<%1', Actual."Fecha Desde");
+        if Previo.FindLast() then
+            exit(Previo.Código);
+        exit('');
+    end;
+
+    procedure ContieneFecha(Fecha: Date): Boolean
+    begin
+        exit((Fecha >= "Fecha Desde") and (Fecha <= "Fecha Hasta"));
+    end;
+
     var
         ErrCerrado: Label 'No se puede eliminar un período cerrado.';
         ErrConLiquidaciones: Label 'No se puede eliminar un período que contiene liquidaciones.';

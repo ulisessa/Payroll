@@ -1,7 +1,7 @@
 namespace UAS.Payroll;
 
-using Microsoft.Projects.Project.Job;
 using Microsoft.HumanResources.Employee;
+using Microsoft.Projects.Project.Job;
 
 
 table 60009 "Personal Proyecto"
@@ -46,8 +46,12 @@ table 60009 "Personal Proyecto"
                 if Job.Get("No. Proyecto") then begin
                     Buque := Job."Global Dimension 1 Code";
                     Marea := Job."Global Dimension 2 Code";
+                    // Inherit the project dates only where the assignment leaves them blank
+                    // (a per-employee override, once entered, keeps priority).
                     if "Fecha Alta Asignación" = 0D then
                         "Fecha Alta Asignación" := Job."Starting Date";
+                    if "Fecha Baja" = 0D then
+                        "Fecha Baja" := Job."Ending Date";
                 end;
             end;
         }
@@ -72,11 +76,14 @@ table 60009 "Personal Proyecto"
         {
             Caption = 'Fecha Alta Asignación';
             DataClassification = CustomerContent;
+            // Drives the linked Estado Empleado "Fecha Inicio" (synced on Insert/Modify).
         }
         field(6; "Fecha Baja"; Date)
         {
             Caption = 'Fecha Baja';
             DataClassification = CustomerContent;
+            // Informational assignment end. In the effective-dated state model the arrival transition
+            // (embarcado → francos/órdenes) is created by the Cierre Marea automation, not stored here.
         }
         field(7; "Rol en Proyecto"; Text[50])
         {
@@ -124,8 +131,25 @@ table 60009 "Personal Proyecto"
     }
 
     trigger OnInsert()
+    var
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
     begin
         TestField("Cód. Convenio");
         TestField("Cód. Categoría");
+        EstadoMgt.SincronizarEstadoDesdeProyecto(Rec);
+    end;
+
+    trigger OnModify()
+    var
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
+    begin
+        EstadoMgt.SincronizarEstadoDesdeProyecto(Rec);
+    end;
+
+    trigger OnDelete()
+    var
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
+    begin
+        EstadoMgt.EliminarEstadoDeProyecto("No. Empleado", "No. Proyecto");
     end;
 }

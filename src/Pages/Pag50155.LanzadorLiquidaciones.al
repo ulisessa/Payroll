@@ -26,6 +26,7 @@ page 50155 "Lanzador Liquidaciones"
                 {
                     Caption = 'Tipo Liquidación';
                     ApplicationArea = All;
+                    TableRelation = "Tipo Liquidación".Código;
                     ToolTip = 'Devengados: fijos mensuales durante la marea. Cierre Marea: liquidación completa al regreso.';
                 }
                 field(FTipoProyecto; FTipoProyecto)
@@ -75,7 +76,8 @@ page 50155 "Lanzador Liquidaciones"
 
                 trigger OnAction()
                 var
-                    ProcLiq: Codeunit "Proceso Liq. Por Lotes";
+                    ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                    TipoLiqRec: Record "Tipo Liquidación";
                     Creadas: Integer;
                 begin
                     if FCodPeriodo = '' then
@@ -83,6 +85,10 @@ page 50155 "Lanzador Liquidaciones"
                     if not Confirm(MsgConfirmarCrear, true, Format(FTipoLiq), FCodPeriodo) then
                         exit;
                     Creadas := ProcLiq.CrearPorPeriodo(FCodPeriodo, FTipoLiq, FTipoProyecto);
+                    // El tipo con "Incluye Francos Puerto" también cubre a los empleados en Francos (en
+                    // puerto, sin proyecto).
+                    if FTipoLiq = TipoLiqRec.CodigoFrancosPuerto() then
+                        Creadas += ProcLiq.CrearRegularEmpleadosEnFrancos(FCodPeriodo);
                     FUltimoResultado := StrSubstNo(MsgCreadas, Creadas);
                     CurrPage.Update(false);
                 end;
@@ -99,7 +105,7 @@ page 50155 "Lanzador Liquidaciones"
 
                 trigger OnAction()
                 var
-                    ProcLiq: Codeunit "Proceso Liq. Por Lotes";
+                    ProcLiq: Codeunit "Proceso Liq. Por Lote";
                     Calculadas: Integer;
                 begin
                     if FCodPeriodo = '' then
@@ -126,7 +132,7 @@ page 50155 "Lanzador Liquidaciones"
 
     var
         FCodPeriodo: Code[10];
-        FTipoLiq: Enum "Tipo Liq.";
+        FTipoLiq: Code[20];
         FTipoProyecto: Option Todos,Productivo,Improductivo;
         FDescPeriodo: Text;
         FUltimoResultado: Text;

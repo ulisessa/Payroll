@@ -7,8 +7,8 @@ table 60011 "Liquidación"
 {
     Caption = 'Liquidación';
     DataClassification = CustomerContent;
-    LookupPageId = "Lista Liquidaciones";
-    DrillDownPageId = "Lista Liquidaciones";
+    LookupPageId = 50100;
+    DrillDownPageId = 50100;
 
     fields
     {
@@ -77,10 +77,11 @@ table 60011 "Liquidación"
             Caption = 'Estado';
             DataClassification = CustomerContent;
         }
-        field(10; "Tipo Liquidación"; Enum "Tipo Liq.")
+        field(30; "Cód. Tipo Liq."; Code[20])
         {
             Caption = 'Tipo Liquidación';
             DataClassification = CustomerContent;
+            TableRelation = "Tipo Liquidación".Código;
         }
         field(11; "No. Liq. Origen"; Code[20])
         {
@@ -118,6 +119,17 @@ table 60011 "Liquidación"
             Editable = false;
             DecimalPlaces = 2 : 2;
         }
+        field(24; "Haberes Ordinarios Gravados"; Decimal)
+        {
+            Caption = 'Haberes Ordinarios Gravados';
+            DataClassification = CustomerContent;
+            Editable = false;
+            DecimalPlaces = 2 : 2;
+            // Snapshot del acumulador BASE_IG4 al finalizar el cálculo: remunerativo
+            // normal y habitual del mes, excluyendo extraordinarios (BASE_EXT_IG4).
+            // Permite consultar este valor por mes/empleado vía Fuente Datos Liquidación
+            // (ej. MEJOR_REM_SEM para el cálculo del SAC, que debe excluir extraordinarios).
+        }
     }
 
     keys
@@ -137,16 +149,26 @@ table 60011 "Liquidación"
         }
     }
 
+    fieldgroups
+    {
+        fieldgroup(DropDown; "No.", "Cód. Período", "No. Empleado", "Nombre Empleado", "Cód. Tipo Liq.", Estado) { }
+    }
+
     trigger OnDelete()
     var
         LinLiq: Record "Línea Liquidación";
         OtraLiq: Record "Liquidación";
         ParamVig: Record "Parámetro Vigente";
+        GestNov: Codeunit "Gestión Novedades Liq.";
     begin
         if Estado <> Estado::Borrador then
             Error(ErrEstado);
         LinLiq.SetRange("No. Liquidación", "No.");
         LinLiq.DeleteAll(true);
+
+        // Las novedades que se habían materializado acá vuelven a estar disponibles. Sin esto
+        // quedan Aplicada contra una liquidación borrada y no entran nunca más en ninguna.
+        GestNov.RevertirLiquidacion("No.");
 
         // Si después de borrar esta liquidación no quedan liquidaciones en estado
         // calculada/aprobada/contabilizada, liberar todos los bloqueos "En Uso".

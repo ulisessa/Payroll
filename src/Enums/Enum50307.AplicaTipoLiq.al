@@ -3,7 +3,6 @@ namespace UAS.Payroll;
 enum 50307 "Aplica Tipo Liq. Concepto"
 {
     Extensible = true;
-    AssignmentCompatibility = true;
 
     value(0; Todos) { Caption = ' '; }
     value(1; Regular) { Caption = 'Regular'; }

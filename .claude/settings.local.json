@@ -18,7 +18,31 @@
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(node -e ' *)",
       "Bash(powershell -NoProfile -Command '\\(Get-Content '\\\\''src/Reports/Rep50041.ReciboDeSueldoV2.rdl'\\\\''\\) | Select-Object -Index \\(2308..2318\\) | ForEach-Object { $_ }')",
-      "Bash(powershell -NoProfile -Command 'try { [xml]\\(Get-Content '\\\\''src/Reports/Rep50041.ReciboDeSueldoV2.rdl'\\\\'' -Raw\\); Write-Output '\\\\''XML valid'\\\\'' } catch { Write-Output \\('\\\\''ERROR: '\\\\'' + $_.Exception.Message\\) }')"
+      "Bash(powershell -NoProfile -Command 'try { [xml]\\(Get-Content '\\\\''src/Reports/Rep50041.ReciboDeSueldoV2.rdl'\\\\'' -Raw\\); Write-Output '\\\\''XML valid'\\\\'' } catch { Write-Output \\('\\\\''ERROR: '\\\\'' + $_.Exception.Message\\) }')",
+      "PowerShell($proj = \"d:\\\\Users\\\\ulises.sasovsky\\\\OneDrive\\\\Personal\\\\OneDrive\\\\Documentos\\\\Proyectos\\\\25.2\\\\25.2 - Custom Extensiones\\\\Payroll\"; $alc = \"C:\\\\Users\\\\ulises.sasovsky\\\\.vscode\\\\extensions\\\\ms-dynamics-smb.al-17.0.2273547\\\\bin\\\\win32\\\\alc.exe\"; & $alc /project:\"$proj\" /packagecachepath:\"$proj\\\\.alpackages\" /out:\"$proj\\\\out_test.app\" 2>&1 | Select-Object -Last 150)",
+      "Bash(cd \"/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll\" && grep -n \"Es Acumulador\\\\|Ctx.Add\\\\|Ctx.Set\\\\|Concepto.Código\\\\|BuildContext\\\\|procedure \" src/Codeunits/Cod50016.ContextoLiquidacion.al | head -80)",
+      "Read(//d/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll/src/Codeunits/**)",
+      "Bash(cd \"/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll\" && grep -n \"procedure BuildKnownVarsCtx\" -A 30 src/Tables/Tab60007.ConceptoLiquidacion.al | head -50)",
+      "Read(//d/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll/src/Tables/**)",
+      "Bash(cd \"/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll\" && grep -rln \"Liquidar\\\\|GenerarLiquidaciones\\\\|CrearLiquidaciones\\\\|Liquidación Masiva\\\\|Procesar Período\\\\|Batch\" src/ --include=*.al | head -20)",
+      "Read(//d/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll/**)",
+      "PowerShell($proj = \"d:\\\\Users\\\\ulises.sasovsky\\\\OneDrive\\\\Personal\\\\OneDrive\\\\Documentos\\\\Proyectos\\\\25.2\\\\25.2 - Custom Extensiones\\\\Payroll\"; $alc = \"C:\\\\Users\\\\ulises.sasovsky\\\\.vscode\\\\extensions\\\\ms-dynamics-smb.al-17.0.2273547\\\\bin\\\\win32\\\\alc.exe\"; & $alc /project:\"$proj\" /packagecachepath:\"$proj\\\\.alpackages\" /out:\"$proj\\\\out_test.app\" 2>&1 | Select-String -Pattern \"error|Compilation ended\")",
+      "Bash(cd \"/d/Users/ulises.sasovsky/OneDrive/Personal/OneDrive/Documentos/Proyectos/25.2/25.2 - Custom Extensiones/Payroll\" && rm -f out_test.app)",
+      "PowerShell($proj = \"d:\\\\Users\\\\ulises.sasovsky\\\\OneDrive\\\\Personal\\\\OneDrive\\\\Documentos\\\\Proyectos\\\\25.2\\\\25.2 - Custom Extensiones\\\\Payroll\"; $alc = \"C:\\\\Users\\\\ulises.sasovsky\\\\.vscode\\\\extensions\\\\ms-dynamics-smb.al-17.0.2273547\\\\bin\\\\win32\\\\alc.exe\"; & $alc /project:\"$proj\" /packagecachepath:\"$proj\\\\.alpackages\" /out:\"$proj\\\\out_test.app\" 2>&1 | Select-String -Pattern \"error|Error\")",
+      "WebFetch(domain:www.afip.gob.ar)",
+      "Bash(sed -n '50,260p' /tmp/siradig.txt)",
+      "Read(//tmp/**)",
+      "Bash(find . -iname \"*.netpackage\")",
+      "Bash(find . -iname \"*netpackages*\" -type d)",
+      "Bash(cat .vscode/settings.json)",
+      "Bash(ls .alpackages)",
+      "Bash(find /c/Users/ulises.sasovsky/AppData/Local/Temp/baseapp/extracted -iname \"*HumanResourcesSetup*\" 2>/dev/null)",
+      "Read(//c/Users/ulises.sasovsky/AppData/Local/Temp/baseapp/extracted/**)",
+      "Bash(sort -t g -k2 -n)",
+      "PowerShell($s = \"C:\\\\Users\\\\ULISES~1.SAS\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Users-ulises-sasovsky-OneDrive-Personal-OneDrive-Documentos-Proyectos-25-2-25-2---Custom-Extensiones-Payroll\\\\c60bb641-6f64-4ab1-9d8b-eabba2faf874\\\\scratchpad\"; & \"$s\\\\parse.ps1\" -Base \"$s\\\\xlsx\" -Sheet \"sheet1.xml\")"
+    ],
+    "additionalDirectories": [
+      "d:\\d\\Users\\ulises.sasovsky\\OneDrive\\Personal\\OneDrive\\Documentos\\Proyectos\\25.2\\25.2 - Custom Extensiones\\Payroll"
     ]
   }
 }

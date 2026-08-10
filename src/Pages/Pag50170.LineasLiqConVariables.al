@@ -1,6 +1,6 @@
 namespace UAS.Payroll;
 
-page 50160 "Líneas Liq. con Variables"
+page 50170 "Líneas Liq. con Variables"
 {
     ApplicationArea = All;
     Caption = 'Líneas de Liquidación';
@@ -16,7 +16,15 @@ page 50160 "Líneas Liq. con Variables"
             repeater(Lines)
             {
                 field("Orden Cálculo"; Rec."Orden Cálculo") { ApplicationArea = All; }
-                field("Cód. Concepto"; Rec."Cód. Concepto") { ApplicationArea = All; }
+                field("Cód. Concepto"; Rec."Cód. Concepto")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Abre la ficha del concepto (la versión/vigencia que se usó en esta línea).';
+                    trigger OnDrillDown()
+                    begin
+                        AbrirConcepto();
+                    end;
+                }
                 field("Nombre Impresión"; Rec."Nombre Impresión") { ApplicationArea = All; }
                 field("Tipo Concepto"; Rec."Tipo Concepto")
                 {
@@ -29,6 +37,7 @@ page 50160 "Líneas Liq. con Variables"
                     DecimalPlaces = 0 : 4;
                 }
                 field("Unidad Cantidad"; Rec."Unidad Cantidad") { ApplicationArea = All; }
+                field("Base Cálculo"; Rec."Base Cálculo") { ApplicationArea = All; }
                 field(Importe; Rec.Importe)
                 {
                     ApplicationArea = All;
@@ -76,6 +85,19 @@ page 50160 "Líneas Liq. con Variables"
                     CurrPage.Update(false);
                 end;
             }
+            action(AbrirConceptoAction)
+            {
+                ApplicationArea = All;
+                Caption = 'Abrir Concepto';
+                Image = Card;
+                Promoted = true;
+                PromotedCategory = Process;
+                ToolTip = 'Abre la ficha del concepto (la versión/vigencia que se usó en esta línea).';
+                trigger OnAction()
+                begin
+                    AbrirConcepto();
+                end;
+            }
         }
     }
 
@@ -86,6 +108,8 @@ page 50160 "Líneas Liq. con Variables"
                 TipoStyle := 'Favorable';
             Rec."Tipo Concepto"::"Haber No Remunerativo":
                 TipoStyle := 'Subordinate';
+            Rec."Tipo Concepto"::"Deducción Remunerativa":
+                TipoStyle := 'Ambiguous';
             Rec."Tipo Concepto"::"Descuento Empleado",
             Rec."Tipo Concepto"::Retención:
                 TipoStyle := 'Unfavorable';
@@ -94,7 +118,23 @@ page 50160 "Líneas Liq. con Variables"
         end;
     end;
 
+    local procedure AbrirConcepto()
+    var
+        Concepto: Record "Concepto Liquidación";
+    begin
+        if Rec."Cód. Concepto" = '' then exit;
+        if not Concepto.Get(Rec."Cód. Concepto", Rec."Vigencia Concepto") then begin
+            Concepto.SetRange(Código, Rec."Cód. Concepto");
+            if not Concepto.FindLast() then begin
+                Message(MsgConceptoNoEncontrado, Rec."Cód. Concepto");
+                exit;
+            end;
+        end;
+        Page.Run(Page::"Concepto Liq. Card", Concepto);
+    end;
+
     var
         TipoStyle: Text;
         OcultarCero: Boolean;
+        MsgConceptoNoEncontrado: Label 'No se encontró el concepto %1.';
 }

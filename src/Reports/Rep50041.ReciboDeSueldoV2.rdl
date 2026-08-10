@@ -8,6 +8,8 @@
         <DataProvider>SQL</DataProvider>
         <ConnectString />
       </ConnectionProperties>
+      <rd:SecurityType>None</rd:SecurityType>
+      <rd:DataSourceID>73b74855-ca33-4c18-9ba5-d6d3b708002e</rd:DataSourceID>
     </DataSource>
   </DataSources>
   <ReportSections>
@@ -22,7 +24,6 @@
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
-                <!-- ═══ ROW 1: Encabezado empresa ═══ -->
                 <TablixRow>
                   <Height>1.2cm</Height>
                   <TablixCells>
@@ -31,10 +32,6 @@
                         <Rectangle Name="RectEmpresa">
                           <ReportItems>
                             <Textbox Name="TxtEmpresaLabel">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>19cm</Width>
-                              <Height>0.35cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -46,18 +43,17 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.35cm</Height>
+                              <Width>19cm</Width>
                               <Style>
                                 <PaddingLeft>3pt</PaddingLeft>
                                 <PaddingTop>2pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtEmpresaNombre">
-                              <Top>0.35cm</Top>
-                              <Left>0cm</Left>
-                              <Width>14cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -69,17 +65,18 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.35cm</Top>
+                              <Height>0.45cm</Height>
+                              <Width>14cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
                                 <PaddingLeft>3pt</PaddingLeft>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtEmpresaCUIT">
-                              <Top>0.35cm</Top>
-                              <Left>14cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -95,15 +92,16 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.35cm</Top>
+                              <Left>14cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>5cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
                                 <PaddingRight>3pt</PaddingRight>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtEmpresaDomicilio">
-                              <Top>0.8cm</Top>
-                              <Left>0cm</Left>
-                              <Width>19cm</Width>
-                              <Height>0.4cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -115,8 +113,13 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.8cm</Top>
+                              <Height>0.4cm</Height>
+                              <Width>19cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
                                 <PaddingLeft>3pt</PaddingLeft>
                               </Style>
@@ -133,7 +136,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 2: Datos empleado fila 1 (Q/Mes/Año/Nombre/Legajo/SueldoBruto/Antigüedad) ═══ -->
                 <TablixRow>
                   <Height>1.1cm</Height>
                   <TablixCells>
@@ -141,12 +143,7 @@
                       <CellContents>
                         <Rectangle Name="RectEmpRow1">
                           <ReportItems>
-                            <!-- Labels -->
                             <Textbox Name="LblQ">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>0.8cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -163,19 +160,17 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.45cm</Height>
+                              <Width>0.8cm</Width>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblMes">
-                              <Top>0cm</Top>
-                              <Left>0.8cm</Left>
-                              <Width>1.5cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -192,19 +187,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>0.8cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>1.5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblAnio">
-                              <Top>0cm</Top>
-                              <Left>2.3cm</Left>
-                              <Width>1.5cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -221,19 +216,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>2.3cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>1.5cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblNombre">
-                              <Top>0cm</Top>
-                              <Left>3.8cm</Left>
-                              <Width>8.7cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -245,22 +240,23 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>3.8cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>8.7cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                                 <PaddingLeft>3pt</PaddingLeft>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblLegajo">
-                              <Top>0cm</Top>
-                              <Left>12.5cm</Left>
-                              <Width>2cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -277,19 +273,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>12.5cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>2cm</Width>
+                              <ZIndex>4</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblSueldoBruto">
-                              <Top>0cm</Top>
-                              <Left>14.5cm</Left>
-                              <Width>2.7cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -306,19 +302,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>14.5cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>2.7cm</Width>
+                              <ZIndex>5</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblAntiguedad">
-                              <Top>0cm</Top>
-                              <Left>17.2cm</Left>
-                              <Width>1.8cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -335,25 +331,24 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>17.2cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>1.8cm</Width>
+                              <ZIndex>6</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
-                            <!-- Data -->
                             <Textbox Name="DatQ">
-                              <Top>0.45cm</Top>
-                              <Left>0cm</Left>
-                              <Width>0.8cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value></Value>
+                                      <Value />
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
@@ -364,6 +359,10 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Height>0.65cm</Height>
+                              <Width>0.8cm</Width>
+                              <ZIndex>7</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -372,10 +371,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatMes">
-                              <Top>0.45cm</Top>
-                              <Left>0.8cm</Left>
-                              <Width>1.5cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -391,6 +386,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>0.8cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>1.5cm</Width>
+                              <ZIndex>8</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -399,10 +399,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatAnio">
-                              <Top>0.45cm</Top>
-                              <Left>2.3cm</Left>
-                              <Width>1.5cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -418,6 +414,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>2.3cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>1.5cm</Width>
+                              <ZIndex>9</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -426,10 +427,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatNombre">
-                              <Top>0.45cm</Top>
-                              <Left>3.8cm</Left>
-                              <Width>8.7cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -441,8 +438,14 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>3.8cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>8.7cm</Width>
+                              <ZIndex>10</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -453,10 +456,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatLegajo">
-                              <Top>0.45cm</Top>
-                              <Left>12.5cm</Left>
-                              <Width>2cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -472,6 +471,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>12.5cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>2cm</Width>
+                              <ZIndex>11</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -480,10 +484,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatSueldoBruto">
-                              <Top>0.45cm</Top>
-                              <Left>14.5cm</Left>
-                              <Width>2.7cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -500,6 +500,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>14.5cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>2.7cm</Width>
+                              <ZIndex>12</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -509,10 +514,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatAntiguedad">
-                              <Top>0.45cm</Top>
-                              <Left>17.2cm</Left>
-                              <Width>1.8cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -528,6 +529,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>17.2cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>1.8cm</Width>
+                              <ZIndex>13</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -547,7 +553,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 3: Datos empleado fila 2 (FechaIngreso/Categoría/CUIL/LugarPago/FPagoAportes) ═══ -->
                 <TablixRow>
                   <Height>1.1cm</Height>
                   <TablixCells>
@@ -556,10 +561,6 @@
                         <Rectangle Name="RectEmpRow2">
                           <ReportItems>
                             <Textbox Name="LblFechaIngreso">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -576,19 +577,17 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.45cm</Height>
+                              <Width>3cm</Width>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblCategoria">
-                              <Top>0cm</Top>
-                              <Left>3cm</Left>
-                              <Width>7.5cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -605,19 +604,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>3cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>7.5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblCUIL">
-                              <Top>0cm</Top>
-                              <Left>10.5cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -634,19 +633,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>10.5cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>3cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblLugarPago">
-                              <Top>0cm</Top>
-                              <Left>13.5cm</Left>
-                              <Width>2.75cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -663,19 +662,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>13.5cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>2.75cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
                             <Textbox Name="LblFPago">
-                              <Top>0cm</Top>
-                              <Left>16.25cm</Left>
-                              <Width>2.75cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -692,20 +691,19 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>16.25cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>2.75cm</Width>
+                              <ZIndex>4</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
                               </Style>
                             </Textbox>
-                            <!-- Data -->
                             <Textbox Name="DatFechaIngreso">
-                              <Top>0.45cm</Top>
-                              <Left>0cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -721,6 +719,10 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Height>0.65cm</Height>
+                              <Width>3cm</Width>
+                              <ZIndex>5</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -729,10 +731,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatCategoria">
-                              <Top>0.45cm</Top>
-                              <Left>3cm</Left>
-                              <Width>7.5cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -743,8 +741,14 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>3cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>7.5cm</Width>
+                              <ZIndex>6</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -754,10 +758,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatCUIL">
-                              <Top>0.45cm</Top>
-                              <Left>10.5cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -773,6 +773,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>10.5cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>3cm</Width>
+                              <ZIndex>7</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -781,22 +786,24 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatLugarPago">
-                              <Top>0.45cm</Top>
-                              <Left>13.5cm</Left>
-                              <Width>2.75cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value></Value>
+                                      <Value />
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>13.5cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>2.75cm</Width>
+                              <ZIndex>8</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -805,22 +812,24 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="DatFPago">
-                              <Top>0.45cm</Top>
-                              <Left>16.25cm</Left>
-                              <Width>2.75cm</Width>
-                              <Height>0.65cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value></Value>
+                                      <Value />
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.45cm</Top>
+                              <Left>16.25cm</Left>
+                              <Height>0.65cm</Height>
+                              <Width>2.75cm</Width>
+                              <ZIndex>9</ZIndex>
                               <Style>
                                 <Border>
                                   <Style>Solid</Style>
@@ -840,7 +849,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 4: COSTO TOTAL EMPLEADOR header ═══ -->
                 <TablixRow>
                   <Height>0.6cm</Height>
                   <TablixCells>
@@ -849,10 +857,6 @@
                         <Rectangle Name="RectCostoEmpleadorHdr">
                           <ReportItems>
                             <Textbox Name="TxtCostoEmpleadorLbl">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>14.5cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -869,20 +873,18 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.6cm</Height>
+                              <Width>14.5cm</Width>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtCostoEmpleadorVal">
-                              <Top>0cm</Top>
-                              <Left>14.5cm</Left>
-                              <Width>4.5cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -899,23 +901,27 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>14.5cm</Left>
+                              <Height>0.6cm</Height>
+                              <Width>4.5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 5: Encabezados columnas contribuciones ═══ -->
                 <TablixRow>
                   <Height>0.5cm</Height>
                   <TablixCells>
@@ -924,10 +930,6 @@
                         <Rectangle Name="RectContribColHdr">
                           <ReportItems>
                             <Textbox Name="HdrContribConcepto">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>9cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -939,23 +941,22 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.5cm</Height>
+                              <Width>9cm</Width>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingLeft>4pt</PaddingLeft>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingLeft>4pt</PaddingLeft>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrContribUnidad">
-                              <Top>0cm</Top>
-                              <Left>9cm</Left>
-                              <Width>2.5cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -972,21 +973,21 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>9cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>2.5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrContribBase">
-                              <Top>0cm</Top>
-                              <Left>11.5cm</Left>
-                              <Width>3.5cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1003,21 +1004,21 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>11.5cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>3.5cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrContribMonto">
-                              <Top>0cm</Top>
-                              <Left>15cm</Left>
-                              <Width>4cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1034,23 +1035,27 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>15cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>4cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 6: Líneas contribuciones patronales ═══ -->
                 <TablixRow>
                   <Height>0.45cm</Height>
                   <TablixCells>
@@ -1089,6 +1094,7 @@
                                                 </Style>
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
@@ -1130,12 +1136,15 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value></Value>
+                                                <Value>=IIF(Fields!LinBaseCalculo.Value &lt;&gt; 0, "$ " &amp; Format(Fields!LinBaseCalculo.Value, "N2"), "")</Value>
                                                 <Style>
                                                   <FontSize>8pt</FontSize>
                                                 </Style>
                                               </TextRun>
                                             </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
@@ -1174,6 +1183,14 @@
                               </TablixRow>
                             </TablixRows>
                           </TablixBody>
+                          <TablixColumnHierarchy>
+                            <TablixMembers>
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                            </TablixMembers>
+                          </TablixColumnHierarchy>
                           <TablixRowHierarchy>
                             <TablixMembers>
                               <TablixMember>
@@ -1186,7 +1203,7 @@
                                       <FilterExpression>=Fields!LinCodConcepto.Value</FilterExpression>
                                       <Operator>NotEqual</Operator>
                                       <FilterValues>
-                                        <FilterValue></FilterValue>
+                                        <FilterValue />
                                       </FilterValues>
                                     </Filter>
                                     <Filter>
@@ -1201,14 +1218,6 @@
                               </TablixMember>
                             </TablixMembers>
                           </TablixRowHierarchy>
-                          <TablixColumnHierarchy>
-                            <TablixMembers>
-                              <TablixMember />
-                              <TablixMember />
-                              <TablixMember />
-                              <TablixMember />
-                            </TablixMembers>
-                          </TablixColumnHierarchy>
                           <DataSetName>DataSet_Result</DataSetName>
                           <Style>
                             <BottomBorder>
@@ -1221,7 +1230,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 7: Sub total contribuciones + Sueldo Bruto ═══ -->
                 <TablixRow>
                   <Height>1.1cm</Height>
                   <TablixCells>
@@ -1230,10 +1238,6 @@
                         <Rectangle Name="RectSubTotales">
                           <ReportItems>
                             <Textbox Name="TxtSubContribLbl">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>15cm</Width>
-                              <Height>0.55cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1250,20 +1254,18 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.55cm</Height>
+                              <Width>15cm</Width>
                               <Style>
-                                <BackgroundColor>#E8E8E8</BackgroundColor>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e8e8e8</BackgroundColor>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtSubContribVal">
-                              <Top>0cm</Top>
-                              <Left>15cm</Left>
-                              <Width>4cm</Width>
-                              <Height>0.55cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1280,21 +1282,21 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>15cm</Left>
+                              <Height>0.55cm</Height>
+                              <Width>4cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>#E8E8E8</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e8e8e8</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtSueldoBrutoLbl">
-                              <Top>0.55cm</Top>
-                              <Left>0cm</Left>
-                              <Width>15cm</Width>
-                              <Height>0.55cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1311,20 +1313,20 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.55cm</Top>
+                              <Height>0.55cm</Height>
+                              <Width>15cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtSueldoBrutoVal">
-                              <Top>0.55cm</Top>
-                              <Left>15cm</Left>
-                              <Width>4cm</Width>
-                              <Height>0.55cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1341,23 +1343,28 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>0.55cm</Top>
+                              <Left>15cm</Left>
+                              <Height>0.55cm</Height>
+                              <Width>4cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>LightGray</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>LightGrey</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 8: Encabezados columnas conceptos ═══ -->
                 <TablixRow>
                   <Height>0.5cm</Height>
                   <TablixCells>
@@ -1366,10 +1373,6 @@
                         <Rectangle Name="RectConceptosColHdr">
                           <ReportItems>
                             <Textbox Name="HdrConcConcepto">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>9cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1381,23 +1384,22 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.5cm</Height>
+                              <Width>9cm</Width>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingLeft>4pt</PaddingLeft>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingLeft>4pt</PaddingLeft>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrConcUnidad">
-                              <Top>0cm</Top>
-                              <Left>9cm</Left>
-                              <Width>2.5cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1414,21 +1416,21 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>9cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>2.5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrConcBase">
-                              <Top>0cm</Top>
-                              <Left>11.5cm</Left>
-                              <Width>3.5cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1445,21 +1447,21 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>11.5cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>3.5cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="HdrConcMonto">
-                              <Top>0cm</Top>
-                              <Left>15cm</Left>
-                              <Width>4cm</Width>
-                              <Height>0.5cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1476,25 +1478,29 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>15cm</Left>
+                              <Height>0.5cm</Height>
+                              <Width>4cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>#E0E0E0</BackgroundColor>
-                                <PaddingRight>4pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#e0e0e0</BackgroundColor>
+                                <PaddingRight>4pt</PaddingRight>
+                                <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 9: Líneas haberes y descuentos ═══ -->
                 <TablixRow>
-                  <Height>0.45cm</Height>
+                  <Height>1cm</Height>
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
@@ -1532,10 +1538,11 @@
                                                 </Style>
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
-                                          <BackgroundColor>#E8E8E8</BackgroundColor>
+                                          <BackgroundColor>#e8e8e8</BackgroundColor>
                                           <PaddingLeft>4pt</PaddingLeft>
                                           <PaddingTop>2pt</PaddingTop>
                                         </Style>
@@ -1549,13 +1556,15 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value></Value>
+                                                <Value />
+                                                <Style />
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
-                                          <BackgroundColor>#E8E8E8</BackgroundColor>
+                                          <BackgroundColor>#e8e8e8</BackgroundColor>
                                         </Style>
                                       </Textbox>
                                     </CellContents>
@@ -1567,13 +1576,15 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value></Value>
+                                                <Value />
+                                                <Style />
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
-                                          <BackgroundColor>#E8E8E8</BackgroundColor>
+                                          <BackgroundColor>#e8e8e8</BackgroundColor>
                                         </Style>
                                       </Textbox>
                                     </CellContents>
@@ -1585,13 +1596,15 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value></Value>
+                                                <Value />
+                                                <Style />
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
-                                          <BackgroundColor>#E8E8E8</BackgroundColor>
+                                          <BackgroundColor>#e8e8e8</BackgroundColor>
                                         </Style>
                                       </Textbox>
                                     </CellContents>
@@ -1614,12 +1627,13 @@
                                                 </Style>
                                               </TextRun>
                                             </TextRuns>
+                                            <Style />
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
+                                          <Color>=IIF(Fields!LinEsDescuento.Value, "Maroon", "Black")</Color>
                                           <PaddingLeft>4pt</PaddingLeft>
                                           <PaddingTop>2pt</PaddingTop>
-                                          <Color>=IIF(Fields!LinEsDescuento.Value, "Maroon", "Black")</Color>
                                         </Style>
                                       </Textbox>
                                     </CellContents>
@@ -1656,12 +1670,15 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value></Value>
+                                                <Value>=IIF(Fields!LinBaseCalculo.Value &lt;&gt; 0, "$ " &amp; Format(Fields!LinBaseCalculo.Value, "N2"), "")</Value>
                                                 <Style>
                                                   <FontSize>8pt</FontSize>
                                                 </Style>
                                               </TextRun>
                                             </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
                                           </Paragraph>
                                         </Paragraphs>
                                         <Style>
@@ -1699,6 +1716,14 @@
                               </TablixRow>
                             </TablixRows>
                           </TablixBody>
+                          <TablixColumnHierarchy>
+                            <TablixMembers>
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                            </TablixMembers>
+                          </TablixColumnHierarchy>
                           <TablixRowHierarchy>
                             <TablixMembers>
                               <TablixMember>
@@ -1708,10 +1733,10 @@
                                   </GroupExpressions>
                                   <Filters>
                                     <Filter>
-                                      <FilterExpression>=IIF(Fields!LinEsHaber.Value OR Fields!LinEsDescuento.Value, 1, 0)</FilterExpression>
-                                      <Operator>Equal</Operator>
+                                      <FilterExpression>=Fields!LinGrupoOrden.Value</FilterExpression>
+                                      <Operator>GreaterThanOrEqual</Operator>
                                       <FilterValues>
-                                        <FilterValue>=1</FilterValue>
+                                        <FilterValue>=2</FilterValue>
                                       </FilterValues>
                                     </Filter>
                                   </Filters>
@@ -1735,7 +1760,7 @@
                                           <FilterExpression>=Fields!LinCodConcepto.Value</FilterExpression>
                                           <Operator>NotEqual</Operator>
                                           <FilterValues>
-                                            <FilterValue></FilterValue>
+                                            <FilterValue />
                                           </FilterValues>
                                         </Filter>
                                       </Filters>
@@ -1750,14 +1775,6 @@
                               </TablixMember>
                             </TablixMembers>
                           </TablixRowHierarchy>
-                          <TablixColumnHierarchy>
-                            <TablixMembers>
-                              <TablixMember />
-                              <TablixMember />
-                              <TablixMember />
-                              <TablixMember />
-                            </TablixMembers>
-                          </TablixColumnHierarchy>
                           <DataSetName>DataSet_Result</DataSetName>
                           <Style>
                             <BottomBorder>
@@ -1770,7 +1787,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 10: Composición salarial ═══ -->
                 <TablixRow>
                   <Height>0.6cm</Height>
                   <TablixCells>
@@ -1779,10 +1795,6 @@
                         <Rectangle Name="RectComposicion">
                           <ReportItems>
                             <Textbox Name="TxtCompLbl">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>4cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1799,20 +1811,18 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.6cm</Height>
+                              <Width>4cm</Width>
                               <Style>
-                                <BackgroundColor>#F0F0F0</BackgroundColor>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#f0f0f0</BackgroundColor>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtCompRem">
-                              <Top>0cm</Top>
-                              <Left>4cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1828,20 +1838,20 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>4cm</Left>
+                              <Height>0.6cm</Height>
+                              <Width>5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
-                                <BackgroundColor>#F0F0F0</BackgroundColor>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#f0f0f0</BackgroundColor>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtCompNoRem">
-                              <Top>0cm</Top>
-                              <Left>9cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1857,20 +1867,20 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>9cm</Left>
+                              <Height>0.6cm</Height>
+                              <Width>5cm</Width>
+                              <ZIndex>2</ZIndex>
                               <Style>
-                                <BackgroundColor>#F0F0F0</BackgroundColor>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#f0f0f0</BackgroundColor>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtCompDesc">
-                              <Top>0cm</Top>
-                              <Left>14cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.6cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1887,22 +1897,26 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>14cm</Left>
+                              <Height>0.6cm</Height>
+                              <Width>5cm</Width>
+                              <ZIndex>3</ZIndex>
                               <Style>
-                                <BackgroundColor>#F0F0F0</BackgroundColor>
-                                <PaddingTop>4pt</PaddingTop>
                                 <Border>
                                   <Style>Solid</Style>
                                   <Width>0.5pt</Width>
                                 </Border>
+                                <BackgroundColor>#f0f0f0</BackgroundColor>
+                                <PaddingTop>4pt</PaddingTop>
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 11: Sueldo Neto ═══ -->
                 <TablixRow>
                   <Height>0.8cm</Height>
                   <TablixCells>
@@ -1911,10 +1925,6 @@
                         <Rectangle Name="RectNetoV2">
                           <ReportItems>
                             <Textbox Name="TxtNetoLblV2">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>14cm</Width>
-                              <Height>0.8cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1927,8 +1937,11 @@
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
+                                  <Style />
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.8cm</Height>
+                              <Width>14cm</Width>
                               <Style>
                                 <BackgroundColor>DarkSlateBlue</BackgroundColor>
                                 <PaddingLeft>6pt</PaddingLeft>
@@ -1936,10 +1949,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtNetoValV2">
-                              <Top>0cm</Top>
-                              <Left>14cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.8cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -1957,6 +1966,10 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>14cm</Left>
+                              <Height>0.8cm</Height>
+                              <Width>5cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
                                 <BackgroundColor>DarkSlateBlue</BackgroundColor>
                                 <PaddingRight>6pt</PaddingRight>
@@ -1964,12 +1977,292 @@
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 12: Detalle composición + Gráfico ═══ -->
+                <TablixRow>
+                  <Height>3cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Tablix Name="TablixDetGananciasV2">
+                          <TablixBody>
+                            <TablixColumns>
+                              <TablixColumn>
+                                <Width>8cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>3cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>4cm</Width>
+                              </TablixColumn>
+                              <TablixColumn>
+                                <Width>4cm</Width>
+                              </TablixColumn>
+                            </TablixColumns>
+                            <TablixRows>
+                              <TablixRow>
+                                <Height>0.5cm</Height>
+                                <TablixCells>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanTituloV2">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>DETALLE IMPUESTO A LAS GANANCIAS</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <FontWeight>Bold</FontWeight>
+                                                  <TextDecoration>Underline</TextDecoration>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style />
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingTop>3pt</PaddingTop>
+                                          <PaddingLeft>4pt</PaddingLeft>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanHdrCant">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>Cant.</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <FontWeight>Bold</FontWeight>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingTop>3pt</PaddingTop>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanHdrUnit">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>Importe Anual</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <FontWeight>Bold</FontWeight>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingTop>3pt</PaddingTop>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanHdrTotal">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>Importe</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                  <FontWeight>Bold</FontWeight>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingTop>3pt</PaddingTop>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                </TablixCells>
+                              </TablixRow>
+                              <TablixRow>
+                                <Height>0.4cm</Height>
+                                <TablixCells>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanDesc">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=Fields!DetGanDescripcion.Value</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style />
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingLeft>4pt</PaddingLeft>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanCant">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=IIF(Fields!DetGanCantidad.Value &lt;&gt; 0, Format(Fields!DetGanCantidad.Value, "N4"), "")</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanUnit">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>=IIF(Fields!DetGanImpUnit.Value &lt;&gt; 0, "$ " &amp; Format(Fields!DetGanImpUnit.Value, "N2"), "")</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                  <TablixCell>
+                                    <CellContents>
+                                      <Textbox Name="TxtDetGanTotal">
+                                        <Paragraphs>
+                                          <Paragraph>
+                                            <TextRuns>
+                                              <TextRun>
+                                                <Value>="$ " &amp; Format(Fields!DetGanImpTotal.Value, "N2")</Value>
+                                                <Style>
+                                                  <FontSize>7pt</FontSize>
+                                                </Style>
+                                              </TextRun>
+                                            </TextRuns>
+                                            <Style>
+                                              <TextAlign>Right</TextAlign>
+                                            </Style>
+                                          </Paragraph>
+                                        </Paragraphs>
+                                        <Style>
+                                          <PaddingRight>4pt</PaddingRight>
+                                        </Style>
+                                      </Textbox>
+                                    </CellContents>
+                                  </TablixCell>
+                                </TablixCells>
+                              </TablixRow>
+                            </TablixRows>
+                          </TablixBody>
+                          <TablixColumnHierarchy>
+                            <TablixMembers>
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                              <TablixMember />
+                            </TablixMembers>
+                          </TablixColumnHierarchy>
+                          <TablixRowHierarchy>
+                            <TablixMembers>
+                              <TablixMember>
+                                <KeepWithGroup>After</KeepWithGroup>
+                              </TablixMember>
+                              <TablixMember>
+                                <Group Name="GrpDetGananciasV2">
+                                  <GroupExpressions>
+                                    <GroupExpression>=Fields!DetGanLineNo.Value</GroupExpression>
+                                  </GroupExpressions>
+                                  <Filters>
+                                    <Filter>
+                                      <FilterExpression>=Fields!DetGanDescripcion.Value</FilterExpression>
+                                      <Operator>NotEqual</Operator>
+                                      <FilterValues>
+                                        <FilterValue />
+                                      </FilterValues>
+                                    </Filter>
+                                  </Filters>
+                                </Group>
+                                <SortExpressions>
+                                  <SortExpression>
+                                    <Value>=Fields!DetGanOrden.Value</Value>
+                                  </SortExpression>
+                                </SortExpressions>
+                              </TablixMember>
+                            </TablixMembers>
+                          </TablixRowHierarchy>
+                          <DataSetName>DataSet_Result</DataSetName>
+                          <Style>
+                            <TopBorder>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                              <Color>LightGrey</Color>
+                            </TopBorder>
+                          </Style>
+                        </Tablix>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
                 <TablixRow>
                   <Height>5.5cm</Height>
                   <TablixCells>
@@ -1977,17 +2270,12 @@
                       <CellContents>
                         <Rectangle Name="RectDetalle">
                           <ReportItems>
-                            <!-- Título detalle -->
                             <Textbox Name="TxtDetalleTitulo">
-                              <Top>0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>10cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Detalle de la composición salarial</Value>
+                                      <Value>Detalle de la composición del costo laboral</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -2000,51 +2288,46 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Height>0.45cm</Height>
+                              <Width>10cm</Width>
                               <Style>
                                 <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
-                            <!-- Columna izquierda: fila 1 - Haberes Remunerativos -->
-                            <Textbox Name="TxtDet1Lbl">
+                            <!-- Col 1: Sindical -->
+                            <Textbox Name="TxtCostoSindLbl">
                               <Top>0.5cm</Top>
                               <Left>0cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.45cm</Height>
+                              <Width>3cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Total Haberes Remunerativos</Value>
+                                      <Value>="Total Costo Sindical:" &amp; Chr(10) &amp; "  Empleador" &amp; Chr(10) &amp; "  Trabajador"</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
                                 </Paragraph>
                               </Paragraphs>
                               <Style>
-                                <PaddingLeft>3pt</PaddingLeft>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
                               </Style>
                             </Textbox>
-                            <Textbox Name="TxtDet1Val">
+                            <Textbox Name="TxtCostoSindVal">
                               <Top>0.5cm</Top>
-                              <Left>5cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.45cm</Height>
+                              <Left>3cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>="$ " &amp; Format(Sum(Fields!LinImporteHaberRem.Value, "GrpLiquidacion"), "N2")</Value>
+                                      <Value>="$" &amp; Format(First(Fields!CostoSindEmpl.Value) + First(Fields!CostoSindTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoSindEmpl.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoSindTrab.Value), "N2")</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2055,54 +2338,42 @@
                               </Paragraphs>
                               <Style>
                                 <PaddingRight>3pt</PaddingRight>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
                               </Style>
                             </Textbox>
-                            <!-- Columna izquierda: fila 2 - Haberes No Remunerativos -->
-                            <Textbox Name="TxtDet2Lbl">
-                              <Top>1.0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.45cm</Height>
+                            <!-- Col 2: INSSJP -->
+                            <Textbox Name="TxtCostoINSSJPLbl">
+                              <Top>0.5cm</Top>
+                              <Left>5cm</Left>
+                              <Width>3cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Total Haberes No Remunerativos</Value>
+                                      <Value>="Total INSSJP:" &amp; Chr(10) &amp; "  Empleador" &amp; Chr(10) &amp; "  Trabajador"</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
                                 </Paragraph>
                               </Paragraphs>
                               <Style>
-                                <PaddingLeft>3pt</PaddingLeft>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
                               </Style>
                             </Textbox>
-                            <Textbox Name="TxtDet2Val">
-                              <Top>1.0cm</Top>
-                              <Left>5cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.45cm</Height>
+                            <Textbox Name="TxtCostoINSSJPVal">
+                              <Top>0.5cm</Top>
+                              <Left>8cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>="$ " &amp; Format(Sum(Fields!LinImporteHaberNoRem.Value, "GrpLiquidacion"), "N2")</Value>
+                                      <Value>="$" &amp; Format(First(Fields!CostoINSSJPEmpl.Value) + First(Fields!CostoINSSJPTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoINSSJPEmpl.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoINSSJPTrab.Value), "N2")</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2113,54 +2384,88 @@
                               </Paragraphs>
                               <Style>
                                 <PaddingRight>3pt</PaddingRight>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
                               </Style>
                             </Textbox>
-                            <!-- Columna izquierda: fila 3 - Descuentos Trabajador -->
-                            <Textbox Name="TxtDet3Lbl">
+                            <!-- Col 1: Seg. Social -->
+                            <Textbox Name="TxtCostoSSLbl">
                               <Top>1.5cm</Top>
                               <Left>0cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.45cm</Height>
+                              <Width>3cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Total Descuentos Trabajador</Value>
+                                      <Value>="Total Seg. Social:" &amp; Chr(10) &amp; "  Empleador" &amp; Chr(10) &amp; "  Trabajador"</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
                                 </Paragraph>
                               </Paragraphs>
                               <Style>
-                                <PaddingLeft>3pt</PaddingLeft>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
                               </Style>
                             </Textbox>
-                            <Textbox Name="TxtDet3Val">
+                            <Textbox Name="TxtCostoSSVal">
+                              <Top>1.5cm</Top>
+                              <Left>3cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>="$" &amp; Format(First(Fields!CostoSSEmpl.Value) + First(Fields!CostoSSTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoSSEmpl.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoSSTrab.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>6.5pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingRight>3pt</PaddingRight>
+                              </Style>
+                            </Textbox>
+                            <!-- Col 2: ART -->
+                            <Textbox Name="TxtCostoARTLbl">
                               <Top>1.5cm</Top>
                               <Left>5cm</Left>
                               <Width>3cm</Width>
-                              <Height>0.45cm</Height>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>="$ " &amp; Format(Sum(Fields!LinImporteDescuento.Value, "GrpLiquidacion"), "N2")</Value>
+                                      <Value>="Total Costo ART:" &amp; Chr(10) &amp; "  Empleador"</Value>
                                       <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingLeft>2pt</PaddingLeft>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtCostoARTVal">
+                              <Top>1.5cm</Top>
+                              <Left>8cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>="$" &amp; Format(First(Fields!CostoARTEmpl.Value) + First(Fields!CostoARTTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoARTEmpl.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2171,113 +2476,88 @@
                               </Paragraphs>
                               <Style>
                                 <PaddingRight>3pt</PaddingRight>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
                               </Style>
                             </Textbox>
-                            <!-- Columna izquierda: fila 4 - Contribuciones Patronales -->
-                            <Textbox Name="TxtDet4Lbl">
-                              <Top>2.0cm</Top>
-                              <Left>0cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.45cm</Height>
-                              <Paragraphs>
-                                <Paragraph>
-                                  <TextRuns>
-                                    <TextRun>
-                                      <Value>Total Contribuciones Patronales</Value>
-                                      <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
-                                      </Style>
-                                    </TextRun>
-                                  </TextRuns>
-                                </Paragraph>
-                              </Paragraphs>
-                              <Style>
-                                <PaddingLeft>3pt</PaddingLeft>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
-                              </Style>
-                            </Textbox>
-                            <Textbox Name="TxtDet4Val">
-                              <Top>2.0cm</Top>
-                              <Left>5cm</Left>
-                              <Width>3cm</Width>
-                              <Height>0.45cm</Height>
-                              <Paragraphs>
-                                <Paragraph>
-                                  <TextRuns>
-                                    <TextRun>
-                                      <Value>="$ " &amp; Format(Sum(Fields!LinImporteContrib.Value, "GrpLiquidacion"), "N2")</Value>
-                                      <Style>
-                                        <FontSize>7pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
-                                      </Style>
-                                    </TextRun>
-                                  </TextRuns>
-                                  <Style>
-                                    <TextAlign>Right</TextAlign>
-                                  </Style>
-                                </Paragraph>
-                              </Paragraphs>
-                              <Style>
-                                <PaddingRight>3pt</PaddingRight>
-                                <BottomBorder>
-                                  <Style>Solid</Style>
-                                  <Width>0.3pt</Width>
-                                  <Color>LightGray</Color>
-                                </BottomBorder>
-                              </Style>
-                            </Textbox>
-                            <!-- Columna izquierda: fila 5 - Neto a Pagar -->
-                            <Textbox Name="TxtDet5Lbl">
+                            <!-- Col 1: Obra Social -->
+                            <Textbox Name="TxtCostoOSLbl">
                               <Top>2.5cm</Top>
                               <Left>0cm</Left>
-                              <Width>5cm</Width>
-                              <Height>0.5cm</Height>
+                              <Width>3cm</Width>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>SUELDO NETO A PAGAR</Value>
+                                      <Value>="Total Obra Social:" &amp; Chr(10) &amp; "  Empleador" &amp; Chr(10) &amp; "  Trabajador"</Value>
                                       <Style>
-                                        <FontSize>8pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
                                 </Paragraph>
                               </Paragraphs>
                               <Style>
-                                <PaddingLeft>3pt</PaddingLeft>
-                                <PaddingTop>3pt</PaddingTop>
-                                <BackgroundColor>#E0E8F0</BackgroundColor>
-                                <Border>
-                                  <Style>Solid</Style>
-                                  <Width>0.5pt</Width>
-                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
                               </Style>
                             </Textbox>
-                            <Textbox Name="TxtDet5Val">
+                            <Textbox Name="TxtCostoOSVal">
+                              <Top>2.5cm</Top>
+                              <Left>3cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>="$" &amp; Format(First(Fields!CostoOSEmpl.Value) + First(Fields!CostoOSTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoOSEmpl.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoOSTrab.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>6.5pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Right</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingRight>3pt</PaddingRight>
+                              </Style>
+                            </Textbox>
+                            <!-- Col 2: SCVO -->
+                            <Textbox Name="TxtCostoSCVOLbl">
                               <Top>2.5cm</Top>
                               <Left>5cm</Left>
                               <Width>3cm</Width>
-                              <Height>0.5cm</Height>
+                              <Height>0.9cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>="$ " &amp; Format(Sum(Fields!LinImporteHaber.Value, "GrpLiquidacion") - Sum(Fields!LinImporteDescuento.Value, "GrpLiquidacion"), "N2")</Value>
+                                      <Value>="Total Costo SCVO:" &amp; Chr(10) &amp; "  Empleador"</Value>
                                       <Style>
-                                        <FontSize>8pt</FontSize>
-                                        <FontWeight>Bold</FontWeight>
+                                        <FontSize>6.5pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                </Paragraph>
+                              </Paragraphs>
+                              <Style>
+                                <PaddingLeft>2pt</PaddingLeft>
+                              </Style>
+                            </Textbox>
+                            <Textbox Name="TxtCostoSCVOVal">
+                              <Top>2.5cm</Top>
+                              <Left>8cm</Left>
+                              <Width>2cm</Width>
+                              <Height>0.9cm</Height>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>="$" &amp; Format(First(Fields!CostoSCVOEmpl.Value) + First(Fields!CostoSCVOTrab.Value), "N2") &amp; Chr(10) &amp; "$" &amp; Format(First(Fields!CostoSCVOEmpl.Value), "N2")</Value>
+                                      <Style>
+                                        <FontSize>6.5pt</FontSize>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2288,25 +2568,14 @@
                               </Paragraphs>
                               <Style>
                                 <PaddingRight>3pt</PaddingRight>
-                                <PaddingTop>3pt</PaddingTop>
-                                <BackgroundColor>#E0E8F0</BackgroundColor>
-                                <Border>
-                                  <Style>Solid</Style>
-                                  <Width>0.5pt</Width>
-                                </Border>
                               </Style>
                             </Textbox>
-                            <!-- Título gráfico -->
                             <Textbox Name="TxtGraficoTitulo">
-                              <Top>0cm</Top>
-                              <Left>10cm</Left>
-                              <Width>9cm</Width>
-                              <Height>0.45cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Costo total empleador</Value>
+                                      <Value>Distribución de costos</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -2318,46 +2587,25 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Left>10cm</Left>
+                              <Height>0.45cm</Height>
+                              <Width>9cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
                                 <PaddingTop>3pt</PaddingTop>
                               </Style>
                             </Textbox>
-                            <!-- Gráfico de torta -->
                             <Chart Name="ChartCostoEmpleador">
-                              <Style>
-                                <Border>
-                                  <Style>None</Style>
-                                </Border>
-                              </Style>
-                              <Top>0.5cm</Top>
-                              <Left>10cm</Left>
-                              <Width>9cm</Width>
-                              <Height>5cm</Height>
-                              <DataSetName>DataSet_Result</DataSetName>
-                              <ChartSeriesHierarchy>
-                                <ChartMembers>
-                                  <ChartMember>
-                                    <Label>Importe</Label>
-                                  </ChartMember>
-                                </ChartMembers>
-                              </ChartSeriesHierarchy>
                               <ChartCategoryHierarchy>
                                 <ChartMembers>
                                   <ChartMember>
                                     <Group Name="GrpPieCategoria">
                                       <GroupExpressions>
-                                        <GroupExpression>=IIF(Fields!LinEsHaber.Value AND Fields!LinTipoConcepto.Value = 0, "Hab. Remunerativo", IIF(Fields!LinEsHaber.Value AND Fields!LinTipoConcepto.Value = 1, "Hab. No Remunerativo", IIF(Fields!LinEsDescuento.Value, "Descuentos Trabajador", IIF(Fields!LinEsContrib.Value, "Contrib. Patronales", ""))))</GroupExpression>
+                                        <GroupExpression>=IIF(Fields!LinEsPrimeraLinea.Value, "Sueldo Neto", IIF(Fields!LinGrupoCostoNum.Value = 1, "Sindical", IIF(Fields!LinGrupoCostoNum.Value = 2, "Seguridad Social", IIF(Fields!LinGrupoCostoNum.Value = 3, "Obra Social", IIF(Fields!LinGrupoCostoNum.Value = 4, "INSSJP", IIF(Fields!LinGrupoCostoNum.Value = 5, "ART", IIF(Fields!LinGrupoCostoNum.Value = 6, "SCVO", "")))))))</GroupExpression>
                                       </GroupExpressions>
                                       <Filters>
                                         <Filter>
-                                          <FilterExpression>=Fields!LinCodConcepto.Value</FilterExpression>
-                                          <Operator>NotEqual</Operator>
-                                          <FilterValues>
-                                            <FilterValue></FilterValue>
-                                          </FilterValues>
-                                        </Filter>
-                                        <Filter>
-                                          <FilterExpression>=IIF(Fields!LinEsHaber.Value OR Fields!LinEsDescuento.Value OR Fields!LinEsContrib.Value, 1, 0)</FilterExpression>
+                                          <FilterExpression>=IIF(Fields!LinGrupoCostoNum.Value &gt; 0 OR Fields!LinEsPrimeraLinea.Value, 1, 0)</FilterExpression>
                                           <Operator>Equal</Operator>
                                           <FilterValues>
                                             <FilterValue>=1</FilterValue>
@@ -2365,31 +2613,57 @@
                                         </Filter>
                                       </Filters>
                                     </Group>
-                                    <Label>=IIF(Fields!LinEsHaber.Value AND Fields!LinTipoConcepto.Value = 0, "Hab. Remunerativo", IIF(Fields!LinEsHaber.Value AND Fields!LinTipoConcepto.Value = 1, "Hab. No Remunerativo", IIF(Fields!LinEsDescuento.Value, "Descuentos Trabajador", IIF(Fields!LinEsContrib.Value, "Contrib. Patronales", ""))))</Label>
+                                    <Label>=IIF(Fields!LinEsPrimeraLinea.Value, "Sueldo Neto", IIF(Fields!LinGrupoCostoNum.Value = 1, "Sindical", IIF(Fields!LinGrupoCostoNum.Value = 2, "Seguridad Social", IIF(Fields!LinGrupoCostoNum.Value = 3, "Obra Social", IIF(Fields!LinGrupoCostoNum.Value = 4, "INSSJP", IIF(Fields!LinGrupoCostoNum.Value = 5, "ART", IIF(Fields!LinGrupoCostoNum.Value = 6, "SCVO", "")))))))</Label>
                                   </ChartMember>
                                 </ChartMembers>
                               </ChartCategoryHierarchy>
+                              <ChartSeriesHierarchy>
+                                <ChartMembers>
+                                  <ChartMember>
+                                    <Label>Lin Neto Grafico</Label>
+                                  </ChartMember>
+                                </ChartMembers>
+                              </ChartSeriesHierarchy>
                               <ChartData>
                                 <ChartSeriesCollection>
                                   <ChartSeries Name="Series1">
                                     <ChartDataPoints>
                                       <ChartDataPoint>
                                         <ChartDataPointValues>
-                                          <Y>=Sum(Fields!LinImporte.Value)</Y>
+                                          <Y>=Sum(IIF(Fields!LinEsPrimeraLinea.Value, Fields!LinNetoGrafico.Value, IIF(Fields!LinGrupoCostoNum.Value &gt; 0, Fields!LinImporteCostoEmpleador.Value + Fields!LinImporteCostoTrabajador.Value, 0)))</Y>
                                         </ChartDataPointValues>
                                         <ChartDataLabel>
-                                          <Label>=Format(Sum(Fields!LinImporte.Value) / Sum(Fields!LinImporte.Value, "GrpLiquidacion") * 100, "0") &amp; "%"</Label>
                                           <Style>
                                             <FontSize>7pt</FontSize>
                                             <FontWeight>Bold</FontWeight>
                                           </Style>
+                                          <Label>#PERCENT{P0}</Label>
+                                          <Visible>true</Visible>
+                                          <Position>Auto</Position>
                                         </ChartDataLabel>
+                                        <Style />
+                                        <ChartMarker>
+                                          <Style />
+                                        </ChartMarker>
                                       </ChartDataPoint>
                                     </ChartDataPoints>
                                     <Type>Shape</Type>
-                                    <Subtype>Pie</Subtype>
+                                    <Style />
+                                    <ChartEmptyPoints>
+                                      <Style />
+                                      <ChartMarker>
+                                        <Style />
+                                      </ChartMarker>
+                                      <ChartDataLabel>
+                                        <Style />
+                                      </ChartDataLabel>
+                                    </ChartEmptyPoints>
                                     <LegendName>Legend</LegendName>
                                     <ChartAreaName>Default</ChartAreaName>
+                                    <ChartSmartLabel>
+                                      <CalloutLineColor>Black</CalloutLineColor>
+                                      <MinMovingDistance>0pt</MinMovingDistance>
+                                    </ChartSmartLabel>
                                   </ChartSeries>
                                 </ChartSeriesCollection>
                               </ChartData>
@@ -2400,10 +2674,70 @@
                                       <Style>
                                         <FontSize>7pt</FontSize>
                                       </Style>
+                                      <ChartAxisTitle>
+                                        <Caption />
+                                        <Style>
+                                          <FontSize>8pt</FontSize>
+                                        </Style>
+                                      </ChartAxisTitle>
+                                      <Minimum>NaN</Minimum>
+                                      <Maximum>NaN</Maximum>
+                                      <ChartAxisScaleBreak>
+                                        <Style />
+                                      </ChartAxisScaleBreak>
+                                    </ChartAxis>
+                                    <ChartAxis Name="Secondary">
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                      <ChartAxisTitle>
+                                        <Caption />
+                                        <Style>
+                                          <FontSize>8pt</FontSize>
+                                        </Style>
+                                      </ChartAxisTitle>
+                                      <CrossAt>NaN</CrossAt>
+                                      <Location>Opposite</Location>
+                                      <Minimum>NaN</Minimum>
+                                      <Maximum>NaN</Maximum>
+                                      <ChartAxisScaleBreak>
+                                        <Style />
+                                      </ChartAxisScaleBreak>
                                     </ChartAxis>
                                   </ChartCategoryAxes>
                                   <ChartValueAxes>
-                                    <ChartAxis Name="Value"></ChartAxis>
+                                    <ChartAxis Name="Value">
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                      <ChartAxisTitle>
+                                        <Caption />
+                                        <Style>
+                                          <FontSize>8pt</FontSize>
+                                        </Style>
+                                      </ChartAxisTitle>
+                                      <ChartAxisScaleBreak>
+                                        <Style />
+                                      </ChartAxisScaleBreak>
+                                    </ChartAxis>
+                                    <ChartAxis Name="Secondary">
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                      <ChartAxisTitle>
+                                        <Caption />
+                                        <Style>
+                                          <FontSize>8pt</FontSize>
+                                        </Style>
+                                      </ChartAxisTitle>
+                                      <CrossAt>NaN</CrossAt>
+                                      <Location>Opposite</Location>
+                                      <Minimum>NaN</Minimum>
+                                      <Maximum>NaN</Maximum>
+                                      <ChartAxisScaleBreak>
+                                        <Style />
+                                      </ChartAxisScaleBreak>
+                                    </ChartAxis>
                                   </ChartValueAxes>
                                   <Style>
                                     <Border>
@@ -2414,19 +2748,54 @@
                               </ChartAreas>
                               <ChartLegends>
                                 <ChartLegend Name="Legend">
-                                  <Position>BottomCenter</Position>
                                   <Style>
                                     <FontSize>7pt</FontSize>
                                   </Style>
+                                  <Position>BottomCenter</Position>
+                                  <ChartLegendTitle>
+                                    <Caption />
+                                    <Style>
+                                      <FontSize>8pt</FontSize>
+                                      <FontWeight>Bold</FontWeight>
+                                      <TextAlign>Center</TextAlign>
+                                    </Style>
+                                  </ChartLegendTitle>
                                 </ChartLegend>
                               </ChartLegends>
+                              <ChartBorderSkin>
+                                <Style>
+                                  <BackgroundColor>Gray</BackgroundColor>
+                                  <BackgroundGradientType>None</BackgroundGradientType>
+                                  <Color>White</Color>
+                                </Style>
+                              </ChartBorderSkin>
+                              <ChartNoDataMessage Name="NoDataMessage">
+                                <Caption>No Data Available</Caption>
+                                <Style>
+                                  <BackgroundGradientType>None</BackgroundGradientType>
+                                  <FontWeight>Bold</FontWeight>
+                                  <TextAlign>General</TextAlign>
+                                  <VerticalAlign>Top</VerticalAlign>
+                                </Style>
+                              </ChartNoDataMessage>
+                              <DataSetName>DataSet_Result</DataSetName>
+                              <Top>0.5cm</Top>
+                              <Left>10cm</Left>
+                              <Height>5cm</Height>
+                              <Width>9cm</Width>
+                              <ZIndex>2</ZIndex>
+                              <Style>
+                                <Border>
+                                  <Style>None</Style>
+                                </Border>
+                              </Style>
                             </Chart>
                           </ReportItems>
                           <Style>
                             <TopBorder>
+                              <Color>LightGrey</Color>
                               <Style>Solid</Style>
                               <Width>0.5pt</Width>
-                              <Color>LightGray</Color>
                             </TopBorder>
                           </Style>
                         </Rectangle>
@@ -2434,7 +2803,6 @@
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 13: Nota legal ═══ -->
                 <TablixRow>
                   <Height>0.45cm</Height>
                   <TablixCells>
@@ -2448,29 +2816,29 @@
                                 <TextRun>
                                   <Value>Nota: La seguridad social del empleador incluye SIPA, Fondo Nacional de Empleo y Asignaciones Familiares</Value>
                                   <Style>
+                                    <FontStyle>Italic</FontStyle>
                                     <FontSize>6pt</FontSize>
                                     <Color>Gray</Color>
-                                    <FontStyle>Italic</FontStyle>
                                   </Style>
                                 </TextRun>
                               </TextRuns>
+                              <Style />
                             </Paragraph>
                           </Paragraphs>
                           <Style>
-                            <PaddingLeft>3pt</PaddingLeft>
-                            <PaddingTop>2pt</PaddingTop>
                             <TopBorder>
+                              <Color>LightGrey</Color>
                               <Style>Solid</Style>
                               <Width>0.3pt</Width>
-                              <Color>LightGray</Color>
                             </TopBorder>
+                            <PaddingLeft>3pt</PaddingLeft>
+                            <PaddingTop>2pt</PaddingTop>
                           </Style>
                         </Textbox>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
                 </TablixRow>
-                <!-- ═══ ROW 14: Firmas ═══ -->
                 <TablixRow>
                   <Height>1.5cm</Height>
                   <TablixCells>
@@ -2479,10 +2847,6 @@
                         <Rectangle Name="RectFirmasV2">
                           <ReportItems>
                             <Textbox Name="TxtFirmaEmpV2">
-                              <Left>1cm</Left>
-                              <Top>1cm</Top>
-                              <Width>6cm</Width>
-                              <Height>0.4cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -2499,6 +2863,10 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>1cm</Top>
+                              <Left>1cm</Left>
+                              <Height>0.4cm</Height>
+                              <Width>6cm</Width>
                               <Style>
                                 <TopBorder>
                                   <Style>Solid</Style>
@@ -2507,10 +2875,6 @@
                               </Style>
                             </Textbox>
                             <Textbox Name="TxtFirmaEmprV2">
-                              <Left>12cm</Left>
-                              <Top>1cm</Top>
-                              <Width>6cm</Width>
-                              <Height>0.4cm</Height>
                               <Paragraphs>
                                 <Paragraph>
                                   <TextRuns>
@@ -2527,6 +2891,11 @@
                                   </Style>
                                 </Paragraph>
                               </Paragraphs>
+                              <Top>1cm</Top>
+                              <Left>12cm</Left>
+                              <Height>0.4cm</Height>
+                              <Width>6cm</Width>
+                              <ZIndex>1</ZIndex>
                               <Style>
                                 <TopBorder>
                                   <Style>Solid</Style>
@@ -2535,6 +2904,7 @@
                               </Style>
                             </Textbox>
                           </ReportItems>
+                          <Style />
                         </Rectangle>
                       </CellContents>
                     </TablixCell>
@@ -2542,6 +2912,11 @@
                 </TablixRow>
               </TablixRows>
             </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
             <TablixRowHierarchy>
               <TablixMembers>
                 <TablixMember>
@@ -2550,7 +2925,6 @@
                       <GroupExpression>=Fields!LiqNo.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
-                  <KeepTogether>true</KeepTogether>
                   <TablixMembers>
                     <TablixMember />
                     <TablixMember />
@@ -2566,22 +2940,19 @@
                     <TablixMember />
                     <TablixMember />
                     <TablixMember />
+                    <TablixMember />
                   </TablixMembers>
+                  <KeepTogether>true</KeepTogether>
                 </TablixMember>
               </TablixMembers>
             </TablixRowHierarchy>
-            <TablixColumnHierarchy>
-              <TablixMembers>
-                <TablixMember />
-              </TablixMembers>
-            </TablixColumnHierarchy>
             <DataSetName>DataSet_Result</DataSetName>
-            <Top>0cm</Top>
-            <Left>0cm</Left>
+            <Height>16.4cm</Height>
             <Width>19cm</Width>
+            <Style />
           </Tablix>
         </ReportItems>
-        <Height>2cm</Height>
+        <Height>16.4cm</Height>
         <Style />
       </Body>
       <Width>19cm</Width>
@@ -2600,6 +2971,7 @@
   <Language>es-AR</Language>
   <ConsumeContainerWhitespace>true</ConsumeContainerWhitespace>
   <rd:ReportUnitType>Cm</rd:ReportUnitType>
+  <rd:ReportID>2dcc74c4-c2dc-49db-95cd-5e3411792f18</rd:ReportID>
   <DataSets>
     <DataSet Name="DataSet_Result">
       <Fields>
@@ -2699,6 +3071,78 @@
         <Field Name="EmpAntiguedad">
           <DataField>EmpAntiguedad</DataField>
         </Field>
+        <Field Name="CostoSindEmpl">
+          <DataField>CostoSindEmpl</DataField>
+        </Field>
+        <Field Name="CostoSindEmplFormat">
+          <DataField>CostoSindEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSindTrab">
+          <DataField>CostoSindTrab</DataField>
+        </Field>
+        <Field Name="CostoSindTrabFormat">
+          <DataField>CostoSindTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoSSEmpl">
+          <DataField>CostoSSEmpl</DataField>
+        </Field>
+        <Field Name="CostoSSEmplFormat">
+          <DataField>CostoSSEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSSTrab">
+          <DataField>CostoSSTrab</DataField>
+        </Field>
+        <Field Name="CostoSSTrabFormat">
+          <DataField>CostoSSTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoOSEmpl">
+          <DataField>CostoOSEmpl</DataField>
+        </Field>
+        <Field Name="CostoOSEmplFormat">
+          <DataField>CostoOSEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoOSTrab">
+          <DataField>CostoOSTrab</DataField>
+        </Field>
+        <Field Name="CostoOSTrabFormat">
+          <DataField>CostoOSTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoINSSJPEmpl">
+          <DataField>CostoINSSJPEmpl</DataField>
+        </Field>
+        <Field Name="CostoINSSJPEmplFormat">
+          <DataField>CostoINSSJPEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoINSSJPTrab">
+          <DataField>CostoINSSJPTrab</DataField>
+        </Field>
+        <Field Name="CostoINSSJPTrabFormat">
+          <DataField>CostoINSSJPTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoARTEmpl">
+          <DataField>CostoARTEmpl</DataField>
+        </Field>
+        <Field Name="CostoARTEmplFormat">
+          <DataField>CostoARTEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoARTTrab">
+          <DataField>CostoARTTrab</DataField>
+        </Field>
+        <Field Name="CostoARTTrabFormat">
+          <DataField>CostoARTTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoSCVOEmpl">
+          <DataField>CostoSCVOEmpl</DataField>
+        </Field>
+        <Field Name="CostoSCVOEmplFormat">
+          <DataField>CostoSCVOEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSCVOTrab">
+          <DataField>CostoSCVOTrab</DataField>
+        </Field>
+        <Field Name="CostoSCVOTrabFormat">
+          <DataField>CostoSCVOTrabFormat</DataField>
+        </Field>
         <Field Name="ResNombreVar">
           <DataField>ResNombreVar</DataField>
         </Field>
@@ -2734,6 +3178,9 @@
         </Field>
         <Field Name="DetGanCantidad">
           <DataField>DetGanCantidad</DataField>
+        </Field>
+        <Field Name="DetGanCantidadFormat">
+          <DataField>DetGanCantidadFormat</DataField>
         </Field>
         <Field Name="DetGanImpUnit">
           <DataField>DetGanImpUnit</DataField>
@@ -2804,6 +3251,12 @@
         <Field Name="LinUnidadCantidad">
           <DataField>LinUnidadCantidad</DataField>
         </Field>
+        <Field Name="LinBaseCalculo">
+          <DataField>LinBaseCalculo</DataField>
+        </Field>
+        <Field Name="LinBaseCalculoFormat">
+          <DataField>LinBaseCalculoFormat</DataField>
+        </Field>
         <Field Name="LinImporteHaberRem">
           <DataField>LinImporteHaberRem</DataField>
         </Field>
@@ -2821,6 +3274,33 @@
         </Field>
         <Field Name="LinGrupoOrden">
           <DataField>LinGrupoOrden</DataField>
+        </Field>
+        <Field Name="LinGrupoCosto">
+          <DataField>LinGrupoCosto</DataField>
+        </Field>
+        <Field Name="LinGrupoCostoNum">
+          <DataField>LinGrupoCostoNum</DataField>
+        </Field>
+        <Field Name="LinImporteCostoEmpleador">
+          <DataField>LinImporteCostoEmpleador</DataField>
+        </Field>
+        <Field Name="LinImporteCostoEmpleadorFormat">
+          <DataField>LinImporteCostoEmpleadorFormat</DataField>
+        </Field>
+        <Field Name="LinImporteCostoTrabajador">
+          <DataField>LinImporteCostoTrabajador</DataField>
+        </Field>
+        <Field Name="LinImporteCostoTrabajadorFormat">
+          <DataField>LinImporteCostoTrabajadorFormat</DataField>
+        </Field>
+        <Field Name="LinEsPrimeraLinea">
+          <DataField>LinEsPrimeraLinea</DataField>
+        </Field>
+        <Field Name="LinNetoGrafico">
+          <DataField>LinNetoGrafico</DataField>
+        </Field>
+        <Field Name="LinNetoGraficoFormat">
+          <DataField>LinNetoGraficoFormat</DataField>
         </Field>
       </Fields>
       <Query>

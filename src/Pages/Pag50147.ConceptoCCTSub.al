@@ -15,6 +15,11 @@ page 50147 "Concepto CCT Sub"
             {
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
                 field("Cód. Convenio"; Rec."Cód. Convenio") { ApplicationArea = All; }
+                field("Cód. Categoría"; Rec."Cód. Categoría")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Opcional. Vacío = aplica a todas las categorías de este convenio. Cargada = restringe el concepto solo a esa categoría.';
+                }
             }
         }
     }
@@ -51,4 +56,21 @@ page 50147 "Concepto CCT Sub"
             }
         }
     }
+
+    // Al alta, se propone la vigencia del lote CCT más reciente del concepto — que es el que el
+    // motor consulta realmente — para que agregar un convenio faltante caiga en ese lote y no en
+    // uno viejo que ya no tiene efecto. Si el concepto no tiene ninguna restricción todavía, se
+    // usa la fecha de trabajo.
+    trigger OnNewRecord(BelowxRec: Boolean)
+    var
+        Existentes: Record "Concepto CCT Vigente";
+    begin
+        if Rec."Vigencia Desde" <> 0D then
+            exit;
+        Existentes.SetRange("Cód. Concepto", Rec."Cód. Concepto");
+        if Existentes.FindLast() then
+            Rec."Vigencia Desde" := Existentes."Vigencia Desde"
+        else
+            Rec."Vigencia Desde" := WorkDate();
+    end;
 }

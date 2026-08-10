@@ -27,6 +27,16 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                     ApplicationArea = All;
                     ToolTip = 'Años de antigüedad reconocida como base. El sistema suma los años completos desde el último alta laboral.';
                 }
+                field("Fecha Jubilación"; Rec."Fecha Jubilación")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Fecha desde la cual el empleado es jubilado. Vacío = no es jubilado.';
+                }
+                field("Zona Desfavorable"; Rec."Zona Desfavorable")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Código de zona desfavorable del empleado. Se usa como valor por defecto si el proyecto no tiene zona asignada.';
+                }
             }
         }
         addafter(General)
@@ -58,32 +68,6 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                 Caption = 'Liquidación';
                 Image = PaymentHistory;
 
-                action(EstablecerEstado)
-                {
-                    ApplicationArea = All;
-                    Caption = 'Establecer Estado...';
-                    Image = NewRow;
-                    Promoted = true;
-                    PromotedCategory = Process;
-                    ToolTip = 'Establece un nuevo estado laboral para el empleado, cerrando el estado actual automáticamente.';
-
-                    trigger OnAction()
-                    var
-                        NuevoEstadoPag: Page "Nuevo Estado Empleado";
-                        EstadoMgt: Codeunit "Gestión Estado Empleado";
-                        CodEstado: Code[20];
-                        FechaInicio: Date;
-                        Obs: Text[250];
-                        NombreEmp: Text[100];
-                    begin
-                        NombreEmp := Rec."First Name" + ' ' + Rec."Last Name";
-                        NuevoEstadoPag.SetEmpleado(Rec."No.", NombreEmp);
-                        if NuevoEstadoPag.RunModal() = Action::OK then begin
-                            NuevoEstadoPag.GetResultado(CodEstado, FechaInicio, Obs);
-                            EstadoMgt.SetEstado(Rec."No.", CodEstado, FechaInicio);
-                        end;
-                    end;
-                }
                 action(VerEstados)
                 {
                     ApplicationArea = All;
@@ -107,6 +91,34 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                     Image = Employee;
                     RunObject = Page "Personal Proyecto";
                     RunPageLink = "No. Empleado" = FIELD("No.");
+                }
+                action(VerPrestamos)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Préstamos y Anticipos';
+                    Image = Payment;
+                    RunObject = Page "Lista Préstamos Empleado";
+                    RunPageLink = "No. Empleado" = FIELD("No.");
+                    ToolTip = 'Ver y gestionar los préstamos y anticipos del empleado.';
+                }
+                action(NuevoPrestamo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Nuevo Préstamo / Anticipo';
+                    Image = NewDocument;
+                    ToolTip = 'Registrar un nuevo préstamo o anticipo para este empleado.';
+                    trigger OnAction()
+                    var
+                        Prestamo: Record "Préstamo Empleado";
+                        FichaPrestamo: Page "Ficha Préstamo Empleado";
+                    begin
+                        Clear(Prestamo);
+                        Prestamo."No. Empleado" := Rec."No.";
+                        Prestamo.Validate("No. Empleado");
+                        Prestamo.Fecha := Today();
+                        FichaPrestamo.SetRecord(Prestamo);
+                        FichaPrestamo.RunModal();
+                    end;
                 }
             }
         }

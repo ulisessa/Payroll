@@ -81,10 +81,10 @@ table 60014 "Tabla Escalonada Det."
 
     local procedure ValidarLimites()
     begin
-        if ("Límite Superior" <> 0) and ("Límite Superior" <= "Límite Inferior") then
+        if ("Límite Superior" <> 0) and ("Límite Superior" < "Límite Inferior") then
             Error(ErrLimites);
     end;
 
     var
-        ErrLimites: Label 'El límite superior debe ser mayor al límite inferior (o cero para indicar sin límite).';
+        ErrLimites: Label 'El límite superior debe ser mayor o igual al límite inferior (o cero para indicar sin límite).';
 }

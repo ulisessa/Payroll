@@ -126,10 +126,11 @@ table 60012 "Línea Liquidación"
             TableRelation = Job."No.";
             Editable = false;
         }
-        field(19; "Tipo Liquidación"; Enum "Tipo Liq.")
+        field(30; "Cód. Tipo Liq."; Code[20])
         {
             Caption = 'Tipo Liquidación';
             DataClassification = CustomerContent;
+            TableRelation = "Tipo Liquidación".Código;
             Editable = false;
         }
         field(20; "Cód. Convenio"; Code[20])
@@ -164,6 +165,24 @@ table 60012 "Línea Liquidación"
             Editable = false;
             InitValue = true;
         }
+        field(25; "Grupo Costo Laboral"; Enum "Grupo Costo Laboral Liq.")
+        {
+            Caption = 'Grupo Costo Laboral';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
+        field(27; "Base Cálculo"; Decimal)
+        {
+            Caption = 'Base Cálculo';
+            DataClassification = CustomerContent;
+            DecimalPlaces = 2 : 2;
+        }
+        field(26; "Es Devengo"; Boolean)
+        {
+            Caption = 'Is Accrual';
+            DataClassification = CustomerContent;
+            Editable = false;
+        }
     }
 
     keys
@@ -173,7 +192,13 @@ table 60012 "Línea Liquidación"
             Clustered = true;
             SumIndexFields = Importe;
         }
-        key(K2; "No. Liquidación", "Tipo Concepto")
+        // "Es Devengo" va en el MEDIO a propósito: los dos únicos consumidores de esta SIFT
+        // (UpdateTotals y CalcNetoDesdeBD en Cod50014) filtran siempre por los tres campos.
+        // Con "Es Devengo" fuera de la clave, ese filtro impedía usar el índice acumulado y
+        // ambos degradaban a suma con escaneo — CalcNetoDesdeBD, además, dentro del loop de
+        // convergencia de Grossing Up. Si agregás un CalcSums que filtre No. Liquidación +
+        // Tipo Concepto SIN "Es Devengo", no va a poder usar esta SIFT.
+        key(K2; "No. Liquidación", "Es Devengo", "Tipo Concepto")
         {
             SumIndexFields = Importe;
         }

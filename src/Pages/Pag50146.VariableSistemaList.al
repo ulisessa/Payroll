@@ -37,11 +37,15 @@ page 50146 "Variable Sistema Liq."
                 }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field(Activo; Rec.Activo) { ApplicationArea = All; }
-                field("Mostrar en Recibo"; Rec."Mostrar en Recibo") { ApplicationArea = All; }
+                field("Mostrar en Recibo"; Rec."Mostrar en Recibo")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Imprime el valor en el recibo de sueldo (PDF). La ficha de Liquidación (Acumuladores Anuales) muestra automáticamente cualquier variable con valor distinto de cero, sin necesidad de marcar este campo.';
+                }
                 field("Etiqueta Recibo"; Rec."Etiqueta Recibo")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Etiqueta que aparece en el recibo de sueldo. Si se deja vacío se usa la Descripción.';
+                    ToolTip = 'Etiqueta que aparece en el recibo de sueldo y en la ficha de Liquidación. Si se deja vacío se usa la Descripción.';
                 }
                 field("Etiqueta Det. Ganancias"; Rec."Etiqueta Det. Ganancias")
                 {

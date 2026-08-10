@@ -9,6 +9,7 @@ page 50100 "Lista Liquidaciones"
     SourceTable = "Liquidación";
     UsageCategory = Lists;
     Editable = false;
+    PromotedActionCategories = 'Nuevo,Proceso,Informe,Liquidar';
 
     layout
     {
@@ -32,7 +33,11 @@ page 50100 "Lista Liquidaciones"
                 {
                     ApplicationArea = All;
                 }
-                field("Tipo Liquidación"; Rec."Tipo Liquidación")
+                field("Cód. Tipo Liq."; Rec."Cód. Tipo Liq.")
+                {
+                    ApplicationArea = All;
+                }
+                field(Job; Rec."No. Proyecto")
                 {
                     ApplicationArea = All;
                 }
@@ -75,38 +80,23 @@ page 50100 "Lista Liquidaciones"
     {
         area(Processing)
         {
-            action(Calcular)
+            action(CalcularSeleccion)
             {
                 ApplicationArea = All;
                 Caption = 'Calcular';
                 Image = Calculate;
                 Promoted = true;
-                PromotedCategory = Process;
+                PromotedCategory = Category4;
                 PromotedIsBig = true;
-                Enabled = CanCalcular;
-
-                trigger OnAction()
-                var
-                    Motor: Codeunit "Motor Liquidación";
-                begin
-                    Motor.LiquidarRecord(Rec);
-                    CurrPage.Update(false);
-                end;
-            }
-            action(CalcularSeleccion)
-            {
-                ApplicationArea = All;
-                Caption = 'Calcular Selección';
-                Image = CalculateLines;
-                Promoted = true;
-                PromotedCategory = Process;
                 ToolTip = 'Calcula todas las liquidaciones marcadas en la lista que estén en estado Borrador o Calculada.';
 
                 trigger OnAction()
                 var
                     LiqSel: Record "Liquidación";
                     Motor: Codeunit "Motor Liquidación";
+                    Registro: Codeunit "Registro Procesos Liq.";
                     Calculadas: Integer;
+                    Fallidas: Integer;
                 begin
                     CurrPage.SetSelectionFilter(LiqSel);
                     LiqSel.SetFilter(Estado, '%1|%2|%3', LiqSel.Estado::Borrador, LiqSel.Estado::Calculada, LiqSel.Estado::Aprobada);
@@ -114,12 +104,27 @@ page 50100 "Lista Liquidaciones"
                         Message(MsgSinSeleccion);
                         exit;
                     end;
+                    // Una corrida = una sesión: los registros quedan agrupados y se pueden mirar
+                    // todos juntos desde cualquiera de ellos.
+                    Registro.IniciarSesion();
                     repeat
-                        Motor.LiquidarRecord(LiqSel);
-                        Calculadas += 1;
+                        if Motor.LiquidarConRegistro(LiqSel) then
+                            Calculadas += 1
+                        else
+                            Fallidas += 1;
                     until LiqSel.Next() = 0;
-                    Message(MsgCalculadas, Calculadas);
+                    Registro.CerrarSesion();
                     CurrPage.Update(false);
+
+                    // Una liquidación que falla ya no aborta el lote: queda anotada y el proceso
+                    // sigue. Antes, un error en la número 50 se llevaba puestas las 49 anteriores.
+                    if Fallidas > 0 then
+                        Message(MsgCalculadasConFallas, Calculadas, Fallidas)
+                    else
+                        if Motor.GetAdvertencias() <> '' then
+                            Message(MsgCalculadasConAdvertencias, Calculadas, Motor.GetAdvertencias())
+                        else
+                            Message(MsgCalculadas, Calculadas);
                 end;
             }
             action(Aprobar)
@@ -143,13 +148,62 @@ page 50100 "Lista Liquidaciones"
                 ApplicationArea = All;
                 Caption = 'Reabrir';
                 Image = ReOpen;
+                Promoted = true;
+                PromotedCategory = Category4;
+                PromotedIsBig = true;
+                ToolTip = 'Reabre las liquidaciones marcadas que estén en estado Calculada, devolviéndolas a Borrador.';
 
                 trigger OnAction()
                 var
+                    LiqSel: Record "Liquidación";
                     Gestion: Codeunit "Gestión Liquidación";
+                    Reabiertas: Integer;
                 begin
-                    Gestion.Reabrir(Rec);
+                    CurrPage.SetSelectionFilter(LiqSel);
+                    LiqSel.SetRange(Estado, LiqSel.Estado::Calculada);
+                    if not LiqSel.FindSet(true) then begin
+                        Message(MsgSinSeleccionReabrir);
+                        exit;
+                    end;
+                    repeat
+                        Gestion.Reabrir(LiqSel);
+                        Reabiertas += 1;
+                    until LiqSel.Next() = 0;
+                    Message(MsgReabiertas, Reabiertas);
                     CurrPage.Update(false);
+                end;
+            }
+            action(EliminarSeleccion)
+            {
+                ApplicationArea = All;
+                Caption = 'Eliminar Selección';
+                Image = Delete;
+                Promoted = true;
+                PromotedCategory = Process;
+                ToolTip = 'Elimina las liquidaciones seleccionadas que estén en estado Borrador.';
+
+                trigger OnAction()
+                var
+                    LiqSel: Record "Liquidación";
+                    Eliminadas: Integer;
+                    Omitidas: Integer;
+                begin
+                    CurrPage.SetSelectionFilter(LiqSel);
+                    if not LiqSel.FindSet() then exit;
+
+                    if not Confirm(QstEliminarSeleccion) then
+                        exit;
+
+                    repeat
+                        if LiqSel.Estado = LiqSel.Estado::Borrador then begin
+                            LiqSel.Delete(true);
+                            Eliminadas += 1;
+                        end else
+                            Omitidas += 1;
+                    until LiqSel.Next() = 0;
+
+                    CurrPage.Update(false);
+                    Message(MsgEliminadasSel, Eliminadas, Omitidas);
                 end;
             }
             action(RevertirAprobacion)
@@ -220,7 +274,6 @@ page 50100 "Lista Liquidaciones"
 
     trigger OnAfterGetRecord()
     begin
-        CanCalcular := Rec.Estado = Rec.Estado::Borrador;
         SetEstadoStyle();
     end;
 
@@ -240,7 +293,12 @@ page 50100 "Lista Liquidaciones"
 
     var
         EstadoStyle: Text;
-        CanCalcular: Boolean;
         MsgSinSeleccion: Label 'No hay liquidaciones en estado Borrador o Calculada en la selección.';
         MsgCalculadas: Label '%1 liquidación(es) calculada(s).';
+        MsgCalculadasConFallas: Label '%1 liquidación(es) calculada(s), %2 con error.\\Las que fallaron quedaron sin calcular; el motivo de cada una está en Registros de Proceso.';
+        MsgCalculadasConAdvertencias: Label '%1 liquidación(es) calculada(s).\\Atención — parámetros posiblemente desactualizados:\%2';
+        QstEliminarSeleccion: Label '¿Eliminar las liquidaciones seleccionadas en estado Borrador? Las que no estén en Borrador se omitirán.';
+        MsgEliminadasSel: Label '%1 liquidación(es) eliminada(s). %2 omitida(s) por no estar en Borrador.';
+        MsgSinSeleccionReabrir: Label 'No hay liquidaciones en estado Calculada en la selección.';
+        MsgReabiertas: Label '%1 liquidación(es) reabierta(s).';
 }

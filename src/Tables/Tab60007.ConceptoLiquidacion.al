@@ -39,6 +39,11 @@ table 60007 "Concepto Liquidación"
             Caption = 'Tipo Concepto';
             DataClassification = CustomerContent;
         }
+        field(9; "Grupo Costo Laboral"; Enum "Grupo Costo Laboral Liq.")
+        {
+            Caption = 'Grupo Costo Laboral';
+            DataClassification = CustomerContent;
+        }
         field(6; Fórmula; Text[2048])
         {
             Caption = 'Fórmula';
@@ -65,7 +70,7 @@ table 60007 "Concepto Liquidación"
                 if not Eval.TryEvalFormula(Rec.Fórmula, Dummy) then begin
                     ErrTxt := GetLastErrorText();
                     if ErrTxt.Contains('Variable desconocida') then
-                        Error(ErrVariableDesconocida, ErrTxt);
+                        Message(ErrVariableDesconocida, ErrTxt);
                 end;
             end;
         }
@@ -95,7 +100,7 @@ table 60007 "Concepto Liquidación"
                 if not Eval.TryEvalCondicion(Rec.Condición, Dummy) then begin
                     ErrTxt := GetLastErrorText();
                     if ErrTxt.Contains('Variable desconocida') then
-                        Error(ErrVariableDesconocida, ErrTxt);
+                        Message(ErrVariableDesconocida, ErrTxt);
                 end;
             end;
         }
@@ -124,11 +129,15 @@ table 60007 "Concepto Liquidación"
         }
         field(14; "Aplica Tipo Liq."; Enum "Aplica Tipo Liq. Concepto")
         {
+            Caption = 'Aplica a Tipo Liq. (obsoleto)';
+            DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por "Tipos Liq. Aplicables" que permite selección múltiple.';
+        }
+        field(22; "Tipos Liq. Aplicables"; Text[250])
+        {
             Caption = 'Aplica a Tipo Liq.';
             DataClassification = CustomerContent;
-            // Todos (blank) = applies to all liquidation types.
-            // Devengados    = monthly fixed pay during an ongoing voyage (no production).
-            // Cierre Marea  = full settlement at voyage end (navigation days + production).
         }
         field(15; "Vigencia CCT Más Reciente"; Date)
         {
@@ -145,7 +154,7 @@ table 60007 "Concepto Liquidación"
             Caption = 'Variable Cantidad';
             DataClassification = CustomerContent;
             // Name of the context variable that represents the quantity for this concept
-            // (e.g. DIAS_VAC, TONELADAS, DIAS_MAREA). Printed alongside the amount on the payslip.
+            // (e.g. DIAS_VAC, TONELADAS, PROD_KN_L1). Printed alongside the amount on the payslip.
             // Leave blank when no quantity applies.
         }
         field(17; "Unidad Cantidad"; Code[10])
@@ -153,6 +162,11 @@ table 60007 "Concepto Liquidación"
             Caption = 'Unidad Cantidad';
             DataClassification = CustomerContent;
             TableRelation = "Unit of Measure".Code;
+        }
+        field(21; "Variable Base"; Code[30])
+        {
+            Caption = 'Variable Base';
+            DataClassification = CustomerContent;
         }
         field(18; "Etiqueta Det. Ganancias"; Text[100])
         {
@@ -167,6 +181,19 @@ table 60007 "Concepto Liquidación"
             Caption = 'Imprime en Recibo';
             DataClassification = CustomerContent;
             InitValue = true;
+        }
+        field(20; "Es Devengo"; Boolean)
+        {
+            Caption = 'Es Devengo';
+            DataClassification = CustomerContent;
+        }
+        field(23; "Rol Franco"; Enum "Rol Franco Liq.")
+        {
+            Caption = 'Rol Franco';
+            DataClassification = CustomerContent;
+            // Devengo: this concept accrues franco days (use with Es Devengo = true).
+            // Consumo: this concept pays enjoyed francos (importe = PAGO_FRANCOS_FIFO, valued per lot category).
+            // The franco engine identifies ledger lines in Línea Liquidación by this role.
         }
     }
 
@@ -184,10 +211,61 @@ table 60007 "Concepto Liquidación"
         }
     }
 
+    fieldgroups
+    {
+        fieldgroup(DropDown; Código, Descripción, "Tipo Concepto") { }
+        fieldgroup(Brick; Código, Descripción) { }
+    }
+
+    // El historial de fórmulas se lleva desde los triggers de la tabla y no desde la ficha, para que
+    // cubra TODOS los caminos de edición: la ficha, el editor con IntelliSense, el asistente de
+    // fórmulas, "Copiar como...", la nueva vigencia y cualquier carga de configuración.
+    trigger OnInsert()
+    var
+        HistorialMgt: Codeunit "Historial Fórmulas Liq.";
+    begin
+        HistorialMgt.RegistrarAlta(Rec);
+    end;
+
+    trigger OnModify()
+    var
+        HistorialMgt: Codeunit "Historial Fórmulas Liq.";
+    begin
+        HistorialMgt.RegistrarModificacion(Rec, xRec);
+    end;
+
+    trigger OnDelete()
+    var
+        HistorialMgt: Codeunit "Historial Fórmulas Liq.";
+    begin
+        // Antes de borrar es la última oportunidad de conservar el texto que se va con la vigencia.
+        HistorialMgt.RegistrarBaja(Rec);
+    end;
+
+    procedure CopiarEn(NuevoCodigo: Code[20])
+    var
+        NuevoConc: Record "Concepto Liquidación";
+        FracOrig: Record "Fracción Acumulador";
+        FracNueva: Record "Fracción Acumulador";
+    begin
+        NuevoConc := Rec;
+        NuevoConc.Código := NuevoCodigo;
+        NuevoConc.Insert(true);
+
+        FracOrig.SetRange("Cód. Concepto", Código);
+        FracOrig.SetRange("Vigencia Desde", "Vigencia Desde");
+        if FracOrig.FindSet() then
+            repeat
+                FracNueva := FracOrig;
+                FracNueva."Cód. Concepto" := NuevoCodigo;
+                FracNueva.Insert(true);
+            until FracOrig.Next() = 0;
+    end;
+
     var
         ErrSintaxisFormula: Label 'La fórmula contiene un error de sintaxis: %1';
         ErrSintaxisCondicion: Label 'La condición contiene un error de sintaxis: %1';
-        ErrVariableDesconocida: Label 'La fórmula referencia variables que no existen en el sistema: %1';
+        ErrVariableDesconocida: Label 'La fórmula hace referencia a variables que no existen en el sistema: %1';
 
     // Builds a context dictionary with all currently configured variable names set to 1.
     // Used in pass-2 formula validation to detect unknown variable references at save time.
@@ -228,6 +306,15 @@ table 60007 "Concepto Liquidación"
                 if not Ctx.ContainsKey(Acum.Código) then
                     Ctx.Add(Acum.Código, 1);
             until Acum.Next() = 0;
+
+        if not Ctx.ContainsKey('COD_ZONA') then Ctx.Add('COD_ZONA', 1);
+        if not Ctx.ContainsKey('ES_JUBILADO') then Ctx.Add('ES_JUBILADO', 1);
+
+        // Grossing-up variables injected at runtime by MotorLiquidación.InjectGUVariables
+        if not Ctx.ContainsKey('ES_GROSSING_UP') then Ctx.Add('ES_GROSSING_UP', 1);
+        if not Ctx.ContainsKey('NETO_GARANTIZADO') then Ctx.Add('NETO_GARANTIZADO', 1);
+        if not Ctx.ContainsKey('NETO_GARANTIZADO_ESFCY') then Ctx.Add('NETO_GARANTIZADO_ESFCY', 1);
+        if not Ctx.ContainsKey('COMPLEMENTO_GU') then Ctx.Add('COMPLEMENTO_GU', 1);
     end;
 
     // Strips newlines and collapses extra spaces so the evaluator (single-line only) can parse the text.

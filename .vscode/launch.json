@@ -26,8 +26,7 @@
             "tenant": "default",
             "breakOnNext": "WebClient",
             "breakOnError": "All",
-            "breakOnRecordWrite": "All",
-            "sessionId": 782,
+            "sessionId": 4,
             "enableLongRunningSqlStatements": true,
             "enableSqlInformationDebugger": true
         },
@@ -48,7 +47,7 @@
             "name": "Lanzar página de OCR (mimir2 — distinto servidor)",
             "request": "launch",
             "type": "al",
-            "server": "http://mimir2.arbumasa.com/BC252",
+            "server": "https://mimir2.arbumasa.com/BC252",
             "serverInstance": "BC252",
             "authentication": "Windows",
             "port": 7049,
@@ -62,7 +61,7 @@
             "serverInstance": "BC252",
             "authentication": "Windows",
             "port": 7049,
-            "sessionId": 782,
+            "sessionId": 1271,
             "breakOnNext": "WebClient",
             "executionContext": "DebugAndProfile"
         }

@@ -19,11 +19,15 @@ page 50141 "Fuente Datos Card"
                 field("Nombre Variable"; Rec."Nombre Variable") { ApplicationArea = All; }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field(Activo; Rec.Activo) { ApplicationArea = All; }
-                field("Mostrar en Recibo"; Rec."Mostrar en Recibo") { ApplicationArea = All; }
+                field("Mostrar en Recibo"; Rec."Mostrar en Recibo")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Imprime el valor en el recibo de sueldo (PDF). La ficha de Liquidación (Acumuladores Anuales) muestra automáticamente cualquier variable con valor distinto de cero, sin necesidad de marcar este campo.';
+                }
                 field("Etiqueta Recibo"; Rec."Etiqueta Recibo")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Etiqueta que aparece en el recibo de sueldo. Si se deja vacío se usa la Descripción.';
+                    ToolTip = 'Etiqueta que aparece en el recibo de sueldo y en la ficha de Liquidación. Si se deja vacío se usa la Descripción.';
                 }
             }
             group(GrpOrigen)
@@ -42,6 +46,8 @@ page 50141 "Fuente Datos Card"
                         Rec."No. Campo Fecha Inicio" := 0;
                         Rec."No. Campo Fecha Fin" := 0;
                         RefreshNames();
+                        CurrPage.Filtros.Page.SetIdTabla(Rec."Id. Tabla");
+                        CurrPage.Filtros.Page.Update(false);
                     end;
 
                     trigger OnLookup(var Text: Text): Boolean
@@ -51,13 +57,7 @@ page 50141 "Fuente Datos Card"
                         AllObj.SetRange("Object Type", AllObj."Object Type"::Table);
                         AllObj.SetFilter("Object ID", '>0');
                         if Page.RunModal(Page::"Tabla Liq. Lookup", AllObj) = Action::LookupOK then begin
-                            Rec."Id. Tabla" := AllObj."Object ID";
-                            Rec."No. Campo Valor" := 0;
-                            Rec."No. Filtro 1" := 0;
-                            Rec."No. Filtro 2" := 0;
-                            Rec."No. Filtro 3" := 0;
-                            Rec."No. Campo Fecha Inicio" := 0;
-                            Rec."No. Campo Fecha Fin" := 0;
+                            Rec.Validate("Id. Tabla", AllObj."Object ID");
                             NombreTabla := AllObj."Object Caption";
                             Text := Format(AllObj."Object ID");
                             exit(true);
@@ -164,90 +164,46 @@ page 50141 "Fuente Datos Card"
                     Caption = 'Nombre Campo Fecha Fin';
                     Editable = false;
                 }
+                field("Fin Efectivo"; Rec."Fin Efectivo")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Para tablas effective-dated (ej. Estado Empleado, sin campo Fecha Fin): el fin de cada intervalo se deriva como el inicio del registro siguiente de la misma entidad − 1. La entidad se define por los filtros con token ({EMP_NO}, {JOB_NO}…); los filtros constantes (ej. Cód. Estado) se ignoran para el fin. Reemplaza al "Campo Fecha Fin".';
+                }
             }
-            group(GrpFiltros)
+            part(Filtros; "Filtro Fuente Datos Liq. Sub")
             {
-                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {FECHA_REF}, {LIQ_NO})';
-                group(GrpF1)
-                {
-                    ShowCaption = false;
-                    field("No. Filtro 1"; Rec."No. Filtro 1")
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Campo Filtro 1';
-                        trigger OnValidate()
-                        begin
-                            NombreFiltro1 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 1");
-                        end;
+                ApplicationArea = All;
+                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA})';
+                SubPageLink = "Nombre Variable" = FIELD("Nombre Variable");
+            }
+        }
+    }
 
-                        trigger OnLookup(var Text: Text): Boolean
-                        begin
-                            exit(LookupFiltro(Rec."No. Filtro 1", NombreFiltro1, Text));
-                        end;
-                    }
-                    field(NombreFiltro1; NombreFiltro1)
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Nombre Campo 1';
-                        Editable = false;
-                    }
-                    field("Filtro Valor 1"; Rec."Filtro Valor 1")
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Valor / Filtro 1';
-                        ToolTip = 'Expresión de filtro BC. Admite rangos (..), OR (|), comodines (*). Tokens: {EMP_NO} {JOB_NO} {PERIODO} {FECHA_REF}.';
-                    }
-                }
-                group(GrpF2)
-                {
-                    ShowCaption = false;
-                    field("No. Filtro 2"; Rec."No. Filtro 2")
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Campo Filtro 2';
-                        trigger OnValidate()
-                        begin
-                            NombreFiltro2 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 2");
-                        end;
+    actions
+    {
+        area(Processing)
+        {
+            action(Copiar)
+            {
+                ApplicationArea = All;
+                Caption = 'Copiar como...';
+                Image = Copy;
+                Promoted = true;
+                PromotedCategory = Process;
+                ToolTip = 'Crea una copia de esta fuente de datos con un nuevo nombre de variable.';
 
-                        trigger OnLookup(var Text: Text): Boolean
-                        begin
-                            exit(LookupFiltro(Rec."No. Filtro 2", NombreFiltro2, Text));
-                        end;
-                    }
-                    field(NombreFiltro2; NombreFiltro2)
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Nombre Campo 2';
-                        Editable = false;
-                    }
-                    field("Filtro Valor 2"; Rec."Filtro Valor 2") { ApplicationArea = All; Caption = 'Valor / Filtro 2'; }
-                }
-                group(GrpF3)
-                {
-                    ShowCaption = false;
-                    field("No. Filtro 3"; Rec."No. Filtro 3")
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Campo Filtro 3';
-                        trigger OnValidate()
-                        begin
-                            NombreFiltro3 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 3");
-                        end;
-
-                        trigger OnLookup(var Text: Text): Boolean
-                        begin
-                            exit(LookupFiltro(Rec."No. Filtro 3", NombreFiltro3, Text));
-                        end;
-                    }
-                    field(NombreFiltro3; NombreFiltro3)
-                    {
-                        ApplicationArea = All;
-                        Caption = 'Nombre Campo 3';
-                        Editable = false;
-                    }
-                    field("Filtro Valor 3"; Rec."Filtro Valor 3") { ApplicationArea = All; Caption = 'Valor / Filtro 3'; }
-                }
+                trigger OnAction()
+                var
+                    Dlg: Page "Nuevo Codigo Dialog";
+                    NuevoNombre: Code[30];
+                begin
+                    Dlg.SetCodigo(CopyStr(Rec."Nombre Variable" + '_2', 1, 30));
+                    if Dlg.RunModal() <> Action::OK then exit;
+                    NuevoNombre := CopyStr(Dlg.GetCodigo(), 1, 30);
+                    if NuevoNombre = '' then exit;
+                    Rec.CopiarEn(NuevoNombre);
+                    Message(MsgCopiada, NuevoNombre);
+                end;
             }
         }
     }
@@ -256,25 +212,21 @@ page 50141 "Fuente Datos Card"
     begin
         IsFuncFechas := EsFuncFechas();
         RefreshNames();
+        CurrPage.Filtros.Page.SetIdTabla(Rec."Id. Tabla");
     end;
 
     var
         NombreTabla: Text[250];
         NombreCampoValor: Text[100];
-        NombreFiltro1: Text[100];
-        NombreFiltro2: Text[100];
-        NombreFiltro3: Text[100];
         NombreFechaInicio: Text[100];
         NombreFechaFin: Text[100];
         IsFuncFechas: Boolean;
+        MsgCopiada: Label 'Fuente de datos copiada como ''%1''.';
 
     local procedure RefreshNames()
     begin
         NombreTabla := GetTableName(Rec."Id. Tabla");
         NombreCampoValor := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Valor");
-        NombreFiltro1 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 1");
-        NombreFiltro2 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 2");
-        NombreFiltro3 := GetFieldName(Rec."Id. Tabla", Rec."No. Filtro 3");
         NombreFechaInicio := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Fecha Inicio");
         NombreFechaFin := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Fecha Fin");
     end;

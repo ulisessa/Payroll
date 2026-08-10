@@ -1,0 +1,316 @@
+/* Editor de fórmulas de liquidación — control add-in.
+   Regla de oro de este archivo: .uas-hl y .uas-ta tienen que compartir EXACTAMENTE las mismas
+   métricas de texto (familia, tamaño, interlineado, padding, quiebre de línea). Cualquier diferencia
+   corre el resaltado respecto de las letras que el usuario ve tipear. Si tocás una, tocá la otra. */
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+}
+
+.uas-root {
+    --mono: Consolas, "Cascadia Mono", "SF Mono", Menlo, monospace;
+    --fondo: #ffffff;
+    --fondo-alt: #f6f6f6;
+    --borde: #c7c6c4;
+    --borde-foco: #0f6cbd;
+    --texto: #1b1a19;
+    --tenue: #605e5c;
+    --rojo: #c4314b;
+    --ambar: #a86800;
+    --verde: #0f7b0f;
+
+    --tk-funcion: #7719aa;
+    --tk-operador: #0f6cbd;
+    --tk-numero: #0a7c42;
+    --tk-cadena: #a4262c;
+    --tk-concepto: #b1560f;
+    --tk-parametro: #107c10;
+    --tk-sistema: #8a6d00;
+    --tk-fuente-datos: #006d78;
+    --tk-acumulador: #2b579a;
+
+    position: relative;
+    box-sizing: border-box;
+    padding: 4px 6px 0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--texto);
+}
+
+/* La paleta oscura se activa por clase, NO por (prefers-color-scheme: dark).
+   El add-in corre en un iframe: esa media query responde a la preferencia del sistema operativo, que
+   no tiene por qué coincidir con el tema que está usando Business Central. Con Windows en oscuro y BC
+   en claro, el control quedaba negro dentro de una página blanca. Quién pone la clase: detectarTema()
+   en editorFormula.js, mirando el color real que hay detrás del control. */
+.uas-root.uas-oscuro {
+    --fondo: #1f1f1f;
+    --fondo-alt: #2b2b2b;
+    --borde: #4a4a4a;
+    --borde-foco: #479ef5;
+    --texto: #e6e6e6;
+    --tenue: #a6a6a6;
+    --rojo: #ff8f9a;
+    --ambar: #e5b64b;
+    --verde: #6ccb70;
+
+    --tk-funcion: #d59cf0;
+    --tk-operador: #6cb8f6;
+    --tk-numero: #7bd88f;
+    --tk-cadena: #f09aa0;
+    --tk-concepto: #f0a868;
+    --tk-parametro: #86d986;
+    --tk-sistema: #e0c169;
+    --tk-fuente-datos: #6fd2dc;
+    --tk-acumulador: #8fb8f0;
+}
+
+/* La sombra del popup también se invierte: una sombra negra sobre fondo oscuro no despega nada. */
+.uas-root.uas-oscuro .uas-popup {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+.uas-root.uas-oscuro .uas-ta::selection {
+    background: rgba(71, 158, 245, 0.38);
+}
+
+.uas-root * {
+    box-sizing: border-box;
+}
+
+/* ── Campo ─────────────────────────────────────────────────────────────── */
+
+.uas-campo {
+    margin-bottom: 6px;
+}
+
+.uas-label {
+    font-size: 11px;
+    color: var(--tenue);
+    margin-bottom: 2px;
+}
+
+.uas-editor {
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--fondo);
+    border: 1px solid var(--borde);
+    border-radius: 2px;
+}
+
+.uas-editor-foco {
+    border-color: var(--borde-foco);
+    box-shadow: 0 0 0 1px var(--borde-foco) inset;
+}
+
+.uas-lienzo {
+    position: relative;
+    min-height: 100%;
+}
+
+.uas-hl,
+.uas-ta {
+    margin: 0;
+    padding: 5px 7px;
+    border: 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    tab-size: 4;
+    letter-spacing: normal;
+}
+
+.uas-hl {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    min-height: 100%;
+    color: var(--texto);
+    pointer-events: none;
+}
+
+.uas-ta {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--texto);
+    resize: none;
+    outline: none;
+    /* El alto lo fija el script según el contenido; quien scrollea es .uas-editor. */
+    overflow: hidden;
+}
+
+.uas-ta::selection {
+    background: rgba(15, 108, 189, 0.32);
+}
+
+.uas-marca {
+    display: inline;
+}
+
+/* ── Tokens ────────────────────────────────────────────────────────────── */
+
+.uas-tk-funcion { color: var(--tk-funcion); font-weight: 600; }
+.uas-tk-operador { color: var(--tk-operador); font-weight: 600; }
+.uas-tk-numero { color: var(--tk-numero); }
+.uas-tk-cadena { color: var(--tk-cadena); }
+.uas-tk-concepto { color: var(--tk-concepto); font-weight: 600; }
+.uas-tk-par { color: var(--tenue); }
+.uas-tk-coma { color: var(--tenue); }
+.uas-tk-op { color: var(--tk-operador); }
+
+.uas-tk-var-parametro { color: var(--tk-parametro); }
+.uas-tk-var-sistema { color: var(--tk-sistema); }
+.uas-tk-var-fuente-datos { color: var(--tk-fuente-datos); }
+.uas-tk-var-acumulador { color: var(--tk-acumulador); }
+.uas-tk-var-variable,
+.uas-tk-var-otro { color: var(--texto); }
+
+.uas-tk-error {
+    color: var(--rojo);
+    text-decoration: underline wavy var(--rojo);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+}
+
+.uas-tk-aviso {
+    color: var(--ambar);
+    text-decoration: underline wavy var(--ambar);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
+}
+
+/* ── Barra inferior: firma + info del token, y diagnóstico del servidor ─── */
+
+.uas-barra {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-height: 17px;
+    padding: 2px 2px 0;
+    font-size: 11px;
+}
+
+.uas-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--tenue);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uas-info b { color: var(--texto); }
+.uas-info u { color: var(--tk-operador); text-decoration: none; font-weight: 700; }
+.uas-valor { color: var(--verde); font-family: var(--mono); }
+.uas-alerta { color: var(--rojo); }
+.uas-sep { padding: 0 6px; opacity: 0.4; }
+
+.uas-diag {
+    flex: 0 0 auto;
+    max-width: 55%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--mono);
+}
+
+.uas-diag-ok { color: var(--verde); font-weight: 600; }
+.uas-diag-error { color: var(--rojo); }
+.uas-diag-neutro { color: var(--tenue); }
+
+/* ── Popup de autocompletado ───────────────────────────────────────────── */
+
+.uas-popup {
+    position: absolute;
+    z-index: 50;
+    min-width: 320px;
+    max-width: 92%;
+    overflow-y: auto;
+    background: var(--fondo);
+    border: 1px solid var(--borde);
+    border-radius: 3px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
+}
+
+.uas-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.uas-item-sel {
+    background: var(--fondo-alt);
+    box-shadow: inset 2px 0 0 var(--borde-foco);
+}
+
+.uas-item-tipo {
+    flex: 0 0 auto;
+    width: 92px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--tenue);
+}
+
+.uas-tipo-funcion { color: var(--tk-funcion); }
+.uas-tipo-operador { color: var(--tk-operador); }
+.uas-tipo-parametro { color: var(--tk-parametro); }
+.uas-tipo-sistema { color: var(--tk-sistema); }
+.uas-tipo-fuente-datos { color: var(--tk-fuente-datos); }
+.uas-tipo-acumulador { color: var(--tk-acumulador); }
+.uas-tipo-concepto-reevalua,
+.uas-tipo-concepto-ya-calculado { color: var(--tk-concepto); }
+
+.uas-item-nom {
+    flex: 0 0 auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.uas-item-val {
+    flex: 0 0 auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--verde);
+}
+
+.uas-item-desc {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--tenue);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uas-item-mas {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--tenue);
+}
+
+.uas-pista {
+    padding: 1px 2px 4px;
+    font-size: 10px;
+    color: var(--tenue);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

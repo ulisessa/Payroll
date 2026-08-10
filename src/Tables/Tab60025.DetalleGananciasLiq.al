@@ -42,11 +42,14 @@ table 60025 "Detalle Ganancias Liq."
             Caption = 'Descripción';
             DataClassification = CustomerContent;
         }
-        field(6; Cantidad; Integer)
+        field(6; Cantidad; Decimal)
         {
             Caption = 'Cantidad';
             DataClassification = CustomerContent;
-            // For Familiar: number of active relatives of this type.
+            DecimalPlaces = 0 : 4;
+            // For Familiar: prorated coefficient = (months_active/12) × (custody_pct/100).
+            //   Full year, 100% custody  → 1.0
+            //   Added in June (7/12), shared 50% → 0.2917
             // For Gasto: 0 (not applicable).
         }
         field(7; "Importe Unit. Anual"; Decimal)

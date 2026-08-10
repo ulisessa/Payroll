@@ -25,7 +25,7 @@ page 50117 "Ficha Liquidación"
                     ApplicationArea = All;
                     Editable = IsEditable;
                 }
-                field("Tipo Liquidación"; Rec."Tipo Liquidación")
+                field("Cód. Tipo Liq."; Rec."Cód. Tipo Liq.")
                 {
                     ApplicationArea = All;
                     Editable = IsEditable;
@@ -34,7 +34,7 @@ page 50117 "Ficha Liquidación"
                 {
                     ApplicationArea = All;
                     Editable = IsEditable;
-                    Visible = Rec."Tipo Liquidación" = Rec."Tipo Liquidación"::Reliquidación;
+                    Visible = Rec."Cód. Tipo Liq." = 'RELIQUIDACION';
                 }
                 field(Estado; Rec.Estado)
                 {
@@ -97,6 +97,12 @@ page 50117 "Ficha Liquidación"
                     ApplicationArea = All;
                     Editable = false;
                 }
+                field("Haberes Ordinarios Gravados"; Rec."Haberes Ordinarios Gravados")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Remunerativo normal y habitual del mes (acumulador BASE_IG4), excluyendo extraordinarios. Usado para el cálculo del SAC (mejor remuneración del semestre).';
+                }
                 field("Total Contribuciones"; Rec."Total Contribuciones")
                 {
                     ApplicationArea = All;
@@ -114,6 +120,18 @@ page 50117 "Ficha Liquidación"
                 ApplicationArea = All;
                 SubPageLink = "No. Liquidación" = FIELD("No.");
                 UpdatePropagation = Both;
+            }
+            part(Acumuladores; "Acumuladores Liq. Sub")
+            {
+                ApplicationArea = All;
+                Caption = 'Acumuladores';
+                SubPageLink = "No. Liquidación" = FIELD("No.");
+            }
+            part(AcumuladoresAnuales; "Resumen Variable Liq. Sub")
+            {
+                ApplicationArea = All;
+                Caption = 'Acumuladores Anuales';
+                SubPageLink = "No. Liquidación" = FIELD("No.");
             }
             part(Incidencias; "Incidencias Liquidación Sub")
             {
@@ -152,9 +170,19 @@ page 50117 "Ficha Liquidación"
                 trigger OnAction()
                 var
                     Motor: Codeunit "Motor Liquidación";
+                    Registro: Codeunit "Registro Procesos Liq.";
+                    RegistroNo: Integer;
                 begin
-                    Motor.LiquidarRecord(Rec);
+                    if not Motor.LiquidarConRegistro(Rec) then begin
+                        // El error ya quedó guardado; se muestra igual que antes, pero ahora con el
+                        // número de registro para poder ir al detalle completo.
+                        RegistroNo := Registro.UltimoRegistro();
+                        CurrPage.Update(false);
+                        Error(ErrCalculoConRegistro, Registro.GetResumen(), RegistroNo);
+                    end;
                     CurrPage.Update(false);
+                    if Motor.GetAdvertencias() <> '' then
+                        Message(MsgAdvertenciasParametros, Motor.GetAdvertencias());
                 end;
             }
             action(Aprobar)
@@ -222,6 +250,37 @@ page 50117 "Ficha Liquidación"
                     Report.RunModal(Report::"Recibo de Sueldo", true, false, Liq);
                 end;
             }
+            action(VerRegistros)
+            {
+                ApplicationArea = All;
+                Caption = 'Registros de proceso';
+                Image = History;
+                ToolTip = 'Historial de cálculos, aprobaciones y reaperturas de esta liquidación, con los errores y las acciones de cada uno.';
+
+                trigger OnAction()
+                var
+                    RegistroRec: Record "Registro Proceso Liq.";
+                begin
+                    RegistroRec.SetCurrentKey("No. Liquidación", "Fecha Hora Inicio");
+                    RegistroRec.SetRange("No. Liquidación", Rec."No.");
+                    Page.Run(Page::"Registros Proceso Liq.", RegistroRec);
+                end;
+            }
+            action(VerNovedades)
+            {
+                ApplicationArea = All;
+                Caption = 'Novedades del período';
+                Image = Journal;
+                ToolTip = 'Muestra las novedades cargadas para el período de esta liquidación, con el estado de cada una. Es dónde mirar cuando una novedad no aparece entre las incidencias: la columna Motivo No Aplicada dice por qué se salteó.';
+
+                trigger OnAction()
+                var
+                    Nov: Record "Novedad Liquidación";
+                begin
+                    Nov.SetRange("Cód. Período", Rec."Cód. Período");
+                    Page.Run(Page::"Novedades Liquidación", Nov);
+                end;
+            }
         }
     }
 
@@ -255,4 +314,6 @@ page 50117 "Ficha Liquidación"
         EsAprobada: Boolean;
         CanCalcular: Boolean;
         EstadoStyle: Text;
+        MsgAdvertenciasParametros: Label 'Atención — parámetros posiblemente desactualizados:\%1';
+        ErrCalculoConRegistro: Label 'No se pudo calcular la liquidación:\%1\\El detalle quedó guardado en el registro de proceso No. %2 (acción "Registros de proceso").';
 }

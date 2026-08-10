@@ -43,7 +43,7 @@ page 50109 "Personal Proyecto"
                 trigger OnAction()
                 var
                     Liq: Record "Liquidación";
-                    LiqNo: Code[20];
+                    ProcLiq: Codeunit "Proceso Liq. Por Lote";
                 begin
                     Rec.TestField("No. Empleado");
                     Rec.TestField("No. Proyecto");
@@ -51,7 +51,7 @@ page 50109 "Personal Proyecto"
                     Rec.TestField("Cód. Categoría");
 
                     Liq.Init();
-                    Liq."No." := 'LIQ-' + Rec."No. Empleado" + '-' + Rec."No. Proyecto";
+                    Liq."No." := ProcLiq.NextLiqNo();
                     Liq."No. Empleado" := Rec."No. Empleado";
                     Liq."No. Proyecto" := Rec."No. Proyecto";
                     Liq."Cód. Convenio" := Rec."Cód. Convenio";

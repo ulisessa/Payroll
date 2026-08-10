@@ -50,7 +50,7 @@ Resultado: Debe aparecer 1 registro
 
 ---
 
-### Paso 3: Crear Carpeta de Prueba (5 minutos)
+### Paso 3: Preparar Archivo de Prueba (5 minutos)
 
 En Windows Explorer:
 
@@ -62,6 +62,8 @@ Ubicación: C:\SIRADIG\2024\
 
 Renombrar a: 20666666667_2024_presentacion_001.xml
 ```
+
+**Nota:** Si el archivo viene en formato ZIP (.xml.zip), también puede copiarse tal cual a `C:\SIRADIG\2024\` — el sistema lo descomprime automáticamente durante la importación.
 
 Resultado:
 ```
@@ -185,17 +187,7 @@ Debe aparecer:
 
 ### P: ¿Qué pasa con los archivos .zip?
 
-**R:** Hay dos opciones:
-
-**Opción A - Automática (si funciona en tu BC):**
-- Copiar .xml.zip tal cual
-- Sistema descomprime automáticamente
-- Todo transparente
-
-**Opción B - Manual (si automática no funciona):**
-- Descomprimir manualmente: Click derecho → Extraer
-- Copiar .xml resultante a la carpeta
-- Sistema procesa normalmente
+**R:** Se procesan automáticamente. Copiar el .xml.zip tal cual a la carpeta de importación; el sistema lo descomprime, procesa el .xml y limpia los archivos temporales. La descompresión manual sigue disponible como alternativa si fuera necesario.
 
 Ver [NOTA_DESCOMPRESION_ZIP.md](NOTA_DESCOMPRESION_ZIP.md) para más detalles.
 

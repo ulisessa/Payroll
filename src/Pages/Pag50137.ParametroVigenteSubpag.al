@@ -57,8 +57,8 @@ page 50137 "Parámetro Vigente Subpag"
                     NuevoParam."Vigencia Desde" := WorkDate();
                     NuevoParam."En Uso" := false;
                     NuevoParam.Descripción := '';
-                    if NuevoParam.Insert(true) then
-                        CurrPage.Update(false);
+                    NuevoParam.Insert(true);
+                    CurrPage.Update(false);
                 end;
             }
         }

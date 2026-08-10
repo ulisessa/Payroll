@@ -10,4 +10,6 @@ enum 50300 "Tipo Concepto Liq."
     value(3; "Contribución Patronal") { Caption = 'Contribución Patronal'; }
     value(4; "Retención") { Caption = 'Retención'; }
     value(5; "Seguridad Social") { Caption = 'Seguridad Social'; }
+    value(6; "Informativo") { Caption = 'Informativo'; }
+    value(7; "Deducción Remunerativa") { Caption = 'Deducción Remunerativa'; }
 }

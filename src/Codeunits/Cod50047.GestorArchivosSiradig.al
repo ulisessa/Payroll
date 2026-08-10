@@ -1,60 +1,63 @@
 namespace UAS.Payroll;
 
 using System.IO;
+using System.Utilities;
+using Microsoft.Utilities;
 
-codeunit 50023 "Gestor Archivos SIRADIG"
+codeunit 50047 "Gestor Archivos SIRADIG"
 {
-    Caption = 'Gestor Archivos SIRADIG';
     Access = Internal;
 
     var
         ErrorCarpetaNoExiste: Label 'La carpeta especificada no existe: %1';
         ErrorNombreArchivoInvalido: Label 'El nombre del archivo no cumple el formato esperado CUIL_PERIODO_presentacion_NRO.xml.zip';
-        ErrorExtractionFailed: Label 'Error al descomprimir el archivo ZIP: %1. Si es posible, descomprima manualmente el archivo ZIP en una carpeta temporal y utilice la ruta al archivo .xml';
-        WarningExtractionManual: Label 'No se pudo extraer automáticamente el ZIP. Descomprima manualmente el archivo en una carpeta temporal e indique la ruta al archivo XML extraído.';
+        ErrorSinXmlEnZip: Label 'No se encontró ningún archivo .xml dentro del ZIP: %1';
 
     procedure BuscarArchivosZip(var CarpetaOrigen: Text) ArchivosEncontrados: List of [Text]
     var
-        DirInfo: DirectoryInfo;
-        FileInfo: FileInfo;
+        FileMgt: Codeunit "File Management";
+        TempNameValueBuffer: Record "Name/Value Buffer" temporary;
     begin
         Clear(ArchivosEncontrados);
 
-        if not Directory.Exists(CarpetaOrigen) then
+        if not FileMgt.ServerDirectoryExists(CarpetaOrigen) then
             Error(ErrorCarpetaNoExiste, CarpetaOrigen);
 
-        DirInfo := DirectoryInfo.DirectoryInfo(CarpetaOrigen);
-
-        foreach FileInfo in DirInfo.GetFiles('*.xml.zip') do begin
-            if ValidarPatronNombreArchivo(FileInfo.Name) then
-                ArchivosEncontrados.Add(FileInfo.FullName);
-        end;
-        exit(ArchivosEncontrados);
+        FileMgt.GetServerDirectoryFilesList(TempNameValueBuffer, CarpetaOrigen);
+        if TempNameValueBuffer.FindSet() then
+            repeat
+                if TempNameValueBuffer.Name.EndsWith('.xml.zip') then
+                    if ValidarPatronNombreArchivo(FileMgt.GetFileName(TempNameValueBuffer.Name)) then
+                        ArchivosEncontrados.Add(TempNameValueBuffer.Name);
+            until TempNameValueBuffer.Next() = 0;
     end;
 
     procedure BuscarArchivosXml(var CarpetaOrigen: Text) ArchivosEncontrados: List of [Text]
     var
-        DirInfo: DirectoryInfo;
-        FileInfo: FileInfo;
+        FileMgt: Codeunit "File Management";
+        TempNameValueBuffer: Record "Name/Value Buffer" temporary;
     begin
         Clear(ArchivosEncontrados);
 
-        if not Directory.Exists(CarpetaOrigen) then
+        if not FileMgt.ServerDirectoryExists(CarpetaOrigen) then
             Error(ErrorCarpetaNoExiste, CarpetaOrigen);
 
-        DirInfo := DirectoryInfo.DirectoryInfo(CarpetaOrigen);
-
-        foreach FileInfo in DirInfo.GetFiles('*.xml') do
-            ArchivosEncontrados.Add(FileInfo.FullName);
-
-        exit(ArchivosEncontrados);
+        FileMgt.GetServerDirectoryFilesList(TempNameValueBuffer, CarpetaOrigen);
+        if TempNameValueBuffer.FindSet() then
+            repeat
+                if TempNameValueBuffer.Name.EndsWith('.xml') and not TempNameValueBuffer.Name.EndsWith('.xml.zip') then
+                    if ValidarPatronNombreArchivoXml(FileMgt.GetFileName(TempNameValueBuffer.Name)) then
+                        ArchivosEncontrados.Add(TempNameValueBuffer.Name);
+            until TempNameValueBuffer.Next() = 0;
     end;
 
-    procedure ExtraerCuilDelNombreArchivo(var NombreArchivo: Text) Cuil: Code[20]
+    procedure ExtraerCuilDelNombreArchivo(NombreArchivo: Text) Cuil: Code[20]
     var
         CuilValue: Text;
     begin
         // Formato esperado: CUIL_PERIODO_presentacion_NRO.xml.zip o CUIL_PERIODO_presentacion_NRO.xml
+        // El CUIL puede venir con guiones (23-28454586-9) o sin guiones (23284545869); se normaliza
+        // a solo dígitos para que coincida sin importar el formato de origen.
         // Ej: 20666666667_2024_presentacion_001.xml.zip
 
         if not (ValidarPatronNombreArchivo(NombreArchivo) or ValidarPatronNombreArchivoXml(NombreArchivo)) then
@@ -62,56 +65,102 @@ codeunit 50023 "Gestor Archivos SIRADIG"
 
         // Extraer la primera parte (CUIL)
         CuilValue := ExtractPartFromFilename(NombreArchivo, 1);
-        exit(CopyStr(CuilValue, 1, 20));
+        exit(NormalizarCuil(CuilValue));
     end;
 
-    procedure DescomprimirArchivoZip(var RutaZip: Text; var RutaCarpetaTemporal: Text) RutaXmlExtraido: Text
+    // Quita guiones (y cualquier otro carácter no numérico) de un CUIL, para poder comparar
+    // "23-28454586-9" y "23284545869" como el mismo valor a lo largo de todo el flujo SIRADIG.
+    procedure NormalizarCuil(Cuil: Text) CuilNormalizado: Code[20]
     var
-        NombreArchivoXml: Text;
-        RutaDestino: Text;
+        i: Integer;
+        Resultado: Text;
+        Char: Char;
     begin
-        if not File.Exists(RutaZip) then
+        for i := 1 to StrLen(Cuil) do begin
+            Char := Cuil[i];
+            if (Char >= '0') and (Char <= '9') then
+                Resultado += Format(Char);
+        end;
+        exit(CopyStr(Resultado, 1, 20));
+    end;
+
+    procedure DescomprimirArchivoZip(var RutaZip: Text) XmlContent: Text
+    var
+        FileMgt: Codeunit "File Management";
+        ZipTempBlob: Codeunit "Temp Blob";
+        ZipInStream: InStream;
+    begin
+        if not FileMgt.ServerFileExists(RutaZip) then
             Error('El archivo ZIP no existe: %1', RutaZip);
 
-        // Crear carpeta temporal si no existe
-        if not Directory.Exists(RutaCarpetaTemporal) then
-            Directory.CreateDirectory(RutaCarpetaTemporal);
-
-        // Intenta extraer usando el método nativo
-        NombreArchivoXml := IntentarExtraerZip(RutaZip, RutaCarpetaTemporal);
-
-        if NombreArchivoXml <> '' then begin
-            RutaDestino := Path.Combine(RutaCarpetaTemporal, NombreArchivoXml);
-            if File.Exists(RutaDestino) then
-                exit(RutaDestino);
-        end;
-
-        // Si la extracción automática falla, solicitar archivo manual
-        Error(ErrorExtractionFailed, 'Ver documentación para descomprimir manualmente');
+        FileMgt.BLOBImportFromServerFile(ZipTempBlob, RutaZip);
+        ZipTempBlob.CreateInStream(ZipInStream);
+        exit(DescomprimirArchivoZipDesdeStream(ZipInStream));
     end;
 
-    procedure ObtenerCarpetaTemporal() RutaTemporal: Text
+    procedure LeerArchivoXml(var RutaXml: Text) XmlContent: Text
     var
-        GuidValue: Guid;
+        FileMgt: Codeunit "File Management";
+        XmlTempBlob: Codeunit "Temp Blob";
+        XmlInStream: InStream;
     begin
-        GuidValue := CreateGuid();
-        RutaTemporal := Path.Combine(
-            Path.GetTempPath(),
-            'SIRADIG_' + DelChr(Format(GuidValue), '=', '{}-')
-        );
+        if not FileMgt.ServerFileExists(RutaXml) then
+            Error('El archivo XML no existe: %1', RutaXml);
+
+        FileMgt.BLOBImportFromServerFile(XmlTempBlob, RutaXml);
+        XmlTempBlob.CreateInStream(XmlInStream, TextEncoding::UTF8);
+        exit(LeerArchivoXmlDesdeStream(XmlInStream));
     end;
 
-    procedure LimpiarCarpetaTemporal(var RutaCarpeta: Text)
+    // Variantes desde InStream — para archivos subidos desde la PC del usuario (UploadIntoStream),
+    // sin pasar por una ruta de servidor. Las de arriba (por ruta) las reusan.
+    procedure DescomprimirArchivoZipDesdeStream(var ZipInStream: InStream) XmlContent: Text
+    var
+        DataCompression: Codeunit "Data Compression";
+        XmlTempBlob: Codeunit "Temp Blob";
+        XmlInStream: InStream;
+        EntryList: List of [Text];
+        EntryName: Text;
+        EntryEncontrada: Boolean;
     begin
-        if Directory.Exists(RutaCarpeta) then
-            Directory.Delete(RutaCarpeta, true);
+        DataCompression.OpenZipArchive(ZipInStream, false);
+        DataCompression.GetEntryList(EntryList);
+
+        foreach EntryName in EntryList do
+            if EntryName.EndsWith('.xml') then begin
+                DataCompression.ExtractEntry(EntryName, XmlTempBlob);
+                EntryEncontrada := true;
+                break;
+            end;
+
+        DataCompression.CloseZipArchive();
+
+        if not EntryEncontrada then
+            Error(ErrorSinXmlEnZip, '(archivo subido)');
+
+        XmlTempBlob.CreateInStream(XmlInStream, TextEncoding::UTF8);
+        XmlContent := ReadStreamAsText(XmlInStream);
+    end;
+
+    procedure LeerArchivoXmlDesdeStream(var XmlInStream: InStream) XmlContent: Text
+    begin
+        XmlContent := ReadStreamAsText(XmlInStream);
+    end;
+
+    local procedure ReadStreamAsText(var InStr: InStream) Result: Text
+    var
+        Linea: Text;
+    begin
+        while not InStr.EOS do begin
+            InStr.ReadText(Linea);
+            Result += Linea;
+        end;
     end;
 
     local procedure ValidarPatronNombreArchivo(NombreArchivo: Text): Boolean
     var
         i: Integer;
         UnderscoreCount: Integer;
-        Char: Char;
     begin
         // Esperado: CUIL_PERIODO_presentacion_NRO.xml.zip
         if not NombreArchivo.EndsWith('.xml.zip') then
@@ -127,18 +176,21 @@ codeunit 50023 "Gestor Archivos SIRADIG"
         if UnderscoreCount < 3 then
             exit(false);
 
-        // Validar que la primera parte es numérica y de 11 caracteres (CUIL)
-        exit(IsNumeric(ExtractPartFromFilename(NombreArchivo, 1)) and StrLen(ExtractPartFromFilename(NombreArchivo, 1)) = 11);
+        // La primera parte es el CUIL, con o sin guiones (23-28454586-9 o 23284545869):
+        // una vez sacados los guiones debe quedar en 11 dígitos numéricos.
+        exit(EsCuilValido(ExtractPartFromFilename(NombreArchivo, 1)));
     end;
 
     local procedure ValidarPatronNombreArchivoXml(NombreArchivo: Text): Boolean
     var
         i: Integer;
         UnderscoreCount: Integer;
-        Char: Char;
     begin
         // Esperado: CUIL_PERIODO_presentacion_NRO.xml (sin .zip)
         if not NombreArchivo.EndsWith('.xml') then
+            exit(false);
+
+        if NombreArchivo.EndsWith('.xml.zip') then
             exit(false);
 
         UnderscoreCount := 0;
@@ -150,7 +202,12 @@ codeunit 50023 "Gestor Archivos SIRADIG"
         if UnderscoreCount < 3 then
             exit(false);
 
-        exit(IsNumeric(ExtractPartFromFilename(NombreArchivo, 1)) and StrLen(ExtractPartFromFilename(NombreArchivo, 1)) = 11);
+        exit(EsCuilValido(ExtractPartFromFilename(NombreArchivo, 1)));
+    end;
+
+    local procedure EsCuilValido(Parte: Text): Boolean
+    begin
+        exit(IsNumeric(NormalizarCuil(Parte)) and (StrLen(NormalizarCuil(Parte)) = 11));
     end;
 
     local procedure ExtractPartFromFilename(NombreArchivo: Text; PartNumber: Integer): Text
@@ -196,21 +253,5 @@ codeunit 50023 "Gestor Archivos SIRADIG"
                 exit(false);
         end;
         exit(true);
-    end;
-
-    local procedure IntentarExtraerZip(var RutaZip: Text; var RutaDestino: Text): Text
-    var
-        TempBlob: Codeunit "Temp Blob";
-        FileInStream: InStream;
-        XmlFileName: Text;
-    begin
-        // Attempt 1: Try using Temp Blob if available
-        begin
-            // This is a placeholder - Temp Blob may not be available
-            // If it is, it would handle ZIP extraction
-        end;
-
-        // If all else fails, return empty and let caller handle manually
-        exit('');
     end;
 }

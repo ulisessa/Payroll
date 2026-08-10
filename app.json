@@ -1,7 +1,7 @@
 {
   "id": "d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890",
   "name": "Liquidación Sueldos Pesca",
-  "version": "1.0.0.98",
+  "version": "1.0.0.307",
   "brief": "Sistema de liquidación de sueldos para la industria pesquera argentina",
   "description": "Liquidación paramétrica de sueldos pesqueros con soporte para múltiples CCTs, mareas y contribuciones.",
   "publisher": "Grupo Arbumasa",
@@ -33,13 +33,36 @@
           "name": "Base Application",
           "publisher": "Microsoft",
           "version": "25.2.0.0"
+      },
+      {
+        "id": "b533ff64-12ed-45ee-bd0c-651686a91017",
+        "name": "Impuestos.Retenciones",
+        "publisher": "Grupo Arbumasa",
+        "version": "25.2.31024.61"
+      },
+      {
+        "id": "b533ff64-12ed-45ee-bd0c-651686a91028",
+        "name": "Generalistas.Escaneado",
+        "publisher": "Grupo Arbumasa",
+        "version": "25.2.31024.0"  
+      },
+      {
+        "id": "6ef06169-dc16-4efd-a51c-c45e26bb1031",
+        "name": "WebServicesAFIP",
+        "publisher": "Grupo Arbumasa",
+        "version": "25.2.31024.0"        
       }
     ],
   "screenshots": [],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": false,
+    "includeSourceInSymbolFile": false
+  },
   "idRanges": [
     {
       "from": 50000,
-      "to": 61000
+      "to": 149999
     }
   ],
   "features": [

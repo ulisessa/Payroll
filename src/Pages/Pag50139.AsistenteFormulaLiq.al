@@ -1,6 +1,7 @@
 namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
+using Microsoft.Projects.Project.Job;
 
 page 50139 "Asistente Fórmula Liq."
 {
@@ -20,12 +21,11 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'No. Empleado';
+                    ToolTip = 'Empleado a simular. Al completarlo se traen su Convenio y Categoría (de la asignación al proyecto si hay, si no de la Ficha Empleado) y se recarga el contexto.';
                     trigger OnValidate()
                     begin
-                        if (CodEmpleado <> '') and (CodPeriodo <> '') then begin
-                            DoCargarContextoCompleto();
-                            CurrPage.Update(false);
-                        end;
+                        DerivarConvenioCategoria();
+                        RecargarSiHayContexto();
                     end;
 
                     trigger OnLookup(var Text: Text): Boolean
@@ -43,12 +43,10 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'Período';
+                    ToolTip = 'Período a simular. Al abrir el asistente se propone el período que contiene la fecha de trabajo.';
                     trigger OnValidate()
                     begin
-                        if (CodEmpleado <> '') and (CodPeriodo <> '') then begin
-                            DoCargarContextoCompleto();
-                            CurrPage.Update(false);
-                        end;
+                        RecargarSiHayContexto();
                     end;
 
                     trigger OnLookup(var Text: Text): Boolean
@@ -66,6 +64,7 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'Cód. Convenio';
+                    ToolTip = 'Convenio para resolver parámetros con sufijo. Se completa solo desde el empleado; cambiarlo a mano permite simular otro convenio.';
                     trigger OnValidate()
                     begin
                         CodCategoria := '';
@@ -87,12 +86,10 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'Cód. Categoría';
+                    ToolTip = 'Categoría para resolver parámetros con Sufijo CCT. Se completa sola desde el empleado; cambiarla a mano permite simular otra categoría.';
                     trigger OnValidate()
                     begin
-                        if (CodEmpleado <> '') and (CodPeriodo <> '') then begin
-                            DoCargarContextoCompleto();
-                            CurrPage.Update(false);
-                        end;
+                        RecargarSiHayContexto();
                     end;
 
                     trigger OnLookup(var Text: Text): Boolean
@@ -103,10 +100,7 @@ page 50139 "Asistente Fórmula Liq."
                         if Page.RunModal(Page::"Categorías CCT", Categoria) = Action::LookupOK then begin
                             CodCategoria := Categoria.Código;
                             Text := Categoria.Código;
-                            if (CodEmpleado <> '') and (CodPeriodo <> '') then begin
-                                DoCargarContextoCompleto();
-                                CurrPage.Update(false);
-                            end;
+                            RecargarSiHayContexto();
                             exit(true);
                         end;
                     end;
@@ -115,12 +109,33 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'Tipo Liquidación';
-                    ToolTip = 'Tipo de liquidación a simular. Afecta TIPO_LIQ en el contexto.';
+                    TableRelation = "Tipo Liquidación".Código;
+                    ToolTip = 'Tipo de liquidación a simular. Si está marcado "Liquida al Arribo" (Cierre Marea), la fecha de referencia pasa a ser el arribo del Proyecto (abajo) en vez del fin de período — igual que en el motor real.';
                     trigger OnValidate()
                     begin
-                        if (CodEmpleado <> '') and (CodPeriodo <> '') then begin
-                            DoCargarContextoCompleto();
-                            CurrPage.Update(false);
+                        RecargarSiHayContexto();
+                    end;
+                }
+                field(CodProyecto; CodProyecto)
+                {
+                    ApplicationArea = All;
+                    Caption = 'No. Proyecto (Marea)';
+                    TableRelation = Job."No.";
+                    ToolTip = 'Proyecto/marea a simular. Necesario para variables que dependen del viaje (DIAS_PROYECTO, DIAS_PUERTO, DIAS_ENROLAMIENTO, Fuentes de Datos con {JOB_NO}) y para la fecha de arribo en Cierre Marea. Al completarlo se traen Convenio y Categoría de la asignación del empleado.';
+                    trigger OnValidate()
+                    begin
+                        DerivarConvenioCategoria();
+                        RecargarSiHayContexto();
+                    end;
+
+                    trigger OnLookup(var Text: Text): Boolean
+                    var
+                        Job: Record Job;
+                    begin
+                        if Page.RunModal(Page::"Job List", Job) = Action::LookupOK then begin
+                            CodProyecto := Job."No.";
+                            Text := Job."No.";
+                            exit(true);
                         end;
                     end;
                 }
@@ -128,29 +143,59 @@ page 50139 "Asistente Fórmula Liq."
             group(GrpFormula)
             {
                 Caption = 'Fórmula';
-                field(FormulaText; FormulaText)
+                usercontrol(Editor; "Editor Fórmula Liq.")
                 {
                     ApplicationArea = All;
-                    Caption = 'Fórmula';
-                    MultiLine = true;
-                    StyleExpr = StyleFormula;
-                    ToolTip = 'Expresión aritmética. Funciones: TRAMO(''cod'',val), ROUND(val,prec), ABS(val), MAX(a,b), MIN(a,b).';
-                    trigger OnValidate()
+
+                    // El add-in puede recrearse cuando la página se refresca, así que este trigger
+                    // reenvía SIEMPRE todo el estado en vez de asumir que ya lo tiene.
+                    trigger ControlAddInReady()
                     begin
-                        ValidarSintaxis(FormulaText, StyleFormula);
+                        FEditorListo := true;
+                        AsegurarContextoCargado();
+                        PushEstadoAlEditor();
+                    end;
+
+                    // Nada de CurrPage.Update() acá: redibujar la página mientras el usuario escribe
+                    // le haría perder el foco y el cursor. La devolución (resultado o error) va por
+                    // SetDiagnostico, que el editor pinta en su propia barra.
+                    trigger OnTextoCambiado(Campo: Text; Texto: Text)
+                    begin
+                        GuardarTextoDeEditor(Campo, Texto);
+                        EnviarDiagnostico(Campo);
                     end;
                 }
-                field(CondicionText; CondicionText)
+                group(GrpTextoPlano)
                 {
-                    ApplicationArea = All;
-                    Caption = 'Condición (opcional)';
-                    MultiLine = true;
-                    StyleExpr = StyleCondicion;
-                    ToolTip = 'Expresión booleana. Vacía = siempre activo.';
-                    trigger OnValidate()
-                    begin
-                        ValidarSintaxisCondicion(CondicionText, StyleCondicion);
-                    end;
+                    Caption = 'Texto plano';
+                    Visible = FTextoPlanoVisible;
+
+                    field(FormulaText; FormulaText)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Fórmula';
+                        MultiLine = true;
+                        StyleExpr = StyleFormula;
+                        ToolTip = 'La misma fórmula como texto editable, para copiar y pegar. Los cambios se reflejan en el editor al validar.';
+                        trigger OnValidate()
+                        begin
+                            ValidarSintaxis(FormulaText, StyleFormula);
+                            PushEstadoAlEditor();
+                        end;
+                    }
+                    field(CondicionText; CondicionText)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Condición (opcional)';
+                        MultiLine = true;
+                        StyleExpr = StyleCondicion;
+                        ToolTip = 'Expresión booleana. Vacía = siempre activo.';
+                        trigger OnValidate()
+                        begin
+                            ValidarSintaxisCondicion(CondicionText, StyleCondicion);
+                            PushEstadoAlEditor();
+                        end;
+                    }
                 }
             }
             group(GrpResultado)
@@ -195,14 +240,16 @@ page 50139 "Asistente Fórmula Liq."
             action(CargarVariables)
             {
                 ApplicationArea = All;
-                Caption = 'Cargar variables';
+                Caption = 'Cargar catálogo completo';
                 Image = Refresh;
                 Promoted = true;
                 PromotedCategory = Process;
-                ToolTip = 'Carga parámetros vigentes y acumuladores con sus valores reales. Los marcados como "editable" se pueden ajustar para simular distintos escenarios.';
+                ToolTip = 'Carga TODAS las variables disponibles: parámetros con Nombre Variable, variables de sistema, fuentes de datos y acumuladores — leídos de las tablas reales, siempre al día. Los valores son orientativos (0 salvo que completes Convenio/Categoría para parámetros); usá "Cargar contexto completo" para valores reales de un empleado/período puntual.';
                 trigger OnAction()
                 begin
-                    CargarVariablesStd();
+                    CurrPage.Variables.Page.LimpiarFiltro();
+                    CargarCatalogoVariables();
+                    PushEstadoAlEditor();
                     CurrPage.Update(false);
                 end;
             }
@@ -216,7 +263,21 @@ page 50139 "Asistente Fórmula Liq."
                 ToolTip = 'Carga todas las variables del contexto real para el empleado y período indicados, incluyendo Fuente Datos (DIAS_VAC, INCID_*, etc.). Requiere No. Empleado y Período.';
                 trigger OnAction()
                 begin
+                    CurrPage.Variables.Page.LimpiarFiltro();
                     DoCargarContextoCompleto();
+                    PushEstadoAlEditor();
+                    CurrPage.Update(false);
+                end;
+            }
+            action(VerTextoPlano)
+            {
+                ApplicationArea = All;
+                Caption = 'Ver texto plano';
+                Image = Text;
+                ToolTip = 'Muestra la fórmula y la condición como campos de texto comunes, para copiar y pegar o para seguir trabajando si el editor con IntelliSense no cargara.';
+                trigger OnAction()
+                begin
+                    FTextoPlanoVisible := not FTextoPlanoVisible;
                     CurrPage.Update(false);
                 end;
             }
@@ -225,12 +286,11 @@ page 50139 "Asistente Fórmula Liq."
                 ApplicationArea = All;
                 Caption = 'Auto-completar';
                 Image = Find;
-                Promoted = true;
-                PromotedCategory = Process;
-                ToolTip = 'Completa la última palabra de la fórmula con variables disponibles o funciones. Si hay varias coincidencias muestra un menú de selección.';
+                ToolTip = 'Completa la última palabra del texto plano. En el editor con IntelliSense usá Ctrl+Espacio, que completa en la posición del cursor.';
                 trigger OnAction()
                 begin
                     DoAutoCompletar();
+                    PushEstadoAlEditor();
                     CurrPage.Update(false);
                 end;
             }
@@ -246,6 +306,21 @@ page 50139 "Asistente Fórmula Liq."
                 begin
                     EvaluarFormula();
                     CurrPage.Update(false);
+                end;
+            }
+            action(AplicarYCerrar)
+            {
+                ApplicationArea = All;
+                Caption = 'Aplicar y Cerrar';
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                Visible = FInvocadoDesdeConcepto;
+                ToolTip = 'Aplica esta Fórmula y Condición al concepto que la abrió, y cierra el asistente.';
+                trigger OnAction()
+                begin
+                    FAceptado := true;
+                    CurrPage.Close();
                 end;
             }
             group(GrpFunciones)
@@ -264,7 +339,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'ABS( )';
                         ToolTip = 'Valor absoluto. ABS(valor)';
                         trigger OnAction()
-                        begin InsertText('ABS('); end;
+                        begin
+                            InsertText('ABS(');
+                        end;
                     }
                     action(InsROUND)
                     {
@@ -272,7 +349,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'ROUND( , )';
                         ToolTip = 'Redondeo. ROUND(valor, precisión). Ej: ROUND(x, 0.01)';
                         trigger OnAction()
-                        begin InsertText('ROUND('); end;
+                        begin
+                            InsertText('ROUND(');
+                        end;
                     }
                     action(InsMAX)
                     {
@@ -280,7 +359,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'MAX( , )';
                         ToolTip = 'Máximo de dos valores. MAX(a, b)';
                         trigger OnAction()
-                        begin InsertText('MAX('); end;
+                        begin
+                            InsertText('MAX(');
+                        end;
                     }
                     action(InsMIN)
                     {
@@ -288,7 +369,39 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'MIN( , )';
                         ToolTip = 'Mínimo de dos valores. MIN(a, b)';
                         trigger OnAction()
-                        begin InsertText('MIN('); end;
+                        begin
+                            InsertText('MIN(');
+                        end;
+                    }
+                    action(InsREDONDEAR)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'REDONDEAR( , )';
+                        ToolTip = 'Redondea a N decimales. REDONDEAR(valor, decimales). Ej: REDONDEAR(5473.286, 2) = 5473,29';
+                        trigger OnAction()
+                        begin
+                            InsertText('REDONDEAR(');
+                        end;
+                    }
+                    action(InsPISO)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'PISO( )';
+                        ToolTip = 'Entero inmediatamente menor o igual al valor. PISO(valor)';
+                        trigger OnAction()
+                        begin
+                            InsertText('PISO(');
+                        end;
+                    }
+                    action(InsTECHO)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'TECHO( )';
+                        ToolTip = 'Entero inmediatamente mayor o igual al valor. TECHO(valor)';
+                        trigger OnAction()
+                        begin
+                            InsertText('TECHO(');
+                        end;
                     }
                     action(InsIF)
                     {
@@ -296,7 +409,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'IF( , , )';
                         ToolTip = 'Condicional. IF(condición, valor_si_true, valor_si_false). Todos los argumentos se evalúan antes de elegir la rama.';
                         trigger OnAction()
-                        begin InsertText('IF('); end;
+                        begin
+                            InsertText('IF(');
+                        end;
                     }
                     action(InsDIV)
                     {
@@ -304,7 +419,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'DIV( , )';
                         ToolTip = 'División segura: devuelve 0 si el divisor es 0. DIV(a, b)';
                         trigger OnAction()
-                        begin InsertText('DIV('); end;
+                        begin
+                            InsertText('DIV(');
+                        end;
                     }
                     action(InsTRAMO)
                     {
@@ -312,7 +429,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'TRAMO( , )';
                         ToolTip = 'Consulta tabla escalonada. TRAMO(''código'', valor). Ej: TRAMO(''TAB_IMP_4CAT'', BASE_IG4 * 12)';
                         trigger OnAction()
-                        begin InsertText('TRAMO('); end;
+                        begin
+                            InsertText('TRAMO(');
+                        end;
                     }
                 }
                 group(GrpOperadores)
@@ -325,7 +444,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'AND';
                         ToolTip = 'Conjunción lógica. Ej: ANIOS_ANTIGUEDAD >= 2 AND BASE_SS > 0';
                         trigger OnAction()
-                        begin InsertText(' AND '); end;
+                        begin
+                            InsertText(' AND ');
+                        end;
                     }
                     action(InsOR)
                     {
@@ -333,7 +454,9 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'OR';
                         ToolTip = 'Disyunción lógica. Ej: DIAS_MAR = 0 OR BASE_SS = 0';
                         trigger OnAction()
-                        begin InsertText(' OR '); end;
+                        begin
+                            InsertText(' OR ');
+                        end;
                     }
                     action(InsNOT)
                     {
@@ -341,12 +464,22 @@ page 50139 "Asistente Fórmula Liq."
                         Caption = 'NOT';
                         ToolTip = 'Negación lógica. Ej: NOT DIAS_MAR = 0';
                         trigger OnAction()
-                        begin InsertText('NOT '); end;
+                        begin
+                            InsertText('NOT ');
+                        end;
                     }
                 }
             }
         }
     }
+
+    // Sin variables cargadas el asistente no puede validar ni autocompletar nada, y el editor avisa
+    // "Cargá el catálogo o el contexto" — había que acordarse de apretar el botón antes de escribir.
+    // Se carga solo al abrir.
+    trigger OnOpenPage()
+    begin
+        InicializarContexto();
+    end;
 
     trigger OnAfterGetCurrRecord()
     var
@@ -359,12 +492,13 @@ page 50139 "Asistente Fórmula Liq."
                 FormulaText += ' ';
             FormulaText += Pendiente;
             ValidarSintaxis(FormulaText, StyleFormula);
+            PushEstadoAlEditor();
         end;
     end;
 
     var
-        FormulaText: Text[500];
-        CondicionText: Text[500];
+        FormulaText: Text[2048];
+        CondicionText: Text[2048];
         ResultadoImporte: Decimal;
         CondicionActiva: Boolean;
         MensajeResultado: Text[500];
@@ -376,70 +510,215 @@ page 50139 "Asistente Fórmula Liq."
         CodPeriodo: Code[10];
         CodConvenio: Code[20];
         CodCategoria: Code[20];
-        TipoLiqCtx: Enum "Tipo Liq.";
+        TipoLiqCtx: Code[20];
+        CodProyecto: Code[20];
+        FAceptado: Boolean;
+        FInvocadoDesdeConcepto: Boolean;
+        FEditorListo: Boolean;
+        FTextoPlanoVisible: Boolean;
 
-    procedure SetFormula(Formula: Text[500]; Condicion: Text[500])
+    procedure SetFormula(Formula: Text[2048]; Condicion: Text[2048])
     begin
         FormulaText := Formula;
         CondicionText := Condicion;
     end;
 
-    local procedure CargarVariablesStd()
-    var
-        CategoriaCCT: Record "Categoría CCT";
-        Concepto: Record "Concepto Liquidación";
+    // Call after SetFormula when opening the assistant from a Concepto Card, so "Aplicar y Cerrar"
+    // appears and the caller can pull the edited text back out via Confirmado()/GetFormula().
+    procedure SetOrigenConcepto()
     begin
-        SetVar('BASICO', GetParam('BASICO_' + CodConvenio + '_' + CodCategoria), 'Básico del convenio/categoría — editable', 'Parámetro');
-        SetVar('TC_COMPRADOR', GetParam('TC_COMPRADOR'), 'Tipo de cambio comprador', 'Parámetro');
-        SetVar('SMVM', GetParam('SMVM'), 'Salario mínimo vital y móvil', 'Parámetro');
+        FInvocadoDesdeConcepto := true;
+    end;
 
-        if (CodConvenio <> '') and CategoriaCCT.Get(CodConvenio, CodCategoria) then
-            SetVar('PCT_ESCALA', CategoriaCCT."% Escala" / 100, 'Escala ' + CodCategoria, 'Sistema')
+    // True only if the user explicitly used "Aplicar y Cerrar" — closing via X/Esc leaves this false,
+    // so the caller doesn't overwrite its formula with an abandoned scratch edit.
+    procedure Confirmado(): Boolean
+    begin
+        exit(FAceptado);
+    end;
+
+    procedure GetFormula(var Formula: Text[2048]; var Condicion: Text[2048])
+    begin
+        Formula := FormulaText;
+        Condicion := CondicionText;
+    end;
+
+    // ── Editor con IntelliSense (controladdin) ────────────────────────────────
+
+    // Empuja el catálogo COMPLETO de una sola vez: el filtrado del autocompletado ocurre en el
+    // navegador. Consultar al servidor por cada tecla metería una ida y vuelta en el camino crítico
+    // del tipeo, que es justamente lo que hace que un autocompletado se sienta mal.
+    local procedure PushEstadoAlEditor()
+    begin
+        if not FEditorListo then
+            exit;
+        CurrPage.Editor.SetCatalogo(CurrPage.Variables.Page.BuildCatalogoJson());
+        CurrPage.Editor.SetValores(FormulaText, CondicionText);
+        EnviarDiagnostico(CampoFormulaTok);
+        EnviarDiagnostico(CampoCondicionTok);
+    end;
+
+    local procedure GuardarTextoDeEditor(Campo: Text; Texto: Text)
+    var
+        CR: Char;
+        LF: Char;
+    begin
+        // Se normaliza igual que NormalizarTexto en Tab60007 (saltos de línea → espacio): el motor
+        // solo saltea el espacio simple, así que un salto de línea le daría "token inesperado".
+        // Conviene que el diagnóstico corra sobre exactamente el texto que se va a persistir.
+        CR := 13;
+        LF := 10;
+        Texto := Texto.Replace('' + CR, ' ').Replace('' + LF, ' ');
+        if Campo = CampoCondicionTok then
+            CondicionText := CopyStr(Texto, 1, MaxStrLen(CondicionText))
         else
-            SetVar('PCT_ESCALA', 1, 'Escala (editable)', 'Sistema');
+            FormulaText := CopyStr(Texto, 1, MaxStrLen(FormulaText));
+    end;
 
-        SetVar('ANIOS_ANTIGUEDAD', 0, 'Años de antigüedad — editable', 'Sistema');
-        SetVar('DIAS_MAR', 0, 'Días de marea — editable', 'Sistema');
-        SetVar('DIAS_HAB', 22, 'Días hábiles del período — editable', 'Sistema');
+    // Evalúa de verdad contra el contexto cargado y devuelve el resultado o el error al editor, que
+    // lo muestra en su barra inferior. Llega con debounce desde el navegador, no en cada tecla.
+    local procedure EnviarDiagnostico(Campo: Text)
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Diag: JsonObject;
+        Texto: Text;
+        Json: Text;
+        ValorDec: Decimal;
+        ValorBool: Boolean;
+    begin
+        if not FEditorListo then
+            exit;
 
-        SetVar('TOPE_SIPA',    GetParam('TOPE_SIPA'),    'Tope imponible SIPA (jub/19032)', 'Parámetro');
-        SetVar('TOPE_SIPA_OS', GetParam('TOPE_SIPA_OS'), 'Tope imponible SIPA (obra social)', 'Parámetro');
+        if Campo = CampoCondicionTok then
+            Texto := CondicionText
+        else
+            Texto := FormulaText;
 
-        SetVar('MNI_ANUAL',     GetParam('MNI_ANUAL'),     'MNI anual Ganancias 4ta', 'Parámetro');
-        SetVar('DEDUCCION_ESP', GetParam('DEDUCCION_ESP'), 'Deducción especial anual Ganancias 4ta', 'Parámetro');
-        SetVar('DEDUC_GANANCIAS', 0,                       'Deducción ganancias empleado — editable', 'Sistema');
+        Diag.Add('campo', Campo);
+        CurrPage.Variables.Page.GetContext(Ctx);
 
-        SetVar('PCT_ANTIG', GetParam('PCT_ANTIG'), 'Porcentaje antigüedad por año (0.01 = 1%)', 'Parámetro');
+        if Texto.Trim() = '' then
+            AgregarDiag(Diag, 'neutro', '', '')
+        else
+            if Ctx.Count = 0 then
+                // Sin variables cargadas no se puede distinguir "variable inexistente" de "variable
+                // que todavía no cargaste", así que se avisa en vez de marcar todo como error.
+                AgregarDiag(Diag, 'neutro', SinContextoMsg, '')
+            else begin
+                Evaluador.Init(Ctx, WorkDate());
+                if Campo = CampoCondicionTok then begin
+                    if Evaluador.TryEvalCondicion(Texto, ValorBool) then
+                        AgregarDiag(Diag, 'ok', '', Format(ValorBool))
+                    else
+                        AgregarDiag(Diag, 'error', GetLastErrorText(), '');
+                end else
+                    if Evaluador.TryEvalFormula(Texto, ValorDec) then
+                        AgregarDiag(Diag, 'ok', '', Format(ValorDec, 0, '<Precision,2:6><Standard Format,0>'))
+                    else
+                        AgregarDiag(Diag, 'error', GetLastErrorText(), '');
+            end;
 
-        SetVar('PCT_JUB',          GetParam('PCT_JUB'),          'Aporte jubilación empleado (11%)', 'Parámetro');
-        SetVar('PCT_19032',        GetParam('PCT_19032'),        'Aporte Ley 19032 empleado (3%)', 'Parámetro');
-        SetVar('PCT_OS',           GetParam('PCT_OS'),           'Aporte obra social empleado (3%)', 'Parámetro');
-        SetVar('PCT_ADICIONAL_OS', GetParam('PCT_ADICIONAL_OS'), 'Aporte adicional OS empleado (1.5%)', 'Parámetro');
+        Diag.WriteTo(Json);
+        CurrPage.Editor.SetDiagnostico(Json);
+    end;
 
-        SetVar('PCT_CONT_JUB',   GetParam('PCT_CONT_JUB'),   'Contrib. patronal jubilación (10.77%)', 'Parámetro');
-        SetVar('PCT_CONT_23660', GetParam('PCT_CONT_23660'), 'Contrib. patronal OS Ley 23660 (6%)', 'Parámetro');
-        SetVar('PCT_CONT_19032', GetParam('PCT_CONT_19032'), 'Contrib. patronal Ley 19032 (1.59%)', 'Parámetro');
-        SetVar('PCT_ART',        GetParam('PCT_ART'),        'Contrib. patronal ART porcentaje (5.51%)', 'Parámetro');
-        SetVar('VALOR_ART_FIJO', GetParam('VALOR_ART_FIJO'), 'Contrib. patronal ART valor fijo/mes', 'Parámetro');
+    local procedure AgregarDiag(var Diag: JsonObject; Estado: Text; Mensaje: Text; Valor: Text)
+    begin
+        Diag.Add('estado', Estado);
+        Diag.Add('mensaje', Mensaje);
+        Diag.Add('valor', Valor);
+    end;
 
-        SetVar('REMUNERATIVO_BRUTO', 0, 'Acumulador remunerativo — editable', 'Acumulador');
-        SetVar('NO_REMUNERATIVO', 0, 'Acumulador no remunerativo', 'Acumulador');
-        SetVar('TOTAL_DESCUENTOS', 0, 'Acumulador descuentos', 'Acumulador');
-
-        Concepto.SetRange("Es Acumulador", true);
-        Concepto.SetRange(Activo, true);
-        if Concepto.FindSet() then
+    // El catálogo lo arma "Catálogo Variables Liq." leyendo las tablas de configuración: es el mismo
+    // que usa el editor con IntelliSense de la Ficha de Concepto, así que una fuente de datos nueva
+    // aparece en las dos pantallas sin tocar ninguna.
+    local procedure CargarCatalogoVariables()
+    var
+        Cat: Record "Variable Liq. Test" temporary;
+        Catalogo: Codeunit "Catálogo Variables Liq.";
+    begin
+        Catalogo.CargarCatalogo(Cat, CodEmpleado, CodConvenio, CodCategoria);
+        if Cat.FindSet() then
             repeat
-                SetVar(Concepto.Código, 0, 'Acumulador: ' + Concepto.Descripción, 'Acumulador');
-            until Concepto.Next() = 0;
+                SetVar(Cat.Nombre, Cat.Valor, Cat.Descripción, Cat.Tipo);
+            until Cat.Next() = 0;
+    end;
+
+    // Deja la página usable desde el primer segundo. Si el contexto alcanza para una carga real
+    // (empleado + período) se cargan los valores del motor; si no, al menos el catálogo completo de
+    // nombres, que es lo que necesita el IntelliSense y la validación de sintaxis.
+    local procedure InicializarContexto()
+    var
+        Periodo: Record "Período Liquidación";
+    begin
+        if CodPeriodo = '' then
+            CodPeriodo := Periodo.PeriodoPorDefecto();
+        DerivarConvenioCategoria();
+
+        CurrPage.Variables.Page.LimpiarFiltro();
+        if (CodEmpleado <> '') and (CodPeriodo <> '') then
+            DoCargarContextoCompleto()
+        else
+            CargarCatalogoVariables();
+    end;
+
+    // El add-in avisa que está listo recién cuando la página terminó de armarse, partes incluidas. Si
+    // la carga de OnOpenPage no sobrevivió a la inicialización de la parte (tabla temporal), se
+    // reintenta acá: con el catálogo vacío el editor no valida ni autocompleta nada.
+    local procedure AsegurarContextoCargado()
+    var
+        Ctx: Dictionary of [Text, Decimal];
+    begin
+        CurrPage.Variables.Page.GetContext(Ctx);
+        if Ctx.Count = 0 then
+            InicializarContexto();
+    end;
+
+    // Mismo origen que la liquidación real: la Ficha Empleado (Tab60011, OnValidate de No. Empleado)
+    // y, si el empleado está asignado al proyecto, la asignación pisa esos valores (Cod50014
+    // LiquidarRecord). Así los parámetros con Sufijo CCT/Convenio resuelven acá el mismo valor que en
+    // el motor sin que haya que tipearlos. Solo corre al cambiar empleado o proyecto: editar Convenio
+    // o Categoría a mano para simular otra escala sigue mandando.
+    local procedure DerivarConvenioCategoria()
+    var
+        Emp: Record Employee;
+        PersProy: Record "Personal Proyecto";
+    begin
+        if CodEmpleado = '' then
+            exit;
+        if Emp.Get(CodEmpleado) then begin
+            CodConvenio := Emp."Cód. Convenio";
+            CodCategoria := Emp."Cód. Categoría";
+        end;
+        if (CodProyecto <> '') and PersProy.Get(CodEmpleado, CodProyecto) then begin
+            CodConvenio := PersProy."Cód. Convenio";
+            CodCategoria := PersProy."Cód. Categoría";
+        end;
+    end;
+
+    // Recarga cuando ya hay datos suficientes. Centraliza lo que repetía cada campo del grupo
+    // Contexto, y suma el push al editor: sin él, el IntelliSense seguía ofreciendo los valores del
+    // contexto anterior después de cambiar de empleado o período.
+    local procedure RecargarSiHayContexto()
+    begin
+        if (CodEmpleado = '') or (CodPeriodo = '') then
+            exit;
+        CurrPage.Variables.Page.LimpiarFiltro();
+        DoCargarContextoCompleto();
+        PushEstadoAlEditor();
+        CurrPage.Update(false);
     end;
 
     local procedure DoCargarContextoCompleto()
     var
         CtxBuilder: Codeunit "Contexto Liquidación";
         Periodo: Record "Período Liquidación";
+        Job: Record Job;
+        TipoLiqRec: Record "Tipo Liquidación";
         Ctx: Dictionary of [Text, Decimal];
         TipoMap: Dictionary of [Text, Text];
+        FechaRef: Date;
     begin
         if CodEmpleado = '' then begin
             Message('Ingresá un No. Empleado para cargar el contexto completo.');
@@ -453,7 +732,16 @@ page 50139 "Asistente Fórmula Liq."
             Message('El período %1 no existe.', CodPeriodo);
             exit;
         end;
-        CtxBuilder.Init(CodEmpleado, '', CodPeriodo, Periodo."Fecha Hasta", CodConvenio, CodCategoria, '', TipoLiqCtx);
+
+        // Mirrors LiquidarRecord (Cod50014): monthly types settle at period end; a type flagged
+        // "Liquida al Arribo" (Cierre Marea) settles at the project's arrival date instead. Without
+        // No. Proyecto, marea-dependent variables (DIAS_PROYECTO, DIAS_PUERTO, DIAS_ENROLAMIENTO,
+        // Fuentes de Datos filtradas por {JOB_NO}) always resolved to 0 — this is what fixes that.
+        FechaRef := Periodo."Fecha Hasta";
+        if (CodProyecto <> '') and TipoLiqRec.EsArribo(TipoLiqCtx) and Job.Get(CodProyecto) and (Job."Ending Date" <> 0D) then
+            FechaRef := Job."Ending Date";
+
+        CtxBuilder.Init(CodEmpleado, CodProyecto, CodPeriodo, FechaRef, CodConvenio, CodCategoria, '', TipoLiqCtx);
         CtxBuilder.BuildContext(Ctx);
         CtxBuilder.GetTipoMap(TipoMap);
         CurrPage.Variables.Page.LoadFromContext(Ctx, TipoMap);
@@ -607,18 +895,18 @@ page 50139 "Asistente Fórmula Liq."
 
     local procedure BuildMatches(Prefix: Text; var Matches: List of [Text])
     var
+        Catalogo: Codeunit "Catálogo Variables Liq.";
         Ctx: Dictionary of [Text, Decimal];
         Keys: List of [Text];
         CtxKey: Text;
+        Nombre: Text;
     begin
-        // Built-in functions
-        AddIfMatch('ABS', Prefix, Matches);
-        AddIfMatch('DIV', Prefix, Matches);
-        AddIfMatch('IF', Prefix, Matches);
-        AddIfMatch('MAX', Prefix, Matches);
-        AddIfMatch('MIN', Prefix, Matches);
-        AddIfMatch('ROUND', Prefix, Matches);
-        AddIfMatch('TRAMO', Prefix, Matches);
+        // Las funciones salen del catálogo, no de una lista escrita acá: cuando estaban duplicadas,
+        // REDONDEAR, PISO y TECHO existían en el motor pero no aparecían en el auto-completar.
+        foreach Nombre in Catalogo.GetNombresFunciones() do
+            AddIfMatch(Nombre, Prefix, Matches);
+        foreach Nombre in Catalogo.GetNombresOperadores() do
+            AddIfMatch(Nombre, Prefix, Matches);
 
         // Variables from test context
         CurrPage.Variables.Page.GetContext(Ctx);
@@ -661,19 +949,15 @@ page 50139 "Asistente Fórmula Liq."
     begin
         if FormulaText <> '' then
             FormulaText += ' ';
-        FormulaText += Token;
+        FormulaText += CopyStr(Token, 1, MaxStrLen(FormulaText) - StrLen(FormulaText));
         ValidarSintaxis(FormulaText, StyleFormula);
+        PushEstadoAlEditor();
         CurrPage.Update(false);
     end;
 
-    local procedure GetParam(Codigo: Code[20]): Decimal
     var
-        Param: Record "Parámetro Vigente";
-    begin
-        Param.SetRange("Cód. Parámetro", Codigo);
-        Param.SetFilter("Vigencia Desde", '<=%1', WorkDate());
-        if Param.FindLast() then
-            exit(Param.Valor);
-        exit(0);
-    end;
+        CampoFormulaTok: Label 'formula', Locked = true;
+        CampoCondicionTok: Label 'condicion', Locked = true;
+        SinContextoMsg: Label 'Cargá el catálogo o el contexto para validar.';
+
 }

@@ -1,7 +1,7 @@
 namespace UAS.Payroll;
 
-using Microsoft.HumanResources.Employee;
 using Microsoft.Foundation.Company;
+using Microsoft.HumanResources.Employee;
 
 report 50041 "Recibo de Sueldo"
 {
@@ -25,7 +25,7 @@ report 50041 "Recibo de Sueldo"
             column(LiqConvenioDesc; ConvenioDesc) { }
             column(LiqCodCategoria; Liq."Cód. Categoría") { }
             column(LiqCategoriaDesc; CategoriaDesc) { }
-            column(LiqTipoLiq; Format(Liq."Tipo Liquidación")) { }
+            column(LiqTipoLiq; TipoLiqDesc) { }
             column(LiqNoProyecto; Liq."No. Proyecto") { }
             column(LiqFechaLiq; Format(Liq."Fecha Liquidación", 0, '<Day,2>/<Month,2>/<Year4>')) { }
             column(LiqTotalHaberes; Liq."Total Haberes") { }
@@ -49,7 +49,7 @@ report 50041 "Recibo de Sueldo"
             dataitem(ResumenVarLiq; "Resumen Variable Liq.")
             {
                 DataItemLink = "No. Liquidación" = FIELD("No.");
-                DataItemTableView = SORTING("No. Liquidación", "Nombre Variable");
+                DataItemTableView = SORTING("No. Liquidación", "Nombre Variable") WHERE("Mostrar en Recibo" = CONST(true));
 
                 column(ResNombreVar; ResumenVarLiq."Nombre Variable") { }
                 column(ResEtiqueta; ResumenVarLiq.Etiqueta) { }
@@ -86,7 +86,8 @@ report 50041 "Recibo de Sueldo"
                 column(LinImporte; LinLiq.Importe) { }
                 column(LinEsHaber; LinLiq."Tipo Concepto" in
                     [LinLiq."Tipo Concepto"::"Haber Remunerativo",
-                     LinLiq."Tipo Concepto"::"Haber No Remunerativo"])
+                     LinLiq."Tipo Concepto"::"Haber No Remunerativo",
+                     LinLiq."Tipo Concepto"::"Deducción Remunerativa"])
                 { }
                 column(LinEsDescuento; LinLiq."Tipo Concepto" in
                     [LinLiq."Tipo Concepto"::"Descuento Empleado",
@@ -101,20 +102,29 @@ report 50041 "Recibo de Sueldo"
                 column(LinImporteContrib; LinImporteContrib) { }
                 column(LinCantidad; LinLiq.Cantidad) { }
                 column(LinUnidadCantidad; LinLiq."Unidad Cantidad") { }
+                column(LinBaseCalculo; LinLiq."Base Cálculo") { }
                 column(LinImporteHaberRem; LinImporteHaberRem) { }
                 column(LinImporteHaberNoRem; LinImporteHaberNoRem) { }
                 column(LinGrupo; LinGrupo) { }
                 column(LinGrupoOrden; LinGrupoOrden) { }
+                column(LinGrupoCosto; Format(LinLiq."Grupo Costo Laboral")) { }
+                column(LinGrupoCostoNum; LinLiq."Grupo Costo Laboral".AsInteger()) { }
+                column(LinImporteCostoEmpleador; LinImporteContrib) { }
+                column(LinImporteCostoTrabajador; LinImporteDescuento) { }
+                column(LinEsPrimeraLinea; LinEsPrimeraLinea) { }
+                column(LinNetoGrafico; LinNetoGrafico) { }
 
                 trigger OnAfterGetRecord()
                 begin
-                    if LinLiq."Tipo Concepto" in
-                        [LinLiq."Tipo Concepto"::"Haber Remunerativo",
-                         LinLiq."Tipo Concepto"::"Haber No Remunerativo"]
-                    then
-                        LinImporteHaber := LinLiq.Importe
-                    else
-                        LinImporteHaber := 0;
+                    case LinLiq."Tipo Concepto" of
+                        LinLiq."Tipo Concepto"::"Haber Remunerativo",
+                        LinLiq."Tipo Concepto"::"Haber No Remunerativo":
+                            LinImporteHaber := LinLiq.Importe;
+                        LinLiq."Tipo Concepto"::"Deducción Remunerativa":
+                            LinImporteHaber := -LinLiq.Importe;
+                        else
+                            LinImporteHaber := 0;
+                    end;
 
                     if LinLiq."Tipo Concepto" in
                         [LinLiq."Tipo Concepto"::"Descuento Empleado",
@@ -132,6 +142,8 @@ report 50041 "Recibo de Sueldo"
 
                     if LinLiq."Tipo Concepto" = LinLiq."Tipo Concepto"::"Haber Remunerativo" then
                         LinImporteHaberRem := LinLiq.Importe
+                    else if LinLiq."Tipo Concepto" = LinLiq."Tipo Concepto"::"Deducción Remunerativa" then
+                        LinImporteHaberRem := -LinLiq.Importe
                     else
                         LinImporteHaberRem := 0;
 
@@ -140,13 +152,21 @@ report 50041 "Recibo de Sueldo"
                     else
                         LinImporteHaberNoRem := 0;
 
+                    LinEsPrimeraLinea := PrimeraLineaLiq and (LinLiq."Grupo Costo Laboral".AsInteger() = 0);
+                    if LinEsPrimeraLinea then begin
+                        LinNetoGrafico := LiqNetoCosto;
+                        PrimeraLineaLiq := false;
+                    end else
+                        LinNetoGrafico := 0;
+
                     case LinLiq."Tipo Concepto" of
                         LinLiq."Tipo Concepto"::"Contribución Patronal":
                             begin
                                 LinGrupo := 'Contribuciones Patronales';
                                 LinGrupoOrden := 1;
                             end;
-                        LinLiq."Tipo Concepto"::"Haber Remunerativo":
+                        LinLiq."Tipo Concepto"::"Haber Remunerativo",
+                        LinLiq."Tipo Concepto"::"Deducción Remunerativa":
                             begin
                                 LinGrupo := 'Remunerativo';
                                 LinGrupoOrden := 2;
@@ -164,14 +184,31 @@ report 50041 "Recibo de Sueldo"
                 end;
             }
 
+            column(CostoSindEmpl; vCostoSindEmpl) { }
+            column(CostoSindTrab; vCostoSindTrab) { }
+            column(CostoSSEmpl; vCostoSSEmpl) { }
+            column(CostoSSTrab; vCostoSSTrab) { }
+            column(CostoOSEmpl; vCostoOSEmpl) { }
+            column(CostoOSTrab; vCostoOSTrab) { }
+            column(CostoINSSJPEmpl; vCostoINSSJPEmpl) { }
+            column(CostoINSSJPTrab; vCostoINSSJPTrab) { }
+            column(CostoARTEmpl; vCostoARTEmpl) { }
+            column(CostoARTTrab; vCostoARTTrab) { }
+            column(CostoSCVOEmpl; vCostoSCVOEmpl) { }
+            column(CostoSCVOTrab; vCostoSCVOTrab) { }
+
             trigger OnAfterGetRecord()
             var
                 Periodo: Record "Período Liquidación";
                 Convenio: Record "Convenio Colectivo";
                 Categoria: Record "Categoría CCT";
+                TipoLiqRec: Record "Tipo Liquidación";
                 Emp: Record Employee;
+                CostoLin: Record "Línea Liquidación";
                 MesNames: array[12] of Text;
+                GrupoIdx: Integer;
             begin
+                CalcCostoLaboral(Liq."No.");
                 MesNames[1] := 'Enero';
                 MesNames[2] := 'Febrero';
                 MesNames[3] := 'Marzo';
@@ -184,6 +221,9 @@ report 50041 "Recibo de Sueldo"
                 MesNames[10] := 'Octubre';
                 MesNames[11] := 'Noviembre';
                 MesNames[12] := 'Diciembre';
+
+                PrimeraLineaLiq := true;
+                LiqNetoCosto := Liq."Neto a Pagar";
 
                 if Periodo.Get(Liq."Cód. Período") then begin
                     PeriodoDesc := MesNames[Periodo.Mes] + ' ' + Format(Periodo.Año);
@@ -200,6 +240,10 @@ report 50041 "Recibo de Sueldo"
                 CategoriaDesc := '';
                 if Categoria.Get(Liq."Cód. Convenio", Liq."Cód. Categoría") then
                     CategoriaDesc := Categoria.Descripción;
+
+                TipoLiqDesc := Liq."Cód. Tipo Liq.";
+                if TipoLiqRec.Get(Liq."Cód. Tipo Liq.") then
+                    TipoLiqDesc := TipoLiqRec.Descripción;
 
                 EmpDomicilio := '';
                 EmpCUIL := '';
@@ -267,6 +311,7 @@ report 50041 "Recibo de Sueldo"
         PeriodoFechaHasta: Date;
         ConvenioDesc: Text[100];
         CategoriaDesc: Text[100];
+        TipoLiqDesc: Text[50];
         EmpDomicilio: Text[100];
         EmpCUIL: Text[30];
         EmpFechaIngreso: Date;
@@ -278,7 +323,62 @@ report 50041 "Recibo de Sueldo"
         LinImporteHaberNoRem: Decimal;
         LinGrupo: Text[50];
         LinGrupoOrden: Integer;
+        LinEsPrimeraLinea: Boolean;
+        LinNetoGrafico: Decimal;
+        PrimeraLineaLiq: Boolean;
+        LiqNetoCosto: Decimal;
         PeriodoMes: Integer;
         PeriodoAnio: Integer;
+        vCostoSindEmpl: Decimal;
+        vCostoSindTrab: Decimal;
+        vCostoSSEmpl: Decimal;
+        vCostoSSTrab: Decimal;
+        vCostoOSEmpl: Decimal;
+        vCostoOSTrab: Decimal;
+        vCostoINSSJPEmpl: Decimal;
+        vCostoINSSJPTrab: Decimal;
+        vCostoARTEmpl: Decimal;
+        vCostoARTTrab: Decimal;
+        vCostoSCVOEmpl: Decimal;
+        vCostoSCVOTrab: Decimal;
         EmpAntiguedad: Integer;
+
+    local procedure CalcCostoLaboral(LiqNo: Code[20])
+    var
+        Lin: Record "Línea Liquidación";
+        Idx: Integer;
+    begin
+        vCostoSindEmpl := 0; vCostoSindTrab := 0;
+        vCostoSSEmpl := 0; vCostoSSTrab := 0;
+        vCostoOSEmpl := 0; vCostoOSTrab := 0;
+        vCostoINSSJPEmpl := 0; vCostoINSSJPTrab := 0;
+        vCostoARTEmpl := 0; vCostoARTTrab := 0;
+        vCostoSCVOEmpl := 0; vCostoSCVOTrab := 0;
+
+        Lin.SetRange("No. Liquidación", LiqNo);
+        Lin.SetFilter("Grupo Costo Laboral", '<>%1', "Grupo Costo Laboral Liq."::" ");
+        Lin.SetFilter(Importe, '<>0');
+        if not Lin.FindSet() then exit;
+        repeat
+            Idx := Lin."Grupo Costo Laboral".AsInteger();
+            if Lin."Tipo Concepto" = Lin."Tipo Concepto"::"Contribución Patronal" then
+                case Idx of
+                    1: vCostoSindEmpl += Lin.Importe;
+                    2: vCostoSSEmpl += Lin.Importe;
+                    3: vCostoOSEmpl += Lin.Importe;
+                    4: vCostoINSSJPEmpl += Lin.Importe;
+                    5: vCostoARTEmpl += Lin.Importe;
+                    6: vCostoSCVOEmpl += Lin.Importe;
+                end
+            else
+                case Idx of
+                    1: vCostoSindTrab += Lin.Importe;
+                    2: vCostoSSTrab += Lin.Importe;
+                    3: vCostoOSTrab += Lin.Importe;
+                    4: vCostoINSSJPTrab += Lin.Importe;
+                    5: vCostoARTTrab += Lin.Importe;
+                    6: vCostoSCVOTrab += Lin.Importe;
+                end;
+        until Lin.Next() = 0;
+    end;
 }

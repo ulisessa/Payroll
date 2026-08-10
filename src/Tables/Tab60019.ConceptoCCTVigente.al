@@ -4,10 +4,17 @@ table 60019 "Concepto CCT Vigente"
 {
     Caption = 'Convenios Aplicables al Concepto';
     DataClassification = CustomerContent;
-    // Defines which CCT agreements a concept applies to, versioned by date.
+    // Defines which CCT agreements (and, opcionalmente, categorías dentro de ese convenio)
+    // un concepto aplica, versionado por fecha.
     // If NO records exist for a concept at a given date → applies to ALL CCTs.
-    // If records exist → applies ONLY to the listed CCTs for that vigencia.
-    // A "version" is the set of rows sharing the same (Cód. Concepto, Vigencia Desde).
+    // If records exist → applies ONLY to the listed CCTs.
+    // El versionado es POR CONVENIO: para cada convenio manda su propia fila con la Vigencia
+    // Desde más reciente <= fecha de liquidación. Agregar una vigencia nueva para un convenio
+    // NO revoca la vigencia todavía válida de los demás convenios del mismo concepto.
+    // Dentro de un convenio restringido, "Cód. Categoría" en blanco = aplica a TODAS las
+    // categorías de ese convenio; una fila con categoría puntual restringe solo a esa. Ahí sí
+    // la vigencia más reciente DE ESE CONVENIO reemplaza a la anterior, de modo que una versión
+    // nueva puede acotar el concepto a categorías puntuales.
 
     fields
     {
@@ -31,11 +38,18 @@ table 60019 "Concepto CCT Vigente"
             DataClassification = CustomerContent;
             TableRelation = "Convenio Colectivo".Código;
         }
+        field(4; "Cód. Categoría"; Code[20])
+        {
+            Caption = 'Cód. Categoría';
+            DataClassification = CustomerContent;
+            TableRelation = "Categoría CCT".Código WHERE("Cód. Convenio" = FIELD("Cód. Convenio"));
+            // Vacío = aplica a todas las categorías del convenio. Cargada = restringe solo a esa.
+        }
     }
 
     keys
     {
-        key(PK; "Cód. Concepto", "Vigencia Desde", "Cód. Convenio") { Clustered = true; }
+        key(PK; "Cód. Concepto", "Vigencia Desde", "Cód. Convenio", "Cód. Categoría") { Clustered = true; }
         key(K2; "Cód. Convenio", "Vigencia Desde") { }
     }
 }

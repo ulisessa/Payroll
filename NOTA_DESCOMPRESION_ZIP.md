@@ -2,10 +2,35 @@
 
 ## Situación
 
-Business Central 25.2 tiene limitaciones en la disponibilidad de APIs para descomprimir archivos ZIP programáticamente. El código ha sido diseñado para:
+✅ **Actualización 2026-06-11:** La descompresión automática (Opción 1) está confirmada y funcionando en este entorno On-Premises mediante variables `DotNet` (`System.IO.DirectoryInfo`, `System.Array`, `System.IO.FileInfo`, `System.IO.Compression.ZipFile`).
 
-1. **Intentar descompresión automática** usando las APIs disponibles
-2. **Soportar descompresión manual** como alternativa
+**Requisito de compilación (1/2):** Estos tipos requieren que los ensamblados .NET 8 correspondientes estén disponibles en la carpeta `.netpackages/` del proyecto (referenciada en `al.assemblyProbingPaths` de `.vscode/settings.json`). Esa carpeta no se versiona en git (ver `.gitignore`), por lo que debe poblarse en cada máquina de desarrollo copiando los siguientes archivos desde `C:\Program Files\dotnet\shared\Microsoft.NETCore.App\<versión>\`:
+
+```
+System.Private.CoreLib.dll
+System.Runtime.dll
+System.Runtime.InteropServices.dll
+System.Memory.dll
+System.IO.FileSystem.dll
+System.IO.Compression.dll
+System.IO.Compression.FileSystem.dll
+System.IO.Compression.ZipFile.dll
+System.Collections.dll
+System.Linq.dll
+netstandard.dll
+```
+
+Adicionalmente, el selector de carpeta local (`Page "Carpeta SIRADIG Dialog"`, acción "Examinar...") usa `System.Windows.Forms.FolderBrowserDialog`, cuyo ensamblado **no** está en `Microsoft.NETCore.App` sino en el runtime de escritorio. Copiar también:
+
+```
+System.Windows.Forms.dll
+```
+
+desde `C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App\<versión>\` (usar la misma versión que las demás DLLs, ej. 8.0.28). Esto solo funciona si el servicio de Business Central se ejecuta con acceso a un escritorio interactivo; en un Windows Service estándar, `ShowDialog()` puede fallar y debe usarse el campo de texto manual como respaldo.
+
+**Requisito de compilación (2/2):** Además de las DLLs, AL necesita declarar explícitamente cada tipo `DotNet` mediante un objeto `dotnet { assembly(...) { type(...) {} } }`. Sin esto, el compilador falla con `AL0185: DotNet 'Tipo' is missing`. Esta declaración ya está incluida en el código fuente (`src/DotNet/Assemblies.al`), por lo que solo es necesario asegurarse de que las DLLs del punto anterior estén presentes en `.netpackages/`.
+
+El código mantiene también el flujo manual (Opción 2) como alternativa para entornos donde estos ensamblados no estén disponibles.
 
 ## Dos flujos posibles
 

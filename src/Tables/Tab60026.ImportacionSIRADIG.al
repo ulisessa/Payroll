@@ -71,6 +71,12 @@ table 60026 "Importación SIRADIG"
             Caption = 'Mensajes Error';
             Editable = false;
         }
+        field(14; "AFIP Register Entry No."; Integer)
+        {
+            Caption = 'AFIP Register Entry No.';
+            Editable = false;
+            TableRelation = "AFIP Interface Register"."Entry no.";
+        }
     }
 
     keys

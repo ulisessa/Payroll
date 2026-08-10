@@ -1708,6 +1708,78 @@
         <Field Name="EmpAntiguedad">
           <DataField>EmpAntiguedad</DataField>
         </Field>
+        <Field Name="CostoSindEmpl">
+          <DataField>CostoSindEmpl</DataField>
+        </Field>
+        <Field Name="CostoSindEmplFormat">
+          <DataField>CostoSindEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSindTrab">
+          <DataField>CostoSindTrab</DataField>
+        </Field>
+        <Field Name="CostoSindTrabFormat">
+          <DataField>CostoSindTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoSSEmpl">
+          <DataField>CostoSSEmpl</DataField>
+        </Field>
+        <Field Name="CostoSSEmplFormat">
+          <DataField>CostoSSEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSSTrab">
+          <DataField>CostoSSTrab</DataField>
+        </Field>
+        <Field Name="CostoSSTrabFormat">
+          <DataField>CostoSSTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoOSEmpl">
+          <DataField>CostoOSEmpl</DataField>
+        </Field>
+        <Field Name="CostoOSEmplFormat">
+          <DataField>CostoOSEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoOSTrab">
+          <DataField>CostoOSTrab</DataField>
+        </Field>
+        <Field Name="CostoOSTrabFormat">
+          <DataField>CostoOSTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoINSSJPEmpl">
+          <DataField>CostoINSSJPEmpl</DataField>
+        </Field>
+        <Field Name="CostoINSSJPEmplFormat">
+          <DataField>CostoINSSJPEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoINSSJPTrab">
+          <DataField>CostoINSSJPTrab</DataField>
+        </Field>
+        <Field Name="CostoINSSJPTrabFormat">
+          <DataField>CostoINSSJPTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoARTEmpl">
+          <DataField>CostoARTEmpl</DataField>
+        </Field>
+        <Field Name="CostoARTEmplFormat">
+          <DataField>CostoARTEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoARTTrab">
+          <DataField>CostoARTTrab</DataField>
+        </Field>
+        <Field Name="CostoARTTrabFormat">
+          <DataField>CostoARTTrabFormat</DataField>
+        </Field>
+        <Field Name="CostoSCVOEmpl">
+          <DataField>CostoSCVOEmpl</DataField>
+        </Field>
+        <Field Name="CostoSCVOEmplFormat">
+          <DataField>CostoSCVOEmplFormat</DataField>
+        </Field>
+        <Field Name="CostoSCVOTrab">
+          <DataField>CostoSCVOTrab</DataField>
+        </Field>
+        <Field Name="CostoSCVOTrabFormat">
+          <DataField>CostoSCVOTrabFormat</DataField>
+        </Field>
         <Field Name="ResNombreVar">
           <DataField>ResNombreVar</DataField>
         </Field>
@@ -1743,6 +1815,9 @@
         </Field>
         <Field Name="DetGanCantidad">
           <DataField>DetGanCantidad</DataField>
+        </Field>
+        <Field Name="DetGanCantidadFormat">
+          <DataField>DetGanCantidadFormat</DataField>
         </Field>
         <Field Name="DetGanImpUnit">
           <DataField>DetGanImpUnit</DataField>
@@ -1813,6 +1888,12 @@
         <Field Name="LinUnidadCantidad">
           <DataField>LinUnidadCantidad</DataField>
         </Field>
+        <Field Name="LinBaseCalculo">
+          <DataField>LinBaseCalculo</DataField>
+        </Field>
+        <Field Name="LinBaseCalculoFormat">
+          <DataField>LinBaseCalculoFormat</DataField>
+        </Field>
         <Field Name="LinImporteHaberRem">
           <DataField>LinImporteHaberRem</DataField>
         </Field>
@@ -1830,6 +1911,33 @@
         </Field>
         <Field Name="LinGrupoOrden">
           <DataField>LinGrupoOrden</DataField>
+        </Field>
+        <Field Name="LinGrupoCosto">
+          <DataField>LinGrupoCosto</DataField>
+        </Field>
+        <Field Name="LinGrupoCostoNum">
+          <DataField>LinGrupoCostoNum</DataField>
+        </Field>
+        <Field Name="LinImporteCostoEmpleador">
+          <DataField>LinImporteCostoEmpleador</DataField>
+        </Field>
+        <Field Name="LinImporteCostoEmpleadorFormat">
+          <DataField>LinImporteCostoEmpleadorFormat</DataField>
+        </Field>
+        <Field Name="LinImporteCostoTrabajador">
+          <DataField>LinImporteCostoTrabajador</DataField>
+        </Field>
+        <Field Name="LinImporteCostoTrabajadorFormat">
+          <DataField>LinImporteCostoTrabajadorFormat</DataField>
+        </Field>
+        <Field Name="LinEsPrimeraLinea">
+          <DataField>LinEsPrimeraLinea</DataField>
+        </Field>
+        <Field Name="LinNetoGrafico">
+          <DataField>LinNetoGrafico</DataField>
+        </Field>
+        <Field Name="LinNetoGraficoFormat">
+          <DataField>LinNetoGraficoFormat</DataField>
         </Field>
       </Fields>
       <Query>

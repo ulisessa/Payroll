@@ -38,6 +38,7 @@ table 60015 "Fuente Datos Liquidación"
             trigger OnValidate()
             var
                 AllObj: Record AllObjWithCaption;
+                Filtro: Record "Filtro Fuente Datos Liq.";
             begin
                 if "Id. Tabla" = 0 then exit;
                 AllObj.SetRange("Object Type", AllObj."Object Type"::Table);
@@ -50,6 +51,11 @@ table 60015 "Fuente Datos Liquidación"
                 "No. Filtro 3" := 0;
                 "No. Campo Fecha Inicio" := 0;
                 "No. Campo Fecha Fin" := 0;
+                "Fin Efectivo" := false;
+                if "Nombre Variable" <> '' then begin
+                    Filtro.SetRange("Nombre Variable", "Nombre Variable");
+                    Filtro.DeleteAll();
+                end;
             end;
         }
         field(4; "No. Campo Valor"; Integer)
@@ -70,51 +76,48 @@ table 60015 "Fuente Datos Liquidación"
         }
         field(6; "No. Filtro 1"; Integer)
         {
-            Caption = 'No. Filtro 1';
+            Caption = 'No. Filtro 1 (obsoleto)';
             DataClassification = CustomerContent;
             MinValue = 0;
-
-            trigger OnValidate()
-            begin
-                ValidarCampo("Id. Tabla", "No. Filtro 1");
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(7; "Filtro Valor 1"; Text[250])
         {
-            Caption = 'Filtro Valor 1';
+            Caption = 'Filtro Valor 1 (obsoleto)';
             DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(8; "No. Filtro 2"; Integer)
         {
-            Caption = 'No. Filtro 2';
+            Caption = 'No. Filtro 2 (obsoleto)';
             DataClassification = CustomerContent;
             MinValue = 0;
-
-            trigger OnValidate()
-            begin
-                ValidarCampo("Id. Tabla", "No. Filtro 2");
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(9; "Filtro Valor 2"; Text[250])
         {
-            Caption = 'Filtro Valor 2';
+            Caption = 'Filtro Valor 2 (obsoleto)';
             DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(10; "No. Filtro 3"; Integer)
         {
-            Caption = 'No. Filtro 3';
+            Caption = 'No. Filtro 3 (obsoleto)';
             DataClassification = CustomerContent;
             MinValue = 0;
-
-            trigger OnValidate()
-            begin
-                ValidarCampo("Id. Tabla", "No. Filtro 3");
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(11; "Filtro Valor 3"; Text[250])
         {
-            Caption = 'Filtro Valor 3';
+            Caption = 'Filtro Valor 3 (obsoleto)';
             DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados.';
         }
         field(12; Activo; Boolean)
         {
@@ -149,6 +152,15 @@ table 60015 "Fuente Datos Liquidación"
             Caption = 'Mostrar en Recibo';
             DataClassification = CustomerContent;
         }
+        field(17; "Fin Efectivo"; Boolean)
+        {
+            Caption = 'Fin Efectivo (Estado Siguiente)';
+            DataClassification = CustomerContent;
+            // For effective-dated tables (e.g. Estado Empleado, sin campo Fecha Fin): the interval end of
+            // each row is derived as the next row's start date − 1 for the same entity, ignoring the row's
+            // constant selection filters (only the token filters — {EMP_NO}, {JOB_NO}… — scope the entity).
+            // Applies to DIAS_OVERLAP/DURACION_INICIO/DURACION_ANIO.
+        }
         field(16; "Etiqueta Recibo"; Text[100])
         {
             Caption = 'Etiqueta Recibo';
@@ -160,6 +172,34 @@ table 60015 "Fuente Datos Liquidación"
     {
         key(PK; "Nombre Variable") { Clustered = true; }
     }
+
+    trigger OnDelete()
+    var
+        Filtro: Record "Filtro Fuente Datos Liq.";
+    begin
+        Filtro.SetRange("Nombre Variable", "Nombre Variable");
+        Filtro.DeleteAll();
+    end;
+
+    procedure CopiarEn(NuevoNombre: Code[30])
+    var
+        NuevaDef: Record "Fuente Datos Liquidación";
+        FiltroOrig: Record "Filtro Fuente Datos Liq.";
+        FiltroNuevo: Record "Filtro Fuente Datos Liq.";
+    begin
+        NuevaDef := Rec;
+        NuevaDef."Nombre Variable" := NuevoNombre;
+        NuevaDef.Insert(true);
+
+        FiltroOrig.SetRange("Nombre Variable", "Nombre Variable");
+        if FiltroOrig.FindSet() then
+            repeat
+                FiltroNuevo := FiltroOrig;
+                FiltroNuevo."Nombre Variable" := NuevoNombre;
+                FiltroNuevo."No. Línea" := 0;
+                FiltroNuevo.Insert(true);
+            until FiltroOrig.Next() = 0;
+    end;
 
     local procedure ValidarCampo(IdTabla: Integer; NoCampo: Integer)
     var
