@@ -34,6 +34,7 @@ codeunit 50016 "Contexto Liquidación"
         FParamVigMap: Dictionary of [Text, Date];       // NombreVar → VigenciaDesde
         FMoneda: Code[10];
         FTipoMap: Dictionary of [Text, Text];          // NombreVar → 'Parámetro'|'Sistema'|'Fuente Datos'|'Acumulador'
+        FValoresTexto: Dictionary of [Text, Text];     // NombreVar → valor en su tipo original (fuentes no numéricas)
         FAdvertenciasParametros: Text;
         MsgParamSinValor: Label '%1: no tiene ningún valor cargado en Parámetros Vigentes.';
         MsgParamDesactualizado: Label '%1: el último valor vigente es del %2 (%3 día(s) de antigüedad respecto a la liquidación). Verifique si corresponde cargar una versión más reciente.';
@@ -74,6 +75,7 @@ codeunit 50016 "Contexto Liquidación"
         FParamLog := '';
         FMoneda := '';
         FAdvertenciasParametros := '';
+        Clear(FValoresTexto);
         Clear(FActualCodMap);
         Clear(FParamBaseMap);
         Clear(FParamCodMap);
@@ -443,7 +445,7 @@ codeunit 50016 "Contexto Liquidación"
     end;
 
     // Returns the YTD sum of LinLiq.Importe for all concepts that feed CodAcum
-    // (Restar = false, latest Vigencia <= FFechaRef). Each distinct concept code counted once.
+    // ("Invertir Signo" = false, latest Vigencia <= FFechaRef). Each distinct concept code counted once.
     local procedure CalcImporteAnualPorAcumulador(CodAcum: Code[20]): Decimal
     var
         Fraccion: Record "Fracción Acumulador";
@@ -455,7 +457,7 @@ codeunit 50016 "Contexto Liquidación"
         AnioInicio := DMY2Date(1, 1, Date2DMY(FFechaRef, 3));
         Fraccion.SetCurrentKey("Cód. Acumulador", "Vigencia Desde");
         Fraccion.SetRange("Cód. Acumulador", CodAcum);
-        //Fraccion.SetRange(Restar, false);
+        //Fraccion.SetRange("Invertir Signo", false);
         Fraccion.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
         if not Fraccion.FindSet() then exit(0);
         repeat
@@ -467,7 +469,7 @@ codeunit 50016 "Contexto Liquidación"
                 LinLiq.SetRange("Cód. Concepto", Fraccion."Cód. Concepto");
                 LinLiq.SetFilter(Estado, '<>%1', LinLiq.Estado::Borrador);
                 LinLiq.CalcSums(Importe);
-                If Fraccion.Restar then
+                If Fraccion."Invertir Signo" then
                     Total -= LinLiq.Importe
                 else
                     Total += LinLiq.Importe;
@@ -1110,17 +1112,138 @@ codeunit 50016 "Contexto Liquidación"
     local procedure LoadDynamicSources(var Ctx: Dictionary of [Text, Decimal])
     var
         Fuente: Record "Fuente Datos Liquidación";
+        Valor: Decimal;
     begin
         Fuente.SetRange(Activo, true);
         if not Fuente.FindSet() then
             exit;
         repeat
+            // Una sola llamada. Estaba invocada en las dos ramas del if, así que cada fuente
+            // resolvía DOS veces —con su lectura de tabla y sus filtros— y el resultado de la
+            // primera se descartaba.
+            Valor := ResolveFuente(Fuente);
             if not Ctx.ContainsKey(Fuente."Nombre Variable") then
-                Ctx.Add(Fuente."Nombre Variable", ResolveFuente(Fuente))
+                Ctx.Add(Fuente."Nombre Variable", Valor)
             else
-                Ctx.Set(Fuente."Nombre Variable", ResolveFuente(Fuente));
+                Ctx.Set(Fuente."Nombre Variable", Valor);
             SetTipo(Fuente."Nombre Variable", 'Fuente Datos');
         until Fuente.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Valor en su tipo original de las fuentes que no son numéricas, por nombre de variable.
+    /// </summary>
+    /// <remarks>
+    /// El contexto de cálculo sigue siendo solo decimales: esto es lo que se guarda al lado para
+    /// auditar e imprimir. Son dos preguntas distintas — con qué número calculó la fórmula, y qué
+    /// texto hay que mostrarle a la persona.
+    /// </remarks>
+    procedure GetValoresTexto(var Destino: Dictionary of [Text, Text])
+    var
+        Clave: Text;
+    begin
+        Clear(Destino);
+        foreach Clave in FValoresTexto.Keys() do
+            Destino.Add(Clave, FValoresTexto.Get(Clave));
+    end;
+
+    // Fuentes declaradas como Texto o Fecha. Se leen con la misma semántica que LOOKUP —la última
+    // fila que pasa los filtros— y se guardan dos cosas: el valor tal cual, para mostrar, y su
+    // proyección a número, que es lo único que la fórmula puede ver.
+    local procedure ResolverFuenteNoNumerica(Fuente: Record "Fuente Datos Liquidación"): Decimal
+    var
+        RecRef: RecordRef;
+        FieldVar: FieldRef;
+        TextoValor: Text;
+        FechaValor: Date;
+        FechaInicio: Date;
+        MejorInicio: Date;
+        Encontrado: Boolean;
+    begin
+        if (Fuente."Id. Tabla" = 0) or (Fuente."No. Campo Valor" = 0) then
+            exit(0);
+
+        RecRef.Open(Fuente."Id. Tabla");
+        if not AplicarFiltrosFuente(Fuente, RecRef, false) then begin
+            RecRef.Close();
+            exit(0);
+        end;
+
+        // La vigencia se resuelve recorriendo, no con un SetFilter. El filtro tendría que decir
+        // "fecha fin en blanco O >= fecha de referencia", y esa forma sobre un campo Date ya nos
+        // costó un cálculo entero: cuando no se comporta como uno espera devuelve menos filas y el
+        // error aparece lejos del origen. Acá el recorrido está acotado por los filtros propios de
+        // la fuente (empleado + tipo de atributo), así que son unas pocas filas.
+        if RecRef.FindSet() then
+            repeat
+                FechaInicio := 0D;
+                if Fuente."No. Campo Fecha Inicio" > 0 then
+                    FechaInicio := FieldRefToDate(RecRef.Field(Fuente."No. Campo Fecha Inicio"));
+                if FilaVigenteAFechaRef(Fuente, RecRef, FechaInicio) then
+                    if (not Encontrado) or (FechaInicio >= MejorInicio) then begin
+                        MejorInicio := FechaInicio;
+                        Encontrado := true;
+                        FieldVar := RecRef.Field(Fuente."No. Campo Valor");
+                        TextoValor := Format(FieldVar.Value());
+                    end;
+            until RecRef.Next() = 0;
+        RecRef.Close();
+
+        if not Encontrado then
+            exit(0);
+
+        GuardarValorTexto(Fuente."Nombre Variable", TextoValor);
+        AppendParamLog('FDS:' + Format(Fuente."Id. Tabla") + '/' + Fuente."Nombre Variable");
+
+        case Fuente."Tipo Dato" of
+            Fuente."Tipo Dato"::Texto:
+                // Bandera de presencia: 1 si hay valor. Para preguntar por un valor PUNTUAL desde una
+                // fórmula, la vía es una fuente con Función Agregado = COUNT y el texto en el filtro,
+                // que compara en SQL — el evaluador no tiene tipo texto.
+                exit(BoolANumero(TextoValor <> ''));
+            Fuente."Tipo Dato"::Fecha:
+                begin
+                    if not Evaluate(FechaValor, TextoValor) then
+                        exit(0);
+                    if FechaValor = 0D then
+                        exit(0);
+                    // Días transcurridos hasta la fecha de referencia. Positivo = pasado (antigüedad,
+                    // días desde el último examen), negativo = futuro (días hasta un vencimiento).
+                    exit(FFechaRef - FechaValor);
+                end;
+        end;
+        exit(0);
+    end;
+
+    // Sin campo de fecha inicio configurado, la fuente no tiene noción de vigencia y toda fila sirve.
+    // Con él, vale la fila que ya arrancó y cuyo fin todavía no pasó — fin en blanco = abierta.
+    local procedure FilaVigenteAFechaRef(Fuente: Record "Fuente Datos Liquidación"; var RecRef: RecordRef; FechaInicio: Date): Boolean
+    var
+        FechaFin: Date;
+    begin
+        if Fuente."No. Campo Fecha Inicio" = 0 then
+            exit(true);
+        if FechaInicio > FFechaRef then
+            exit(false);
+        FechaFin := ResolverFechaFin(Fuente, RecRef, FechaInicio);
+        if FechaFin = 0D then
+            exit(true);
+        exit(FechaFin >= FFechaRef);
+    end;
+
+    local procedure GuardarValorTexto(NombreVariable: Text; Valor: Text)
+    begin
+        if FValoresTexto.ContainsKey(NombreVariable) then
+            FValoresTexto.Set(NombreVariable, Valor)
+        else
+            FValoresTexto.Add(NombreVariable, Valor);
+    end;
+
+    local procedure BoolANumero(B: Boolean): Decimal
+    begin
+        if B then
+            exit(1);
+        exit(0);
     end;
 
     local procedure ResolveFuente(Fuente: Record "Fuente Datos Liquidación"): Decimal
@@ -1128,6 +1251,8 @@ codeunit 50016 "Contexto Liquidación"
         RecRef: RecordRef;
         FieldVar: FieldRef;
         Total: Decimal;
+        // Las fuentes no numéricas van por otro camino: leen la fila vigente, conservan el valor
+        // original para auditar/imprimir y devuelven su proyección a número.
         CurrVal: Decimal;
         FechaInicioRef: FieldRef;
         FechaInicio: Date;
@@ -1138,6 +1263,8 @@ codeunit 50016 "Contexto Liquidación"
         FechaFinAnio: Date;
     begin
         if Fuente."Id. Tabla" = 0 then exit(0);
+        if Fuente."Tipo Dato" <> Fuente."Tipo Dato"::Decimal then
+            exit(ResolverFuenteNoNumerica(Fuente));
 
         RecRef.Open(Fuente."Id. Tabla");
         if not AplicarFiltrosFuente(Fuente, RecRef, false) then begin
@@ -1406,23 +1533,54 @@ codeunit 50016 "Contexto Liquidación"
     local procedure InitAccumulators(var Ctx: Dictionary of [Text, Decimal])
     var
         Concepto: Record "Concepto Liquidación";
+        Procesados: List of [Code[20]];
     begin
         // All accumulators are configured as concepts with Es Acumulador = true.
         // No hardcoded names — add or rename accumulators purely as data.
+        //
+        // El barrido solo propone candidatos: es acumulador el concepto cuya VERSIÓN VIGENTE a la
+        // fecha de referencia lo declara así, y eso lo decide EsAcumuladorVigente. Antes se recorrían
+        // todas las vigencias sin filtro de fecha, así que un concepto que recién pasa a ser
+        // acumulador el año que viene ya se inicializaba hoy, y uno que dejó de serlo seguía
+        // creando su clave. WriteAccumulatorLines (Cod50014) sí resuelve por versión: las dos
+        // mitades del mecanismo no coincidían.
         Concepto.SetRange("Es Acumulador", true);
-        Concepto.SetRange(Activo, true);
+        Concepto.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
         if Concepto.FindSet() then
             repeat
-                // Un acumulador siempre arranca en 0, aunque otra fuente (Parámetro, Variable
-                // Sistema, Fuente Datos) haya cargado antes una clave con el mismo nombre —
-                // de lo contrario el acumulador queda "sembrado" con ese valor ajeno y todo lo
-                // que aportan los conceptos se suma encima en vez de partir de cero.
-                if Ctx.ContainsKey(Concepto.Código) then
-                    Ctx.Set(Concepto.Código, 0)
-                else
-                    Ctx.Add(Concepto.Código, 0);
-                SetTipo(Concepto.Código, 'Acumulador');
+                if not Procesados.Contains(Concepto.Código) then begin
+                    Procesados.Add(Concepto.Código);
+                    if EsAcumuladorVigente(Concepto.Código) then
+                        InicializarAcumulador(Ctx, Concepto.Código);
+                end;
             until Concepto.Next() = 0;
+    end;
+
+    local procedure EsAcumuladorVigente(CodConcepto: Code[20]): Boolean
+    var
+        Vigente: Record "Concepto Liquidación";
+    begin
+        Vigente.SetRange(Código, CodConcepto);
+        // Con el intervalo en el filtro, FindLast no puede caer en una versión ya cerrada: un
+        // concepto en un hueco de vigencia —cerrado en marzo, retomado en julio— no devuelve nada
+        // para mayo, en lugar de resucitar la versión de marzo.
+        Vigente.FiltrarVigentesA(FFechaRef);
+        if not Vigente.FindLast() then
+            exit(false);
+        exit(Vigente."Es Acumulador" and Vigente.VigenteA(FFechaRef));
+    end;
+
+    local procedure InicializarAcumulador(var Ctx: Dictionary of [Text, Decimal]; CodConcepto: Code[20])
+    begin
+        // Un acumulador siempre arranca en 0, aunque otra fuente (Parámetro, Variable Sistema,
+        // Fuente Datos) haya cargado antes una clave con el mismo nombre — de lo contrario el
+        // acumulador queda "sembrado" con ese valor ajeno y todo lo que aportan los conceptos se
+        // suma encima en vez de partir de cero.
+        if Ctx.ContainsKey(CodConcepto) then
+            Ctx.Set(CodConcepto, 0)
+        else
+            Ctx.Add(CodConcepto, 0);
+        SetTipo(CodConcepto, 'Acumulador');
     end;
 
     local procedure AppendParamLog(Entry: Text)

@@ -54,6 +54,11 @@ report 50041 "Recibo de Sueldo"
                 column(ResNombreVar; ResumenVarLiq."Nombre Variable") { }
                 column(ResEtiqueta; ResumenVarLiq.Etiqueta) { }
                 column(ResValor; ResumenVarLiq.Valor) { }
+                column(ResValorTexto; ResumenVarLiq."Valor Texto") { }
+                // Ya resuelto para el RDL: si la variable tiene valor de texto se imprime ése, y si
+                // no el número formateado. Una obra social tiene que salir "126205 - OSECAC" y no el
+                // 1 con el que la fórmula la distingue.
+                column(ResValorMostrar; ResumenVarLiq.ValorParaMostrar()) { }
             }
 
             dataitem(DetGanancias; "Detalle Ganancias Liq.")
@@ -86,8 +91,7 @@ report 50041 "Recibo de Sueldo"
                 column(LinImporte; LinLiq.Importe) { }
                 column(LinEsHaber; LinLiq."Tipo Concepto" in
                     [LinLiq."Tipo Concepto"::"Haber Remunerativo",
-                     LinLiq."Tipo Concepto"::"Haber No Remunerativo",
-                     LinLiq."Tipo Concepto"::"Deducción Remunerativa"])
+                     LinLiq."Tipo Concepto"::"Haber No Remunerativo"])
                 { }
                 column(LinEsDescuento; LinLiq."Tipo Concepto" in
                     [LinLiq."Tipo Concepto"::"Descuento Empleado",
@@ -116,12 +120,12 @@ report 50041 "Recibo de Sueldo"
 
                 trigger OnAfterGetRecord()
                 begin
+                    // Sin negaciones por tipo: el importe ya viene con su signo, así que un haber que
+                    // corrige hacia abajo se imprime negativo en la columna de haberes.
                     case LinLiq."Tipo Concepto" of
                         LinLiq."Tipo Concepto"::"Haber Remunerativo",
                         LinLiq."Tipo Concepto"::"Haber No Remunerativo":
                             LinImporteHaber := LinLiq.Importe;
-                        LinLiq."Tipo Concepto"::"Deducción Remunerativa":
-                            LinImporteHaber := -LinLiq.Importe;
                         else
                             LinImporteHaber := 0;
                     end;
@@ -142,8 +146,6 @@ report 50041 "Recibo de Sueldo"
 
                     if LinLiq."Tipo Concepto" = LinLiq."Tipo Concepto"::"Haber Remunerativo" then
                         LinImporteHaberRem := LinLiq.Importe
-                    else if LinLiq."Tipo Concepto" = LinLiq."Tipo Concepto"::"Deducción Remunerativa" then
-                        LinImporteHaberRem := -LinLiq.Importe
                     else
                         LinImporteHaberRem := 0;
 
@@ -165,8 +167,7 @@ report 50041 "Recibo de Sueldo"
                                 LinGrupo := 'Contribuciones Patronales';
                                 LinGrupoOrden := 1;
                             end;
-                        LinLiq."Tipo Concepto"::"Haber Remunerativo",
-                        LinLiq."Tipo Concepto"::"Deducción Remunerativa":
+                        LinLiq."Tipo Concepto"::"Haber Remunerativo":
                             begin
                                 LinGrupo := 'Remunerativo';
                                 LinGrupoOrden := 2;

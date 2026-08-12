@@ -95,11 +95,16 @@ page 50100 "Lista Liquidaciones"
                     LiqSel: Record "Liquidación";
                     Motor: Codeunit "Motor Liquidación";
                     Registro: Codeunit "Registro Procesos Liq.";
+                    Progreso: Dialog;
+                    Total: Integer;
+                    Procesadas: Integer;
                     Calculadas: Integer;
                     Fallidas: Integer;
                 begin
                     CurrPage.SetSelectionFilter(LiqSel);
                     LiqSel.SetFilter(Estado, '%1|%2|%3', LiqSel.Estado::Borrador, LiqSel.Estado::Calculada, LiqSel.Estado::Aprobada);
+                    // El Count va ANTES del FindSet: contar reposiciona el cursor.
+                    Total := LiqSel.Count();
                     if not LiqSel.FindSet(true) then begin
                         Message(MsgSinSeleccion);
                         exit;
@@ -107,12 +112,18 @@ page 50100 "Lista Liquidaciones"
                     // Una corrida = una sesión: los registros quedan agrupados y se pueden mirar
                     // todos juntos desde cualquiera de ellos.
                     Registro.IniciarSesion();
+                    Progreso.Open(TxtProgresoCalculo);
                     repeat
+                        Procesadas += 1;
+                        Progreso.Update(1, LiqSel."No.");
+                        Progreso.Update(2, LiqSel."No. Empleado");
+                        Progreso.Update(3, Round(Procesadas / Total * 10000, 1));
                         if Motor.LiquidarConRegistro(LiqSel) then
                             Calculadas += 1
                         else
                             Fallidas += 1;
                     until LiqSel.Next() = 0;
+                    Progreso.Close();
                     Registro.CerrarSesion();
                     CurrPage.Update(false);
 
@@ -156,19 +167,42 @@ page 50100 "Lista Liquidaciones"
                 trigger OnAction()
                 var
                     LiqSel: Record "Liquidación";
+                    Liq: Record "Liquidación";
                     Gestion: Codeunit "Gestión Liquidación";
+                    Registro: Codeunit "Registro Procesos Liq.";
+                    Numeros: List of [Code[20]];
+                    Numero: Code[20];
                     Reabiertas: Integer;
                 begin
                     CurrPage.SetSelectionFilter(LiqSel);
                     LiqSel.SetRange(Estado, LiqSel.Estado::Calculada);
-                    if not LiqSel.FindSet(true) then begin
+                    if not LiqSel.FindSet() then begin
                         Message(MsgSinSeleccionReabrir);
                         exit;
                     end;
+
+                    // Se juntan las claves ANTES de tocar nada. Reabrir pasa el Estado a Borrador,
+                    // que es justo el campo filtrado: al modificarlo el registro se cae del filtro y
+                    // el Next() siguiente devuelve 0, así que el lote reabría solo la primera y se
+                    // cortaba sin avisar. Mismo problema y misma solución que LimpiarParaRecalculo
+                    // en Gestión Novedades Liq.
                     repeat
-                        Gestion.Reabrir(LiqSel);
-                        Reabiertas += 1;
+                        Numeros.Add(LiqSel."No.");
                     until LiqSel.Next() = 0;
+
+                    // Una corrida = una sesión, igual que Calcular: las reaperturas del lote quedan
+                    // agrupadas y se pueden mirar juntas desde cualquiera de ellas.
+                    Registro.IniciarSesion();
+                    foreach Numero in Numeros do
+                        if Liq.Get(Numero) then
+                            // Se revalida el estado porque entre el armado de la lista y este punto
+                            // el registro pudo cambiar; Reabrir tira Error si no está Calculada.
+                            if Liq.Estado = Liq.Estado::Calculada then begin
+                                Gestion.Reabrir(Liq);
+                                Reabiertas += 1;
+                            end;
+                    Registro.CerrarSesion();
+
                     Message(MsgReabiertas, Reabiertas);
                     CurrPage.Update(false);
                 end;
@@ -299,6 +333,8 @@ page 50100 "Lista Liquidaciones"
         MsgCalculadasConAdvertencias: Label '%1 liquidación(es) calculada(s).\\Atención — parámetros posiblemente desactualizados:\%2';
         QstEliminarSeleccion: Label '¿Eliminar las liquidaciones seleccionadas en estado Borrador? Las que no estén en Borrador se omitirán.';
         MsgEliminadasSel: Label '%1 liquidación(es) eliminada(s). %2 omitida(s) por no estar en Borrador.';
+        // Los #n# son campos de texto y el @n@ es la barra de avance, que va de 0 a 10000.
+        TxtProgresoCalculo: Label 'Calculando liquidaciones\\Liquidación  #1##################\Empleado     #2##################\\Progreso     @3@@@@@@@@@@@@@@@@@@@@';
         MsgSinSeleccionReabrir: Label 'No hay liquidaciones en estado Calculada en la selección.';
         MsgReabiertas: Label '%1 liquidación(es) reabierta(s).';
 }

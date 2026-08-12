@@ -16,6 +16,11 @@ page 50145 "Concepto Liq. Card"
                 Caption = 'General';
                 field(Código; Rec.Código) { ApplicationArea = All; }
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
+                field("Vigencia Hasta"; Rec."Vigencia Hasta")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Último día en que esta versión se aplica. En blanco = vigencia abierta. Cargar una fecha da de baja el concepto desde ese día sin alterar lo ya liquidado.';
+                }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field("Nombre Impresión"; Rec."Nombre Impresión") { ApplicationArea = All; }
                 field("Variable Cantidad"; Rec."Variable Cantidad")
@@ -144,8 +149,14 @@ page 50145 "Concepto Liq. Card"
             part(Fracciones; "Fracción Acumulador Sub")
             {
                 ApplicationArea = All;
-                Caption = 'Distribución en acumuladores';
-                SubPageLink = "Cód. Concepto" = FIELD(Código), "Vigencia Desde" = FIELD("Vigencia Desde");
+                Caption = 'Distribución en acumuladores — todas las vigencias';
+                // A propósito NO se filtra por "Vigencia Desde" del concepto, igual que la subpágina
+                // de convenios: la distribución se versiona por separado y el motor elige la última
+                // Vigencia Desde <= fecha de liquidación (ver BuildFractionCache). Filtrando por
+                // fecha exacta, crear una vigencia nueva del concepto mostraba la distribución vacía
+                // mientras el motor seguía aplicando la anterior. La columna "Vigente" marca cuál
+                // rige para esta versión.
+                SubPageLink = "Cód. Concepto" = FIELD(Código);
                 Visible = not Rec."Es Acumulador";
             }
             part(Alimentadores; "Alimentadores Acumulador Sub")
@@ -198,6 +209,9 @@ page 50145 "Concepto Liq. Card"
                         Error(ErrVigenciaExiste, Rec.Código, FechaNueva);
                     NuevoConcepto := Rec;
                     NuevoConcepto."Vigencia Desde" := FechaNueva;
+                    // La copia no puede arrastrar la fecha de fin de la versión que reemplaza: nace
+                    // abierta, y es el insert el que cierra a la anterior contra este inicio.
+                    NuevoConcepto."Vigencia Hasta" := 0D;
                     NuevoConcepto.Insert(true);
                     CurrPage.SetRecord(NuevoConcepto);
                     CurrPage.Update(false);
@@ -210,7 +224,8 @@ page 50145 "Concepto Liq. Card"
                 Image = ChangeLog;
                 Promoted = true;
                 PromotedCategory = Process;
-                ToolTip = 'Quién cambió la fórmula o la condición de este concepto, cuándo, y de qué texto a qué texto. Permite además restaurar una versión anterior.';
+                Enabled = TieneHistorial;
+                ToolTip = 'Quién cambió la fórmula o la condición de este concepto, cuándo, y de qué texto a qué texto. Permite además restaurar una versión anterior. Se habilita cuando el concepto tiene al menos un cambio registrado.';
 
                 trigger OnAction()
                 var
@@ -307,20 +322,37 @@ page 50145 "Concepto Liq. Card"
         // Al moverse entre conceptos hay que reenviarle al editor la fórmula del nuevo registro; si
         // no, sigue mostrando la del anterior.
         PushEstadoAlEditor();
+        TieneHistorial := HayHistorialDeCambios();
+        // La subpágina necesita saber contra qué fecha evaluar qué distribución rige, y eso cambia
+        // al moverse entre vigencias del concepto.
+        if not Rec."Es Acumulador" then
+            CurrPage.Fracciones.Page.SetContexto(Rec.Código, Rec."Vigencia Desde");
 
         case Rec."Tipo Concepto" of
             Rec."Tipo Concepto"::"Haber Remunerativo":
                 TipoStyle := 'Favorable';
             Rec."Tipo Concepto"::"Haber No Remunerativo":
                 TipoStyle := 'Subordinate';
-            Rec."Tipo Concepto"::"Deducción Remunerativa":
-                TipoStyle := 'Ambiguous';
             Rec."Tipo Concepto"::"Descuento Empleado",
             Rec."Tipo Concepto"::Retención:
                 TipoStyle := 'Unfavorable';
             Rec."Tipo Concepto"::"Contribución Patronal":
                 TipoStyle := 'Attention';
         end;
+    end;
+
+    // El historial arranca vacío para todo concepto anterior a que existiera el registro de cambios,
+    // así que el botón llevaría a una lista en blanco. IsEmpty y no Count: solo interesa si hay al
+    // menos una fila, y esto corre en cada refresco de la ficha.
+    local procedure HayHistorialDeCambios(): Boolean
+    var
+        Historial: Record "Historial Fórmula Concepto";
+    begin
+        if Rec.Código = '' then
+            exit(false);
+        Historial.SetCurrentKey("Cód. Concepto", "Vigencia Desde", "Fecha Hora");
+        Historial.SetRange("Cód. Concepto", Rec.Código);
+        exit(not Historial.IsEmpty());
     end;
 
     // ── Editor con IntelliSense ───────────────────────────────────────────────
@@ -443,6 +475,7 @@ page 50145 "Concepto Liq. Card"
 
     var
         TipoStyle: Text;
+        TieneHistorial: Boolean;
         FEditorListo: Boolean;
         FTextoPlanoVisible: Boolean;
         FCatalogoJson: Text;

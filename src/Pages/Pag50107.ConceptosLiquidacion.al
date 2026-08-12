@@ -17,6 +17,11 @@ page 50107 "Conceptos Liquidación"
             {
                 field(Código; Rec.Código) { ApplicationArea = All; }
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
+                field("Vigencia Hasta"; Rec."Vigencia Hasta")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Último día en que esta versión se aplica. En blanco = vigencia abierta. Cargar una fecha da de baja el concepto desde ese día sin alterar lo ya liquidado.';
+                }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field("Nombre Impresión"; Rec."Nombre Impresión") { ApplicationArea = All; }
                 field("Tipo Concepto"; Rec."Tipo Concepto")
@@ -66,6 +71,9 @@ page 50107 "Conceptos Liquidación"
                         Error(ErrVigenciaExiste, Rec.Código, FechaNueva);
                     NuevoConcepto := Rec;
                     NuevoConcepto."Vigencia Desde" := FechaNueva;
+                    // La copia no puede arrastrar la fecha de fin de la versión que reemplaza: nace
+                    // abierta, y es el insert el que cierra a la anterior contra este inicio.
+                    NuevoConcepto."Vigencia Hasta" := 0D;
                     NuevoConcepto.Insert(true);
                     Page.Run(Page::"Concepto Liq. Card", NuevoConcepto);
                     CurrPage.Update(false);
@@ -200,8 +208,6 @@ page 50107 "Conceptos Liquidación"
                 TipoStyle := 'Favorable';
             Rec."Tipo Concepto"::"Haber No Remunerativo":
                 TipoStyle := 'Subordinate';
-            Rec."Tipo Concepto"::"Deducción Remunerativa":
-                TipoStyle := 'Ambiguous';
             Rec."Tipo Concepto"::"Descuento Empleado",
             Rec."Tipo Concepto"::Retención:
                 TipoStyle := 'Unfavorable';

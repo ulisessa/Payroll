@@ -3155,6 +3155,12 @@
         <Field Name="ResValorFormat">
           <DataField>ResValorFormat</DataField>
         </Field>
+        <Field Name="ResValorTexto">
+          <DataField>ResValorTexto</DataField>
+        </Field>
+        <Field Name="ResValorMostrar">
+          <DataField>ResValorMostrar</DataField>
+        </Field>
         <Field Name="DetGanLiqNo">
           <DataField>DetGanLiqNo</DataField>
         </Field>

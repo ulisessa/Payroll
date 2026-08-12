@@ -27,7 +27,7 @@ page 50157 "Alimentadores Acumulador Sub"
                     ApplicationArea = All;
                     Caption = '% Importe';
                 }
-                field(Restar; Rec.Restar)
+                field(InvertirSigno; Rec."Invertir Signo")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Si está activo, el importe se resta del acumulador en lugar de sumarse.';

@@ -67,6 +67,20 @@ table 60015 "Fuente Datos Liquidación"
             trigger OnValidate()
             begin
                 ValidarCampo("Id. Tabla", "No. Campo Valor");
+                ValidarTipoCampo();
+            end;
+        }
+        field(18; "Tipo Dato"; Enum "Tipo Dato Fuente Liq.")
+        {
+            Caption = 'Tipo Dato';
+            DataClassification = CustomerContent;
+            // La fórmula sigue viendo SIEMPRE un número: el contexto es Dictionary of [Text, Decimal].
+            // Esto declara qué es el valor en origen, para dos cosas que antes no se podían:
+            //   • conservarlo en su forma real y que el recibo imprima "126205 - OSECAC" y no un número
+            //   • saber con qué criterio proyectarlo a número (una fecha son días, un texto es 1/0)
+            trigger OnValidate()
+            begin
+                ValidarTipoCampo();
             end;
         }
         field(5; "Función Agregado"; Enum "Función Agregado Liq.")
@@ -210,7 +224,33 @@ table 60015 "Fuente Datos Liquidación"
             Error(ErrCampoNoExiste, NoCampo, IdTabla);
     end;
 
+    // Cierra un agujero viejo: la lectura convierte con FieldRefToDecimal, que solo entiende
+    // Decimal/Integer/BigInteger. Apuntar el campo valor a uno de texto o fecha no daba error —
+    // devolvía CERO en silencio, y ese cero entraba al cálculo como cualquier otro número.
+    local procedure ValidarTipoCampo()
+    var
+        FieldRec: Record Field;
+    begin
+        if ("Id. Tabla" = 0) or ("No. Campo Valor" = 0) then
+            exit;
+        if not FieldRec.Get("Id. Tabla", "No. Campo Valor") then
+            exit;
+
+        case "Tipo Dato" of
+            "Tipo Dato"::Decimal:
+                if not (FieldRec.Type in [FieldRec.Type::Decimal, FieldRec.Type::Integer, FieldRec.Type::BigInteger]) then
+                    Error(ErrTipoCampoNoCoincide, FieldRec."Field Caption", Format(FieldRec.Type), Format("Tipo Dato"));
+            "Tipo Dato"::Texto:
+                if not (FieldRec.Type in [FieldRec.Type::Text, FieldRec.Type::Code, FieldRec.Type::Option]) then
+                    Error(ErrTipoCampoNoCoincide, FieldRec."Field Caption", Format(FieldRec.Type), Format("Tipo Dato"));
+            "Tipo Dato"::Fecha:
+                if not (FieldRec.Type in [FieldRec.Type::Date, FieldRec.Type::DateTime]) then
+                    Error(ErrTipoCampoNoCoincide, FieldRec."Field Caption", Format(FieldRec.Type), Format("Tipo Dato"));
+        end;
+    end;
+
     var
         ErrTablaNoExiste: Label 'La tabla con ID %1 no existe en esta base de datos.';
         ErrCampoNoExiste: Label 'El campo %1 no existe en la tabla %2.';
+        ErrTipoCampoNoCoincide: Label 'El campo "%1" es de tipo %2 y la fuente está declarada como %3. Si no coinciden, la lectura devuelve cero sin avisar.';
 }

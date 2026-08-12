@@ -56,6 +56,13 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                 Caption = 'Estado Actual';
                 SubPageLink = "No. Empleado" = FIELD("No.");
             }
+            // Sin SubPageLink: se alimenta desde OnAfterGetCurrRecord porque usa tabla temporal
+            // (solo muestra lo vigente, y eso se decide en código y no con un filtro de fechas).
+            part(AtributosVigentes; "Atributos Entidad FactBox")
+            {
+                ApplicationArea = All;
+                Caption = 'Atributos';
+            }
         }
     }
 
@@ -123,4 +130,11 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
             }
         }
     }
+
+    // El factbox de atributos usa tabla temporal, así que no se llena solo con un SubPageLink: hay
+    // que empujarle el empleado en cada cambio de registro.
+    trigger OnAfterGetCurrRecord()
+    begin
+        CurrPage.AtributosVigentes.Page.SetEntidad("Tipo Entidad Estado"::Empleado, Rec."No.");
+    end;
 }

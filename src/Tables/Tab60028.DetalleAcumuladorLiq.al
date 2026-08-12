@@ -29,9 +29,9 @@ table 60028 "Detalle Acumulador Liq."
             DataClassification = CustomerContent;
             DecimalPlaces = 0 : 4;
         }
-        field(5; Restar; Boolean)
+        field(5; "Invertir Signo"; Boolean)
         {
-            Caption = 'Restar';
+            Caption = 'Invertir signo';
             DataClassification = CustomerContent;
         }
         field(6; "Importe Aportado"; Decimal)

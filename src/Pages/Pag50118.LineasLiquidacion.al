@@ -31,6 +31,7 @@ page 50118 "Líneas Liquidación"
                 field("Nombre Impresión"; Rec."Nombre Impresión")
                 {
                     ApplicationArea = All;
+                    StyleExpr = FilaStyle;
                 }
                 field("Tipo Concepto"; Rec."Tipo Concepto")
                 {
@@ -49,9 +50,20 @@ page 50118 "Líneas Liquidación"
                     ApplicationArea = All;
                     Style = Strong;
                 }
+                field("Imprime en Recibo"; Rec."Imprime en Recibo")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Indica si esta línea sale impresa en el recibo. Las que no se imprimen se muestran atenuadas.';
+                }
                 field("Vigencia Concepto"; Rec."Vigencia Concepto")
                 {
                     ApplicationArea = All;
+                }
+                field("Vigencias Distribución"; Rec."Vigencias Distribución")
+                {
+                    ApplicationArea = All;
+                    Visible = false;
+                    ToolTip = 'Con qué vigencia de la distribución se acumuló esta línea, un acumulador por entrada. Sirve para detectar si una fracción cargada con fecha retroactiva cambiaría el resultado de un recálculo.';
                 }
                 field("Fórmula Aplicada"; Rec."Fórmula Aplicada")
                 {
@@ -75,39 +87,84 @@ page 50118 "Líneas Liquidación"
     {
         area(Processing)
         {
-            action(ToggleSinCero)
+            // Cada alternador son DOS acciones que se turnan la visibilidad, y no una sola con el
+            // texto cambiando: en AL, Caption de una acción es constante y no admite expresión, así
+            // que es la única forma de que el botón diga siempre lo que va a hacer.
+            action(MostrarCeroAction)
             {
                 ApplicationArea = All;
                 Caption = 'Mostrar importes cero';
                 Image = Filter;
-                ToolTip = 'Muestra u oculta los conceptos con importe cero.';
+                Visible = CeroEstanOcultos;
+                ToolTip = 'Muestra también los conceptos con importe cero.';
                 trigger OnAction()
                 begin
-                    OcultarCero := not OcultarCero;
+                    OcultarCero := false;
                     ApplyFilters();
                 end;
             }
-            action(ToggleNoImprimibles)
+            action(OcultarCeroAction)
+            {
+                ApplicationArea = All;
+                Caption = 'Ocultar importes cero';
+                Image = Filter;
+                Visible = CeroEstanVisibles;
+                ToolTip = 'Oculta los conceptos con importe cero.';
+                trigger OnAction()
+                begin
+                    OcultarCero := true;
+                    ApplyFilters();
+                end;
+            }
+            action(MostrarNoImprimiblesAction)
             {
                 ApplicationArea = All;
                 Caption = 'Mostrar no imprimibles';
                 Image = PrintReport;
-                ToolTip = 'Muestra u oculta los conceptos que no se imprimen en el recibo.';
+                Visible = NoImprimiblesEstanOcultos;
+                ToolTip = 'Muestra también los conceptos que no salen en el recibo.';
                 trigger OnAction()
                 begin
-                    OcultarNoImprimibles := not OcultarNoImprimibles;
+                    OcultarNoImprimibles := false;
                     ApplyFilters();
                 end;
             }
-            action(ToggleAcumuladores)
+            action(OcultarNoImprimiblesAction)
+            {
+                ApplicationArea = All;
+                Caption = 'Ocultar no imprimibles';
+                Image = PrintReport;
+                Visible = NoImprimiblesEstanVisibles;
+                ToolTip = 'Oculta los conceptos que no salen en el recibo.';
+                trigger OnAction()
+                begin
+                    OcultarNoImprimibles := true;
+                    ApplyFilters();
+                end;
+            }
+            action(MostrarAcumuladoresAction)
             {
                 ApplicationArea = All;
                 Caption = 'Mostrar acumuladores';
                 Image = Totals;
-                ToolTip = 'Muestra u oculta los acumuladores (tipo Informativo) en la lista de líneas.';
+                Visible = AcumuladoresEstanOcultos;
+                ToolTip = 'Muestra también los acumuladores (tipo Informativo) en la lista de líneas.';
                 trigger OnAction()
                 begin
-                    OcultarAcumuladores := not OcultarAcumuladores;
+                    OcultarAcumuladores := false;
+                    ApplyFilters();
+                end;
+            }
+            action(OcultarAcumuladoresAction)
+            {
+                ApplicationArea = All;
+                Caption = 'Ocultar acumuladores';
+                Image = Totals;
+                Visible = AcumuladoresEstanVisibles;
+                ToolTip = 'Oculta los acumuladores (tipo Informativo) de la lista de líneas.';
+                trigger OnAction()
+                begin
+                    OcultarAcumuladores := true;
                     ApplyFilters();
                 end;
             }
@@ -193,8 +250,6 @@ page 50118 "Líneas Liquidación"
                 TipoStyle := 'Favorable';
             Rec."Tipo Concepto"::"Haber No Remunerativo":
                 TipoStyle := 'Subordinate';
-            Rec."Tipo Concepto"::"Deducción Remunerativa":
-                TipoStyle := 'Ambiguous';
             Rec."Tipo Concepto"::"Descuento Empleado",
             Rec."Tipo Concepto"::Retención:
                 TipoStyle := 'Unfavorable';
@@ -202,6 +257,12 @@ page 50118 "Líneas Liquidación"
                 TipoStyle := 'Attention';
         end;
         EsAcumulador := IsAcumulador();
+        // Cuando se destapan las no imprimibles hay que poder distinguirlas de un vistazo, si no la
+        // lista mezcla lo que el empleado ve en el recibo con lo que es interno del cálculo.
+        if Rec."Imprime en Recibo" then
+            FilaStyle := 'Standard'
+        else
+            FilaStyle := 'Subordinate';
     end;
 
     // "Es Acumulador" del concepto real, no "Tipo Concepto = Informativo" — un concepto puede
@@ -239,6 +300,15 @@ page 50118 "Líneas Liquidación"
 
     local procedure ApplyFilters()
     begin
+        // Los pares de banderas alimentan la visibilidad de los botones. Se recalculan acá, que es
+        // el único lugar por donde pasan los tres alternadores.
+        CeroEstanOcultos := OcultarCero;
+        CeroEstanVisibles := not OcultarCero;
+        NoImprimiblesEstanOcultos := OcultarNoImprimibles;
+        NoImprimiblesEstanVisibles := not OcultarNoImprimibles;
+        AcumuladoresEstanOcultos := OcultarAcumuladores;
+        AcumuladoresEstanVisibles := not OcultarAcumuladores;
+
         if OcultarCero then
             Rec.SetFilter(Importe, '<>0')
         else
@@ -259,9 +329,16 @@ page 50118 "Líneas Liquidación"
 
     var
         TipoStyle: Text;
+        FilaStyle: Text;
         EsAcumulador: Boolean;
         OcultarCero: Boolean;
         OcultarNoImprimibles: Boolean;
         OcultarAcumuladores: Boolean;
+        CeroEstanOcultos: Boolean;
+        CeroEstanVisibles: Boolean;
+        NoImprimiblesEstanOcultos: Boolean;
+        NoImprimiblesEstanVisibles: Boolean;
+        AcumuladoresEstanOcultos: Boolean;
+        AcumuladoresEstanVisibles: Boolean;
         MsgConceptoNoEncontrado: Label 'No se encontró el concepto %1.';
 }

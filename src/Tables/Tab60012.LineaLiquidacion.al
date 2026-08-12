@@ -7,11 +7,22 @@ table 60012 "Línea Liquidación"
 {
     Caption = 'Línea Liquidación';
     DataClassification = CustomerContent;
-    // All amounts are stored as positive values. TipoConcepto determines sign:
-    //   Haber Rem / Haber No Rem  → adds to neto
-    //   Descuento / Retención     → subtracts from neto
-    //   Contribución Patronal     → employer side, excluded from neto
-    // The motor and report apply sign logic based on TipoConcepto.
+    // El importe lleva SU PROPIO SIGNO. "Tipo Concepto" dice qué ES la línea; el signo dice para qué
+    // lado va. Son dos cosas independientes:
+    //   Haber Rem / Haber No Rem  → entra al neto sumando
+    //   Descuento / Retención     → entra al neto restando
+    //   Contribución Patronal     → lado patronal, fuera del neto
+    // ...y dentro de cualquiera de esos, un importe negativo invierte esa dirección.
+    //
+    // Antes todos los importes se guardaban positivos (el motor les aplicaba Abs) y el signo salía
+    // ENTERO del Tipo Concepto. El problema es que Tipo Concepto decide bastante más que el signo:
+    // si es remunerativo, a qué acumuladores y bases aporta, el grupo de costo laboral, si imprime y
+    // en qué total cae. Para expresar un haber remunerativo negativo había que declararlo con otro
+    // tipo —"Deducción Remunerativa", que restaba de Total Haberes en lugar de sumar a Descuentos—
+    // y eso le cambiaba también la naturaleza. Además no escalaba: no existía el espejo de "Haber No
+    // Remunerativo" ni el de "Contribución Patronal". Ese tipo se eliminó junto con el Abs.
+    //
+    // UpdateTotals y CalcNetoDesdeBD no necesitaron cambios: sus CalcSums ya suman con signo.
 
     fields
     {
@@ -72,6 +83,19 @@ table 60012 "Línea Liquidación"
             Editable = false;
             // Pipe-separated list of "PARAM_CODE|DATE" pairs identifying which
             // ParametroVigente records were used, for audit traceability.
+        }
+        field(31; "Vigencias Distribución"; Text[250])
+        {
+            Caption = 'Vigencias Distribución';
+            DataClassification = CustomerContent;
+            Editable = false;
+            // Lista "ACUMULADOR:AAAAMMDD" separada por | con la vigencia de la Fracción Acumulador
+            // que se aplicó a cada acumulador, en el mismo formato que "Fuente Parámetros".
+            //
+            // Cierra un agujero de auditoría: "Vigencia Concepto" deja reconstruir con qué fórmula se
+            // calculó, pero la distribución se versiona en su propia línea de tiempo (ver
+            // BuildFractionCache). Sin esto, cargar una fracción con vigencia retroactiva hacía que
+            // un recálculo de un período viejo distribuyera distinto, sin nada que lo delatara.
         }
         field(12; "Vigencia Concepto"; Date)
         {
@@ -212,6 +236,14 @@ table 60012 "Línea Liquidación"
         key(K5; "No. Empleado", "Cód. Período", "Tipo Concepto")
         {
             SumIndexFields = Importe;
+        }
+        // Consultas de configuración: "¿esta versión del concepto ya se usó, y después de qué
+        // fecha?". La usa Concepto Liquidación para no dejar cerrar una vigencia por delante de una
+        // liquidación que ya la aplicó. Estado queda FUERA de la clave a propósito: se filtra con un
+        // <> y, metido en el medio, cortaría el uso del índice para el rango de fechas — el mismo
+        // problema que describe el comentario de K2.
+        key(K6; "Cód. Concepto", "Vigencia Concepto", "Fecha Liquidación")
+        {
         }
     }
 

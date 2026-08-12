@@ -20,7 +20,7 @@ page 50174 "Detalle Acumulador Liq."
                 field("Descripción Concepto"; Rec."Descripción Concepto") { ApplicationArea = All; }
                 field("Importe Concepto"; Rec."Importe Concepto") { ApplicationArea = All; }
                 field(Porcentaje; Rec.Porcentaje) { ApplicationArea = All; }
-                field(Restar; Rec.Restar) { ApplicationArea = All; }
+                field(InvertirSigno; Rec."Invertir Signo") { ApplicationArea = All; }
                 field("Importe Aportado"; Rec."Importe Aportado")
                 {
                     ApplicationArea = All;
@@ -47,7 +47,7 @@ page 50174 "Detalle Acumulador Liq."
                     Editable = false;
                     DecimalPlaces = 2 : 6;
                     StyleExpr = RestanStyle;
-                    ToolTip = 'Total de los conceptos con "Restar" tildado. El signo con el que un concepto entra al acumulador NO sale del Tipo Concepto: sale de este flag, y se configura por acumulador. Un concepto puede restar en uno y sumar en otro. Si esperabas que algo descontara y acá ves 0,00, falta tildar "Restar" en su fila de Fracción Acumulador.';
+                    ToolTip = 'Total de los conceptos con "Invertir signo" tildado. El signo con el que un concepto entra al acumulador NO sale del Tipo Concepto: sale de este flag, y se configura por acumulador. Un concepto puede restar en uno y sumar en otro. Si esperabas que algo descontara y acá ves 0,00, falta tildar "Invertir signo" en su fila de Fracción Acumulador.';
                 }
                 field(TotalDetalle; TotalDetalle)
                 {
@@ -122,7 +122,7 @@ page 50174 "Detalle Acumulador Liq."
             Frac.SetRange("Cód. Acumulador", CodAcumulador);
             Frac.SetFilter("Vigencia Desde", '<=%1', FechaRef);
             if Frac.FindLast() then begin
-                if Frac.Restar then
+                if Frac."Invertir Signo" then
                     ImporteAportado := -(Lin.Importe * Frac.Porcentaje / 100)
                 else
                     ImporteAportado := Lin.Importe * Frac.Porcentaje / 100;
@@ -133,11 +133,15 @@ page 50174 "Detalle Acumulador Liq."
                     Rec."Descripción Concepto" := Lin."Descripción Concepto";
                     Rec."Importe Concepto" := Lin.Importe;
                     Rec.Porcentaje := Frac.Porcentaje;
-                    Rec.Restar := Frac.Restar;
+                    Rec."Invertir Signo" := Frac."Invertir Signo";
                     Rec."Importe Aportado" := ImporteAportado;
                     Rec.Insert();
                     TotalDetalle += ImporteAportado;
-                    if Frac.Restar then
+                    // Se agrupa por el signo REAL del aporte y no por el flag "Invertir signo".
+                    // Desde que el importe de la línea lleva signo propio, las dos cosas dejaron de
+                    // coincidir: una línea negativa sin el flag tildado resta, y agrupada por flag
+                    // habría caído en "Suman" dejando ese total en un número negativo.
+                    if ImporteAportado < 0 then
                         TotalRestan += ImporteAportado
                     else
                         TotalSuman += ImporteAportado;
@@ -169,7 +173,7 @@ page 50174 "Detalle Acumulador Liq."
     local procedure ActualizarDiagnostico()
     begin
         // Resaltado cuando NADIE resta: es el caso en que alguien esperaba un descuento y la fila de
-        // Fracción Acumulador quedó sin tildar "Restar". El acumulador da de más y no hay ningún
+        // Fracción Acumulador quedó sin tildar "Invertir signo". El acumulador da de más y no hay ningún
         // error que lo delate.
         if TotalRestan = 0 then
             RestanStyle := 'Attention'

@@ -34,7 +34,7 @@ table 60018 "Variable Sistema Liq."
     //   DIAS_VAC_PERIODO  — calendar days in Vacaciones state overlapping the billing period
     //   DEDUC_GANANCIAS   — annual deductions: cargas de familia + gastos deducibles (AFIP tables)
     //   MES_ANUAL         — calendar month number of the reference date (1–12)
-    //   YTD_ACUM          — YTD sum of lines for concepts that feed "Cód. Acumulador" (Restar=false).
+    //   YTD_ACUM          — YTD sum of lines for concepts that feed "Cód. Acumulador" ("Invertir Signo"=false).
     //                       Requires "Cód. Acumulador". Multiple variables can share this code with
     //                       different accumulators (e.g. HAB_GRAV_ANUAL→BASE_IG4, HAB_EXTORD_ANUAL→BASE_EXT_IG4).
     //   YTD_LINEAS        — YTD sum of Línea Liquidación by "Tipo Concepto". Requires "Tipo Concepto".

@@ -28,6 +28,7 @@ var UASEditorFormula = (function () {
     var mapaFunciones = Object.create(null);
     var mapaOperadores = Object.create(null);
     var mapaVariables = Object.create(null);
+    var mapaVariablesUp = Object.create(null);
     var mapaConceptos = Object.create(null);
 
     var raiz = null;
@@ -136,29 +137,48 @@ var UASEditorFormula = (function () {
         var sigla = t.charAt(0);
 
         if (sigla === '@' || sigla === '#') {
-            var cod = t.substring(1);
+            // En mayúsculas por lo mismo: el motor uppercasea la fórmula antes de resolver la
+            // referencia, así que @conc01 y @CONC01 son el mismo concepto.
+            var cod = t.substring(1).toUpperCase();
             if (mapaConceptos[cod]) return { cls: 'concepto', ref: mapaConceptos[cod] };
-            return { cls: 'error', motivo: 'No existe un concepto activo "' + cod + '".' };
+            return { cls: 'error', motivo: 'No existe un concepto "' + cod + '".' };
         }
 
         var sig = siguienteReal(toks, idx);
         var esLlamada = sig && sig.texto === '(';
 
         if (esLlamada) {
-            if (mapaFunciones[up]) {
-                if (t !== up) return { cls: 'aviso', motivo: 'El motor distingue mayúsculas: escribí ' + up + '.' };
-                return { cls: 'funcion', ref: mapaFunciones[up] };
-            }
+            // Las FUNCIONES no distinguen mayúsculas y las VARIABLES sí. No es un capricho: en
+            // Cod50015 las funciones se resuelven con 'case FuncName of ROUND', y la comparación de
+            // texto de AL es case-insensitive; las variables salen de FContext, que es un Dictionary
+            // y compara ordinal. Antes se avisaba en los dos casos por igual, así que un round() en
+            // minúscula —que el motor calcula perfecto— aparecía subrayado como si estuviera mal.
+            if (mapaFunciones[up]) return { cls: 'funcion', ref: mapaFunciones[up] };
             return { cls: 'error', motivo: 'Función desconocida: "' + t + '".' };
         }
 
-        if (mapaOperadores[up]) {
-            if (t !== up) return { cls: 'aviso', motivo: 'El motor distingue mayúsculas: escribí ' + up + '.' };
-            return { cls: 'operador', ref: mapaOperadores[up] };
-        }
+        // Los operadores se comparan igual que las funciones (FTokText <> 'OR' en Cod50015), así que
+        // tampoco distinguen mayúsculas.
+        if (mapaOperadores[up]) return { cls: 'operador', ref: mapaOperadores[up] };
 
-        if (mapaVariables[t]) return { cls: 'var-' + slugTipo(mapaVariables[t].tipo), ref: mapaVariables[t] };
-        if (mapaVariables[up]) return { cls: 'aviso', motivo: 'El motor distingue mayúsculas: escribí ' + up + '.' };
+        // Las variables TAMPOCO distinguen mayúsculas en la fórmula: Cod50015 hace
+        // BeginParse(Formula.ToUpper()), o sea que pasa el texto entero a mayúsculas ANTES de
+        // tokenizar. Escribir BASICO_EsFCY o basico_esfcy da exactamente lo mismo.
+        //
+        // Lo que sí rompe es el otro lado: como el motor busca siempre la versión en mayúsculas, un
+        // parámetro configurado con el Nombre Variable en minúsculas no se encuentra NUNCA. Eso es
+        // un error de configuración, no de la fórmula, y hasta ahora no lo detectaba nadie.
+        var vr = mapaVariables[t] || mapaVariables[up] || mapaVariablesUp[up];
+        if (vr) {
+            if (String(vr.nombre) !== String(vr.nombre).toUpperCase())
+                return {
+                    cls: 'error',
+                    motivo: 'La variable está configurada como "' + vr.nombre + '", con minúsculas. ' +
+                            'El motor pasa la fórmula a mayúsculas antes de resolverla, así que nunca la va a ' +
+                            'encontrar: renombrala a ' + String(vr.nombre).toUpperCase() + '.'
+                };
+            return { cls: 'var-' + slugTipo(vr.tipo), ref: vr };
+        }
         return { cls: 'error', motivo: 'Variable desconocida: "' + t + '". No está en el catálogo cargado.' };
     }
 
@@ -834,12 +854,20 @@ var UASEditorFormula = (function () {
             mapaFunciones = Object.create(null);
             mapaOperadores = Object.create(null);
             mapaVariables = Object.create(null);
+            mapaVariablesUp = Object.create(null);
             mapaConceptos = Object.create(null);
             var i;
             for (i = 0; i < catalogo.funciones.length; i++) mapaFunciones[catalogo.funciones[i].nombre.toUpperCase()] = catalogo.funciones[i];
             for (i = 0; i < catalogo.operadores.length; i++) mapaOperadores[catalogo.operadores[i].nombre.toUpperCase()] = catalogo.operadores[i];
-            for (i = 0; i < catalogo.variables.length; i++) mapaVariables[catalogo.variables[i].nombre] = catalogo.variables[i];
-            for (i = 0; i < catalogo.conceptos.length; i++) mapaConceptos[String(catalogo.conceptos[i].codigo)] = catalogo.conceptos[i];
+            // Índice adicional por nombre en MAYÚSCULAS: es la forma en que el motor va a buscar la
+            // variable, porque uppercasea la fórmula antes de parsear. El mapa con el nombre tal
+            // cual se conserva para poder detectar el caso al revés — una variable configurada en
+            // minúsculas, que el motor no encontraría jamás.
+            for (i = 0; i < catalogo.variables.length; i++) {
+                mapaVariables[catalogo.variables[i].nombre] = catalogo.variables[i];
+                mapaVariablesUp[String(catalogo.variables[i].nombre).toUpperCase()] = catalogo.variables[i];
+            }
+            for (i = 0; i < catalogo.conceptos.length; i++) mapaConceptos[String(catalogo.conceptos[i].codigo).toUpperCase()] = catalogo.conceptos[i];
 
             for (var k in editores) if (editores.hasOwnProperty(k)) { render(editores[k]); actualizarEstado(editores[k]); }
         },

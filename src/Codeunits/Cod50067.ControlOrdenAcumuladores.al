@@ -28,8 +28,7 @@ codeunit 50067 "Control Orden Acumuladores"
         CargarVersionesVigentes(FechaRef, VersionMap);
 
         Acumulador.SetRange("Es Acumulador", true);
-        Acumulador.SetRange(Activo, true);
-        Acumulador.SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        Acumulador.FiltrarVigentesA(FechaRef);
         if not Acumulador.FindSet() then
             exit(0);
         repeat
@@ -190,8 +189,7 @@ codeunit 50067 "Control Orden Acumuladores"
         ConceptoPrimero := '';
         Cantidad := 0;
 
-        Concepto.SetRange(Activo, true);
-        Concepto.SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        Concepto.FiltrarVigentesA(FechaRef);
         if not Concepto.FindSet() then
             exit;
         repeat
@@ -264,10 +262,11 @@ codeunit 50067 "Control Orden Acumuladores"
     local procedure CargarVersionesVigentes(FechaRef: Date; var VersionMap: Dictionary of [Code[20], Date])
     var
         Concepto: Record "Concepto Liquidación";
+        Ganadora: Record "Concepto Liquidación";
+        CodigoConcepto: Code[20];
     begin
         Clear(VersionMap);
-        Concepto.SetRange(Activo, true);
-        Concepto.SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        Concepto.FiltrarVigentesA(FechaRef);
         if not Concepto.FindSet() then
             exit;
         repeat
@@ -277,6 +276,13 @@ codeunit 50067 "Control Orden Acumuladores"
                 if Concepto."Vigencia Desde" > VersionMap.Get(Concepto.Código) then
                     VersionMap.Set(Concepto.Código, Concepto."Vigencia Desde");
         until Concepto.Next() = 0;
+
+        // La baja se descarta sobre la versión ganadora, igual que en BuildLatestVersionCache: si el
+        // control usara otro criterio que el motor, reportaría conflictos de conceptos que no corren.
+        foreach CodigoConcepto in VersionMap.Keys() do
+            if Ganadora.Get(CodigoConcepto, VersionMap.Get(CodigoConcepto)) then
+                if not Ganadora.VigenteA(FechaRef) then
+                    VersionMap.Remove(CodigoConcepto);
     end;
 
     local procedure EsVersionVigente(Concepto: Record "Concepto Liquidación"; var VersionMap: Dictionary of [Code[20], Date]): Boolean

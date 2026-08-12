@@ -6,7 +6,9 @@ table 60017 "Fracción Acumulador"
     DataClassification = CustomerContent;
     // Defines how a concept's calculated amount feeds accumulators.
     // Each row is independent: 100 % → BASE_SS and 100 % → BASE_IG4 both receive the full amount.
-    // Restar = true flips the sign, so the amount is subtracted from the accumulator instead of added.
+    // "Invertir Signo" da vuelta el signo del aporte: el importe se resta del acumulador en lugar de
+    // sumarse. Se llama así y no "Restar" porque es una inversión, no una resta: cuando el importe
+    // de la línea sea negativo, invertirlo va a SUMAR al acumulador, que es el resultado correcto.
     // Versioned by Vigencia Desde so CCT agreement changes are tracked historically.
 
     fields
@@ -39,9 +41,9 @@ table 60017 "Fracción Acumulador"
             MinValue = 0;
             MaxValue = 100;
         }
-        field(6; Restar; Boolean)
+        field(6; "Invertir Signo"; Boolean)
         {
-            Caption = 'Restar';
+            Caption = 'Invertir signo';
             DataClassification = CustomerContent;
             InitValue = false;
         }

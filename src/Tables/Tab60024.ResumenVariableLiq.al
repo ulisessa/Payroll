@@ -28,6 +28,14 @@ table 60024 "Resumen Variable Liq."
             Caption = 'Valor';
             DataClassification = CustomerContent;
         }
+        field(6; "Valor Texto"; Text[250])
+        {
+            Caption = 'Valor Texto';
+            DataClassification = CustomerContent;
+            // El valor tal como está en origen, cuando la fuente declara un tipo que no es número.
+            // "Valor" sigue teniendo la proyección numérica que usó la fórmula: los dos conviven,
+            // porque son dos preguntas distintas — con qué calculó y qué hay que imprimir.
+        }
         field(5; "Mostrar en Recibo"; Boolean)
         {
             Caption = 'Mostrar en Recibo';
@@ -41,4 +49,14 @@ table 60024 "Resumen Variable Liq."
     {
         key(PK; "No. Liquidación", "Nombre Variable") { Clustered = true; }
     }
+
+    /// <summary>
+    /// Qué mostrarle a la persona: el valor original si la fuente no era numérica, el número si no.
+    /// </summary>
+    procedure ValorParaMostrar(): Text
+    begin
+        if "Valor Texto" <> '' then
+            exit("Valor Texto");
+        exit(Format(Valor, 0, '<Precision,2:2><Standard Format,0>'));
+    end;
 }

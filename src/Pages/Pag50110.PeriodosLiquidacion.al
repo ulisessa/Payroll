@@ -48,200 +48,243 @@ page 50110 "Períodos Liquidación"
     {
         area(Processing)
         {
-            action(CerrarPeriodo)
+            // Las acciones siguen el ciclo de vida del período: se arman las liquidaciones, se
+            // calculan, se corrigen si hace falta, y recién al final se cierra. Antes las siete
+            // estaban promovidas planas en un mismo desplegable, sin orden ni relación visible.
+            group(GrpPreparar)
             {
-                ApplicationArea = All;
-                Caption = 'Cerrar Período';
-                Image = Close;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
+                Caption = 'Preparar';
+                Image = NewDocument;
+                ToolTip = 'Genera las liquidaciones del período, para todos los empleados o para uno solo.';
 
-                trigger OnAction()
-                begin
-                    if not Confirm('¿Confirma el cierre del período %1? Esta acción no se puede deshacer.', false, Rec.Código) then
-                        exit;
-                    Rec.Estado := Rec.Estado::Cerrado;
-                    Rec."Fecha Cierre" := Today();
-                    Rec."Usuario Cierre" := CopyStr(UserId(), 1, 50);
-                    Rec.Modify(true);
-                    CurrPage.Update(false);
-                end;
-            }
-            action(EliminarBorradores)
-            {
-                ApplicationArea = All;
-                Caption = 'Eliminar Borradores';
-                Image = Delete;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
-
-                trigger OnAction()
-                var
-                    Liq: Record "Liquidación";
-                    Eliminadas: Integer;
-                begin
-                    Liq.SetRange("Cód. Período", Rec.Código);
-                    Liq.SetRange(Estado, Liq.Estado::Borrador);
-                    Eliminadas := Liq.Count();
-                    if Eliminadas = 0 then begin
-                        Message(MsgSinBorradores);
-                        exit;
+                action(CrearLiquidaciones)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Crear Liquidaciones';
+                    Image = CreateDocuments;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    var
+                        ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                        TipoLiquidacion: Code[20];
+                        Creadas: Integer;
+                    begin
+                        if not Confirm(QstCrearLiqs, true, Rec.Código) then
+                            exit;
+                        TipoLiquidacion := 'REGULAR';
+                        Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, TipoLiquidacion, 0);
+                        Message(MsgCreadas, Creadas, Rec.Código);
+                        CurrPage.Update(false);
                     end;
-
-                    if not Confirm(QstEliminarBorradores, false, Eliminadas, Rec.Código) then
-                        exit;
-
-                    Liq.FindSet();
-                    repeat
-                        Liq.Delete(true);
-                    until Liq.Next() = 0;
-
-                    CurrPage.Update(false);
-                    Message(MsgEliminadas, Eliminadas, Rec.Código);
-                end;
-            }
-            action(RevertirCalculadas)
-            {
-                ApplicationArea = All;
-                Caption = 'Revertir Calculadas';
-                Image = Undo;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
-
-                trigger OnAction()
-                var
-                    Liq: Record "Liquidación";
-                    GestionLiq: Codeunit "Gestión Liquidación";
-                    Revertidas: Integer;
-                begin
-                    Liq.SetRange("Cód. Período", Rec.Código);
-                    Liq.SetRange(Estado, Liq.Estado::Calculada);
-                    if Liq.IsEmpty() then begin
-                        Message(MsgSinCalculadas);
-                        exit;
+                }
+                action(CrearLiqEmpleado)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Crear Liq. para Empleado';
+                    Image = Employee;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    var
+                        CrearLiqRpt: Report "Crear Liq. para Empleado";
+                    begin
+                        CrearLiqRpt.SetPeriodo(Rec.Código);
+                        CrearLiqRpt.RunModal();
+                        CurrPage.Update(false);
                     end;
-
-                    if not Confirm(QstRevertirCalculadas, false, Rec.Código) then
-                        exit;
-
-                    Liq.FindSet();
-                    repeat
-                        GestionLiq.Reabrir(Liq);
-                        Revertidas += 1;
-                    until Liq.Next() = 0;
-
-                    CurrPage.Update(false);
-                    Message(MsgRevertidas, Revertidas, Rec.Código);
-                end;
+                }
             }
-            action(ReabrirPeriodo)
+            group(GrpProcesar)
             {
-                ApplicationArea = All;
-                Caption = 'Reabrir Período';
-                Image = ReOpen;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Cerrado;
-
-                trigger OnAction()
-                var
-                    Liq: Record "Liquidación";
-                    GestionLiq: Codeunit "Gestión Liquidación";
-                    Revertidas: Integer;
-                begin
-                    if not Confirm(QstReabrirPeriodo, false, Rec.Código) then
-                        exit;
-
-                    Liq.SetRange("Cód. Período", Rec.Código);
-                    Liq.SetRange(Estado, Liq.Estado::Contabilizada);
-                    if not Liq.IsEmpty() then
-                        Error(ErrContabilizadas, Rec.Código);
-
-                    Liq.SetFilter(Estado, '%1|%2', Liq.Estado::Aprobada, Liq.Estado::Calculada);
-                    if Liq.FindSet() then
-                        repeat
-                            if Liq.Estado = Liq.Estado::Aprobada then begin
-                                Liq.Estado := Liq.Estado::Calculada;
-                                Liq.Modify(true);
-                            end;
-                            GestionLiq.Reabrir(Liq);
-                            Revertidas += 1;
-                        until Liq.Next() = 0;
-
-                    Rec.Estado := Rec.Estado::Abierto;
-                    Rec."Fecha Cierre" := 0D;
-                    Rec."Usuario Cierre" := '';
-                    Rec.Modify(true);
-                    CurrPage.Update(false);
-                    Message(MsgPeriodoReabierto, Rec.Código, Revertidas);
-                end;
-            }
-            action(CrearLiquidaciones)
-            {
-                ApplicationArea = All;
-                Caption = 'Crear Liquidaciones';
-                Image = CreateDocuments;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
-
-                trigger OnAction()
-                var
-                    ProcLiq: Codeunit "Proceso Liq. Por Lote";
-                    TipoLiquidacion: Code[20];
-                    Creadas: Integer;
-                begin
-                    if not Confirm(QstCrearLiqs, true, Rec.Código) then
-                        exit;
-                    TipoLiquidacion := 'REGULAR';
-                    Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, TipoLiquidacion, 0);
-                    Message(MsgCreadas, Creadas, Rec.Código);
-                    CurrPage.Update(false);
-                end;
-            }
-            action(CrearLiqEmpleado)
-            {
-                ApplicationArea = All;
-                Caption = 'Crear Liq. para Empleado';
-                Image = Employee;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
-
-                trigger OnAction()
-                var
-                    CrearLiqRpt: Report "Crear Liq. para Empleado";
-                begin
-                    CrearLiqRpt.SetPeriodo(Rec.Código);
-                    CrearLiqRpt.RunModal();
-                    CurrPage.Update(false);
-                end;
-            }
-            action(CalcularPeriodo)
-            {
-                ApplicationArea = All;
-                Caption = 'Calcular Período';
+                Caption = 'Procesar';
                 Image = Calculate;
-                Promoted = true;
-                PromotedCategory = Process;
-                Enabled = Rec.Estado = Rec.Estado::Abierto;
+                ToolTip = 'Calcula las liquidaciones del período.';
 
-                trigger OnAction()
-                var
-                    ProcLiq: Codeunit "Proceso Liq. Por Lote";
-                    TipoLiquidacion: Code[20];
-                    Calculadas: Integer;
-                begin
-                    if not Confirm(QstCalcular, true, Rec.Código) then
-                        exit;
-                    TipoLiquidacion := 'REGULAR';
-                    Calculadas := ProcLiq.CalcularPorPeriodo(Rec.Código, TipoLiquidacion);
-                    Message(MsgCalculadas, Calculadas, Rec.Código);
-                    CurrPage.Update(false);
-                end;
+                action(CalcularPeriodo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Calcular Período';
+                    Image = Calculate;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    var
+                        ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                        TipoLiquidacion: Code[20];
+                        Calculadas: Integer;
+                    begin
+                        if not Confirm(QstCalcular, true, Rec.Código) then
+                            exit;
+                        TipoLiquidacion := 'REGULAR';
+                        Calculadas := ProcLiq.CalcularPorPeriodo(Rec.Código, TipoLiquidacion);
+                        Message(MsgCalculadas, Calculadas, Rec.Código);
+                        CurrPage.Update(false);
+                    end;
+                }
+            }
+            group(GrpCorregir)
+            {
+                Caption = 'Corregir';
+                Image = Undo;
+                ToolTip = 'Deshace cálculos o limpia borradores sin tocar el estado del período.';
+
+                action(RevertirCalculadas)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Revertir Calculadas';
+                    Image = Undo;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    var
+                        Liq: Record "Liquidación";
+                        LiqAct: Record "Liquidación";
+                        GestionLiq: Codeunit "Gestión Liquidación";
+                        Numeros: List of [Code[20]];
+                        Numero: Code[20];
+                        Revertidas: Integer;
+                    begin
+                        Liq.SetRange("Cód. Período", Rec.Código);
+                        Liq.SetRange(Estado, Liq.Estado::Calculada);
+                        if Liq.IsEmpty() then begin
+                            Message(MsgSinCalculadas);
+                            exit;
+                        end;
+    
+                        if not Confirm(QstRevertirCalculadas, false, Rec.Código) then
+                            exit;
+    
+                        // Claves primero: Reabrir pasa el Estado a Borrador, que es el campo filtrado, y
+                        // el registro se cae del filtro dejando el Next() en 0. Iterando directo, esto
+                        // revertía solo la primera y avisaba "1 revertida" como si estuviera todo bien.
+                        Liq.FindSet();
+                        repeat
+                            Numeros.Add(Liq."No.");
+                        until Liq.Next() = 0;
+    
+                        foreach Numero in Numeros do
+                            if LiqAct.Get(Numero) then
+                                if LiqAct.Estado = LiqAct.Estado::Calculada then begin
+                                    GestionLiq.Reabrir(LiqAct);
+                                    Revertidas += 1;
+                                end;
+    
+                        CurrPage.Update(false);
+                        Message(MsgRevertidas, Revertidas, Rec.Código);
+                    end;
+                }
+                action(EliminarBorradores)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Eliminar Borradores';
+                    Image = Delete;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    var
+                        Liq: Record "Liquidación";
+                        Eliminadas: Integer;
+                    begin
+                        Liq.SetRange("Cód. Período", Rec.Código);
+                        Liq.SetRange(Estado, Liq.Estado::Borrador);
+                        Eliminadas := Liq.Count();
+                        if Eliminadas = 0 then begin
+                            Message(MsgSinBorradores);
+                            exit;
+                        end;
+    
+                        if not Confirm(QstEliminarBorradores, false, Eliminadas, Rec.Código) then
+                            exit;
+    
+                        Liq.FindSet();
+                        repeat
+                            Liq.Delete(true);
+                        until Liq.Next() = 0;
+    
+                        CurrPage.Update(false);
+                        Message(MsgEliminadas, Eliminadas, Rec.Código);
+                    end;
+                }
+            }
+            group(GrpEstado)
+            {
+                Caption = 'Estado del período';
+                Image = Close;
+                ToolTip = 'Cierra el período o lo vuelve a abrir.';
+
+                action(CerrarPeriodo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cerrar Período';
+                    Image = Close;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+    
+                    trigger OnAction()
+                    begin
+                        if not Confirm('¿Confirma el cierre del período %1? Esta acción no se puede deshacer.', false, Rec.Código) then
+                            exit;
+                        Rec.Estado := Rec.Estado::Cerrado;
+                        Rec."Fecha Cierre" := Today();
+                        Rec."Usuario Cierre" := CopyStr(UserId(), 1, 50);
+                        Rec.Modify(true);
+                        CurrPage.Update(false);
+                    end;
+                }
+                action(ReabrirPeriodo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Reabrir Período';
+                    Image = ReOpen;
+                    Enabled = Rec.Estado = Rec.Estado::Cerrado;
+    
+                    trigger OnAction()
+                    var
+                        Liq: Record "Liquidación";
+                        LiqAct: Record "Liquidación";
+                        GestionLiq: Codeunit "Gestión Liquidación";
+                        Numeros: List of [Code[20]];
+                        Numero: Code[20];
+                        Revertidas: Integer;
+                    begin
+                        if not Confirm(QstReabrirPeriodo, false, Rec.Código) then
+                            exit;
+    
+                        Liq.SetRange("Cód. Período", Rec.Código);
+                        Liq.SetRange(Estado, Liq.Estado::Contabilizada);
+                        if not Liq.IsEmpty() then
+                            Error(ErrContabilizadas, Rec.Código);
+    
+                        // Claves primero, por lo mismo que en Revertir Calculadas: Reabrir deja el
+                        // registro en Borrador, fuera de este filtro, y el recorrido se cortaba en la
+                        // primera liquidación dejando el período "reabierto" a medias.
+                        Liq.SetFilter(Estado, '%1|%2', Liq.Estado::Aprobada, Liq.Estado::Calculada);
+                        if Liq.FindSet() then
+                            repeat
+                                Numeros.Add(Liq."No.");
+                            until Liq.Next() = 0;
+    
+                        foreach Numero in Numeros do
+                            if LiqAct.Get(Numero) then begin
+                                // Aprobada baja primero a Calculada, que es lo único que Reabrir acepta.
+                                if LiqAct.Estado = LiqAct.Estado::Aprobada then begin
+                                    LiqAct.Estado := LiqAct.Estado::Calculada;
+                                    LiqAct.Modify(true);
+                                end;
+                                if LiqAct.Estado = LiqAct.Estado::Calculada then begin
+                                    GestionLiq.Reabrir(LiqAct);
+                                    Revertidas += 1;
+                                end;
+                            end;
+    
+                        Rec.Estado := Rec.Estado::Abierto;
+                        Rec."Fecha Cierre" := 0D;
+                        Rec."Usuario Cierre" := '';
+                        Rec.Modify(true);
+                        CurrPage.Update(false);
+                        Message(MsgPeriodoReabierto, Rec.Código, Revertidas);
+                    end;
+                }
             }
         }
         area(Navigation)
@@ -251,8 +294,37 @@ page 50110 "Períodos Liquidación"
                 ApplicationArea = All;
                 Caption = 'Liquidaciones';
                 Image = List;
+                ToolTip = 'Abre las liquidaciones de este período.';
                 RunObject = Page "Lista Liquidaciones";
-                                RunPageLink = "Cód. Período" = FIELD(Código);
+                RunPageLink = "Cód. Período" = field(Código);
+            }
+        }
+        // La promoción se declara acá y no con Promoted/PromotedCategory en cada acción: así el
+        // lugar donde vive la acción y el lugar donde aparece en la cinta son decisiones separadas,
+        // y las categorías llevan un nombre propio en vez de amontonarse todas en la misma.
+        area(Promoted)
+        {
+            group(Category_Process)
+            {
+                Caption = 'Proceso';
+
+                actionref(CrearLiquidacionesProm; CrearLiquidaciones) { }
+                actionref(CalcularPeriodoProm; CalcularPeriodo) { }
+                actionref(VerLiquidacionesProm; VerLiquidaciones) { }
+            }
+            group(Category_Category4)
+            {
+                Caption = 'Corregir';
+
+                actionref(RevertirCalculadasProm; RevertirCalculadas) { }
+                actionref(EliminarBorradoresProm; EliminarBorradores) { }
+            }
+            group(Category_Category5)
+            {
+                Caption = 'Período';
+
+                actionref(CerrarPeriodoProm; CerrarPeriodo) { }
+                actionref(ReabrirPeriodoProm; ReabrirPeriodo) { }
             }
         }
     }

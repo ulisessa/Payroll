@@ -108,8 +108,6 @@ page 50170 "Líneas Liq. con Variables"
                 TipoStyle := 'Favorable';
             Rec."Tipo Concepto"::"Haber No Remunerativo":
                 TipoStyle := 'Subordinate';
-            Rec."Tipo Concepto"::"Deducción Remunerativa":
-                TipoStyle := 'Ambiguous';
             Rec."Tipo Concepto"::"Descuento Empleado",
             Rec."Tipo Concepto"::Retención:
                 TipoStyle := 'Unfavorable';

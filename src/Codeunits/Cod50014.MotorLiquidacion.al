@@ -164,12 +164,16 @@ codeunit 50014 "Motor Liquidación"
         InjectZonaDesfavorable(Liq, FechaRef, Ctx);
         Evaluador.Init(Ctx, FechaRef);
         RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
-        if Ctx.ContainsKey('ES_GROSSING_UP') and (Ctx.Get('ES_GROSSING_UP') = 1) then
+        // If anidado y no `and`: mismo motivo que EsVersionEnUso — sin cortocircuito garantizado, el
+        // Get corre igual. Hoy InjectGUVariables siempre siembra la clave, así que no explota; queda
+        // así para que no dependa de eso.
+        if Ctx.ContainsKey('ES_GROSSING_UP') then
+            if Ctx.Get('ES_GROSSING_UP') = 1 then
             ConvergerGrossingUp(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
         if Ctx.ContainsKey('BASE_IG4') then
             Liq."Haberes Ordinarios Gravados" := Ctx.Get('BASE_IG4');
         UpdateTotals(Liq);
-        SaveResumenVariables(Liq."No.", Ctx);
+        SaveResumenVariables(Liq."No.", Ctx, CtxBuilder);
         Liq.Estado := Liq.Estado::Calculada;
         Liq.Modify(true);
         AcumularAdvertencias(Liq."No.", CtxBuilder.GetAdvertenciasParametros());
@@ -247,8 +251,7 @@ codeunit 50014 "Motor Liquidación"
 
         if not Concepto.FindSet() then exit;
         repeat
-            if FLatestVersionMap.ContainsKey(Concepto.Código) and
-               (Concepto."Vigencia Desde" = FLatestVersionMap.Get(Concepto.Código)) and
+            if EsVersionEnUso(FLatestVersionMap, Concepto.Código, Concepto."Vigencia Desde") and
                CCTAplicaAConcepto(Concepto, Liq."Cód. Convenio", Liq."Cód. Categoría", FechaRef) and
                ConceptoAplicaATipoLiq(Concepto, Liq."Cód. Tipo Liq.") and
                not Concepto."Es Acumulador" and
@@ -315,8 +318,7 @@ codeunit 50014 "Motor Liquidación"
             // pero SOLO para la vía de fórmula — una incidencia manual puede disparar aunque el
             // concepto normalmente no aplique a este convenio/tipo, y así corre en su Orden
             // Cálculo real en vez de quedar relegada al final (ver WriteIncidenciasRestantes).
-            if not (FLatestVersionMap.ContainsKey(Concepto.Código) and
-               (Concepto."Vigencia Desde" = FLatestVersionMap.Get(Concepto.Código)) and
+            if not (EsVersionEnUso(FLatestVersionMap, Concepto.Código, Concepto."Vigencia Desde") and
                not Concepto."Es Acumulador")
             then begin
                 // version/accumulator filter: skip entirely
@@ -325,7 +327,10 @@ codeunit 50014 "Motor Liquidación"
                 EsIncidencia := false;
                 if Incid.Get(Liq."No.", Concepto.Código) then
                     if Incid.Importe <> 0 then begin
-                        Importe := Abs(Incid.Importe);
+                        // Se respeta el signo cargado. Acá el importe lo puso una persona: si tipeó
+                        // un negativo es porque quiso un negativo, y el Abs que había antes le
+                        // descartaba la intención sin avisar.
+                        Importe := Incid.Importe;
                         CreateLine := true;
                         EsIncidencia := true;
                     end;
@@ -337,7 +342,8 @@ codeunit 50014 "Motor Liquidación"
                 then begin
                     if not Evaluador.TryEvalFormula(Concepto.Fórmula, Importe) then
                         Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
-                    Importe := Abs(Importe);
+                    // El importe conserva el signo que da la fórmula. Ver la nota de cabecera de
+                    // Línea Liquidación: el signo dejó de salir del Tipo Concepto.
                     CreateLine := true;
                 end;
 
@@ -398,6 +404,7 @@ codeunit 50014 "Motor Liquidación"
                     if not FIteracionGU then
                         LinLiq."Fórmula Evaluada" := BuildFormulaEvaluada(Concepto.Fórmula, Ctx, Evaluador);
                     LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
+                    LinLiq."Vigencias Distribución" := DescribirDistribucion(Concepto.Código);
                     // El Flush corre SIEMPRE: resetea el log y los vars resueltos por concepto.
                     ConceptLog := Evaluador.FlushConceptLog();
                     // Se anota qué acumuladores leyó este concepto ANTES de que aporte a los suyos:
@@ -538,7 +545,8 @@ codeunit 50014 "Motor Liquidación"
                         LinLiq."Grupo Costo Laboral" := Concepto."Grupo Costo Laboral";
                         LinLiq."Imprime en Recibo" := Concepto."Imprime en Recibo";
                         LinLiq."Es Devengo" := Concepto."Es Devengo";
-                        LinLiq.Importe := Abs(Incid.Importe);
+                        // Se respeta el signo cargado, igual que en RunConceptos.
+                        LinLiq.Importe := Incid.Importe;
                         if Incid.Cantidad <> 0 then begin
                             LinLiq.Cantidad := Incid.Cantidad;
                             LinLiq."Unidad Cantidad" := Incid."Unidad Cantidad";
@@ -546,6 +554,7 @@ codeunit 50014 "Motor Liquidación"
                         end;
                         LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
                         LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
+                        LinLiq."Vigencias Distribución" := DescribirDistribucion(Concepto.Código);
                         LinLiq.Insert(true);
 
                         UpdateAccumulatorsFromCache(
@@ -567,12 +576,12 @@ codeunit 50014 "Motor Liquidación"
         Valor: Decimal;
     begin
         Concepto.SetRange("Es Acumulador", true);
-        Concepto.SetRange(Activo, true);
+        // Sin filtro de Activo ni de fecha: las dos cosas ya están resueltas en LatestVersionMap, y
+        // la línea siguiente exige coincidencia exacta con la versión que ganó.
         if not Concepto.FindSet() then
             exit;
         repeat
-            if LatestVersionMap.ContainsKey(Concepto.Código) and
-               (Concepto."Vigencia Desde" = LatestVersionMap.Get(Concepto.Código)) and
+            if EsVersionEnUso(LatestVersionMap, Concepto.Código, Concepto."Vigencia Desde") and
                Ctx.ContainsKey(Concepto.Código)
             then begin
                 Valor := Ctx.Get(Concepto.Código);
@@ -607,8 +616,10 @@ codeunit 50014 "Motor Liquidación"
         TipoLiq: Code[20])
     begin
         Concepto.Reset();
-        Concepto.SetRange(Activo, true);
-        Concepto.SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        // Sin filtro de Activo: la baja la resuelve FLatestVersionMap, que ya excluye al concepto
+        // cuya versión vigente está dada de baja. RunConceptos descarta toda línea que no coincida
+        // con el mapa, así que ese es el único punto donde se decide.
+        Concepto.FiltrarVigentesA(FechaRef);
         if TipoEmpleado <> TipoEmpleado::Todos then
             Concepto.SetFilter("Aplica A", '%1|%2', Concepto."Aplica A"::Todos, TipoEmpleado);
         Concepto.SetCurrentKey("Orden Cálculo", Código);
@@ -628,32 +639,63 @@ codeunit 50014 "Motor Liquidación"
     local procedure EnsureConceptCaches(FechaRef: Date)
     var
         Concepto: Record "Concepto Liquidación";
+        CodigoConcepto: Code[20];
     begin
         if FConceptCacheLoaded and (FConceptCacheFecha = FechaRef) then
             exit;
         Clear(FLatestVersionMap);
         Clear(FFracAccumList);
         Clear(FFracAccumPct);
+        Clear(FFracAccumVig);
         Clear(FAccumCodes);
         BuildLatestVersionCache(FechaRef, FLatestVersionMap);
-        BuildFractionCache(FechaRef, FFracAccumList, FFracAccumPct);
-        Concepto.SetRange("Es Acumulador", true);
-        Concepto.SetRange(Activo, true);
-        if Concepto.FindSet() then
-            repeat
-                FAccumCodes.Add(Concepto.Código);
-            until Concepto.Next() = 0;
+        BuildFractionCache(FechaRef, FFracAccumList, FFracAccumPct, FFracAccumVig);
+
+        // Es acumulador el concepto cuya VERSIÓN VIGENTE a la fecha lo declara así. Antes se
+        // recorrían todas las vigencias sin filtro de fecha, de modo que un concepto que recién pasa
+        // a ser acumulador el año que viene ya contaba hoy, y uno que dejó de serlo seguía contando.
+        // WriteAccumulatorLines sí resolvía por versión, así que las dos mitades no coincidían.
+        // FLatestVersionMap ya trae solo versiones activas y vigentes a FechaRef.
+        foreach CodigoConcepto in FLatestVersionMap.Keys() do
+            if Concepto.Get(CodigoConcepto, FLatestVersionMap.Get(CodigoConcepto)) then
+                if Concepto."Es Acumulador" then
+                    FAccumCodes.Add(CodigoConcepto);
         FConceptCacheFecha := FechaRef;
         FConceptCacheLoaded := true;
+    end;
+
+    /// <summary>
+    /// True si esta versión del concepto es la que el mapa eligió para la fecha de referencia.
+    /// </summary>
+    /// <remarks>
+    /// El ContainsKey y el Get van en sentencias SEPARADAS, nunca encadenados con `and` en una sola
+    /// expresión: AL no garantiza cortocircuito, así que el Get se evalúa igual aunque el
+    /// ContainsKey haya dado false, y tira "la clave proporcionada no estaba presente en el
+    /// diccionario".
+    ///
+    /// Estuvo latente mucho tiempo sin explotar porque SelectConceptos y BuildLatestVersionCache
+    /// usaban el MISMO filtro de Activo: todo lo que devolvía el bucle estaba sí o sí en el mapa.
+    /// Al pasar la baja a resolverse por fecha, el mapa empezó a excluir al concepto discontinuado
+    /// mientras el bucle lo sigue devolviendo — y ahí la falta de cortocircuito se cobró la deuda.
+    /// </remarks>
+    local procedure EsVersionEnUso(var Mapa: Dictionary of [Code[20], Date]; CodConcepto: Code[20]; VigenciaDesde: Date): Boolean
+    begin
+        if not Mapa.ContainsKey(CodConcepto) then
+            exit(false);
+        exit(VigenciaDesde = Mapa.Get(CodConcepto));
     end;
 
     local procedure BuildLatestVersionCache(FechaRef: Date; var LatestMap: Dictionary of [Code[20], Date])
     var
         Concepto: Record "Concepto Liquidación";
+        Ganadora: Record "Concepto Liquidación";
+        CodigoConcepto: Code[20];
     begin
         Concepto.Reset();
-        Concepto.SetRange(Activo, true);
-        Concepto.SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        // Solo el intervalo de vigencia entra al filtro. La baja del concepto se decide después,
+        // sobre la versión ganadora, en VigenteA: es la diferencia entre "este concepto está dado
+        // de baja" y "esta versión no existe", que es lo que significaba filtrar por Activo acá.
+        Concepto.FiltrarVigentesA(FechaRef);
         if not Concepto.FindSet() then exit;
         repeat
             if not LatestMap.ContainsKey(Concepto.Código) then
@@ -662,6 +704,12 @@ codeunit 50014 "Motor Liquidación"
                 if Concepto."Vigencia Desde" > LatestMap.Get(Concepto.Código) then
                     LatestMap.Set(Concepto.Código, Concepto."Vigencia Desde");
         until Concepto.Next() = 0;
+
+        // Keys() devuelve una lista propia, así que sacar del diccionario mientras se recorre es seguro.
+        foreach CodigoConcepto in LatestMap.Keys() do
+            if Ganadora.Get(CodigoConcepto, LatestMap.Get(CodigoConcepto)) then
+                if not Ganadora.VigenteA(FechaRef) then
+                    LatestMap.Remove(CodigoConcepto);
     end;
 
     // Returns true if this concept applies to CodConvenio at FechaRef.
@@ -711,7 +759,8 @@ codeunit 50014 "Motor Liquidación"
     // the percentage. A concept can feed multiple accumulators with independent vigencias.
     local procedure BuildFractionCache(FechaRef: Date;
         var AccumList: Dictionary of [Code[20], Text];
-        var AccumPct: Dictionary of [Text, Decimal])
+        var AccumPct: Dictionary of [Text, Decimal];
+        var AccumVig: Dictionary of [Text, Date])
     var
         Fraccion: Record "Fracción Acumulador";
         AccumKey: Text;
@@ -737,11 +786,18 @@ codeunit 50014 "Motor Liquidación"
             AccumKey := Fraccion."Cód. Concepto" + '~' + Fraccion."Cód. Acumulador";
             if Fraccion."Vigencia Desde" = BestVig.Get(AccumKey) then begin
                 PctConSigno := Fraccion.Porcentaje;
-                if Fraccion.Restar then PctConSigno := -PctConSigno;
+                if Fraccion."Invertir Signo" then PctConSigno := -PctConSigno;
                 if AccumPct.ContainsKey(AccumKey) then
                     AccumPct.Set(AccumKey, PctConSigno)
                 else
                     AccumPct.Add(AccumKey, PctConSigno);
+
+                // La vigencia que ganó se guarda junto al porcentaje: es lo que después se estampa
+                // en la línea para poder auditar con qué distribución se acumuló.
+                if AccumVig.ContainsKey(AccumKey) then
+                    AccumVig.Set(AccumKey, Fraccion."Vigencia Desde")
+                else
+                    AccumVig.Add(AccumKey, Fraccion."Vigencia Desde");
 
                 if not AccumList.ContainsKey(Fraccion."Cód. Concepto") then
                     AccumList.Add(Fraccion."Cód. Concepto", Fraccion."Cód. Acumulador")
@@ -886,6 +942,35 @@ codeunit 50014 "Motor Liquidación"
         end;
     end;
 
+    /// <summary>
+    /// Sello de auditoría de la distribución: "ACUMULADOR:AAAAMMDD" por cada acumulador que este
+    /// concepto alimenta, con la vigencia de la fracción que efectivamente se aplicó.
+    /// </summary>
+    /// <remarks>
+    /// Se arma desde el cache, sin ir a la base. Formato de fecha fijo y sin separadores para que no
+    /// dependa del idioma de la sesión: el sello tiene que poder compararse entre instalaciones.
+    /// </remarks>
+    local procedure DescribirDistribucion(CodConcepto: Code[20]): Text[250]
+    var
+        AccumCodes: List of [Text];
+        AccumCode: Text;
+        AccumKey: Text;
+        Sello: TextBuilder;
+    begin
+        if not FFracAccumList.ContainsKey(CodConcepto) then
+            exit('');
+        AccumCodes := FFracAccumList.Get(CodConcepto).Split('|');
+        foreach AccumCode in AccumCodes do begin
+            AccumKey := CodConcepto + '~' + AccumCode;
+            if FFracAccumVig.ContainsKey(AccumKey) then begin
+                if Sello.Length() > 0 then
+                    Sello.Append('|');
+                Sello.Append(AccumCode + ':' + Format(FFracAccumVig.Get(AccumKey), 0, '<Year4><Month,2><Day,2>'));
+            end;
+        end;
+        exit(CopyStr(Sello.ToText(), 1, 250));
+    end;
+
     local procedure UpdateAccumulatorsFromCache(
         CodConcepto: Code[20];
         Importe: Decimal;
@@ -923,10 +1008,6 @@ codeunit 50014 "Motor Liquidación"
         Lin.SetRange("Tipo Concepto", Lin."Tipo Concepto"::"Haber No Remunerativo");
         Lin.CalcSums(Importe);
         Liq."Total Haberes" += Lin.Importe;
-
-        Lin.SetRange("Tipo Concepto", Lin."Tipo Concepto"::"Deducción Remunerativa");
-        Lin.CalcSums(Importe);
-        Liq."Total Haberes" -= Lin.Importe;
 
         Lin.SetRange("Tipo Concepto", Lin."Tipo Concepto"::"Descuento Empleado");
         Lin.CalcSums(Importe);
@@ -1120,20 +1201,32 @@ codeunit 50014 "Motor Liquidación"
     // Liquidación (Acumuladores Anuales) without requiring per-variable configuration.
     // "Mostrar en Recibo" stays curated: only Fuente Datos / Variable Sistema records
     // explicitly flagged print on the PDF.
-    local procedure SaveResumenVariables(LiqNo: Code[20]; var Ctx: Dictionary of [Text, Decimal])
+    local procedure SaveResumenVariables(LiqNo: Code[20]; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
     var
         Resumen: Record "Resumen Variable Liq.";
+        ValoresTexto: Dictionary of [Text, Text];
         VarName: Text;
         Valor: Decimal;
+        Texto: Text;
         MostrarEnRecibo: Boolean;
     begin
+        CtxBuilder.GetValoresTexto(ValoresTexto);
         foreach VarName in Ctx.Keys() do begin
             Valor := Ctx.Get(VarName);
-            if (Valor <> 0) and not EsConceptoNoAcumulador(VarName) then begin
+            Texto := '';
+            if ValoresTexto.ContainsKey(VarName) then
+                Texto := ValoresTexto.Get(VarName);
+
+            // La condición mira el texto además del número. Una fuente de tipo Texto o Fecha puede
+            // proyectar legítimamente a 0 —una fecha que cae justo en la fecha de referencia, por
+            // ejemplo— y con la condición vieja se perdía del resumen y del recibo justo el valor
+            // que interesaba mostrar.
+            if ((Valor <> 0) or (Texto <> '')) and not EsConceptoNoAcumulador(VarName) then begin
                 Clear(Resumen);
                 Resumen."No. Liquidación" := LiqNo;
                 Resumen."Nombre Variable" := CopyStr(VarName, 1, MaxStrLen(Resumen."Nombre Variable"));
                 Resumen.Valor := Valor;
+                Resumen."Valor Texto" := CopyStr(Texto, 1, MaxStrLen(Resumen."Valor Texto"));
                 Resumen.Etiqueta := CopyStr(ResolveEtiquetaResumen(VarName, MostrarEnRecibo), 1, MaxStrLen(Resumen.Etiqueta));
                 Resumen."Mostrar en Recibo" := MostrarEnRecibo;
                 if not Resumen.Insert() then
@@ -1326,10 +1419,6 @@ codeunit 50014 "Motor Liquidación"
         Lin.CalcSums(Importe);
         TotalHaberes := Lin.Importe;
 
-        Lin.SetRange("Tipo Concepto", Lin."Tipo Concepto"::"Deducción Remunerativa");
-        Lin.CalcSums(Importe);
-        TotalHaberes -= Lin.Importe;
-
         Lin.SetFilter("Tipo Concepto", '%1|%2|%3',
             Lin."Tipo Concepto"::Retención,
             Lin."Tipo Concepto"::"Descuento Empleado",
@@ -1365,6 +1454,7 @@ codeunit 50014 "Motor Liquidación"
         FLatestVersionMap: Dictionary of [Code[20], Date];
         FFracAccumList: Dictionary of [Code[20], Text];
         FFracAccumPct: Dictionary of [Text, Decimal];
+        FFracAccumVig: Dictionary of [Text, Date];
         FAccumCodes: List of [Code[20]];
         // Control de orden de cálculo: primera lectura de cada acumulador en la pasada actual.
         FAcumLeidoEnOrden: Dictionary of [Text, Integer];

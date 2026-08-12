@@ -8,6 +8,96 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">PageExtension EmpFamilyExt - Control Employee No. - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 1344870033 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributo de Entidad</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - NamedType 1882589984" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Esta vigencia no puede quedar abierta: existe una posterior que arranca el %1.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - NamedType ErrAbiertaConSiguiente</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - NamedType 1294550160" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El atributo es de tipo %1: el valor se carga en "%2".</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - NamedType ErrColumnaEquivocada</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - NamedType 960358303" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La fecha de fin de vigencia (%1) no puede ser anterior al inicio (%2).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - NamedType ErrIntervaloInvertido</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - NamedType 3377980836" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La vigencia que arranca el %1 llega hasta el %2 y se superpone con la nueva del %3. Cerrá antes la anterior.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - NamedType ErrSuperponeAnterior</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - NamedType 4159660333" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La fecha de fin %1 se superpone con la vigencia que arranca el %2.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - NamedType ErrSuperponeSiguiente</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 3836786743 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cód. Entidad</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Cód. Entidad - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 2042182462 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Cód. Tipo Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 2480382128 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Cód. Valor - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 180754901 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Descripción Valor - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 746847600 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo de Dato</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Tipo Dato - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 2631538343 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo Entidad</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Tipo Entidad - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 27847199 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Decimal</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Valor Decimal - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 1423940801 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Fecha</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Valor Fecha - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 1926017482 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Numérico</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Valor Numérico - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 334671056 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Texto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Valor Texto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 1744877165 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigencia Desde</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Vigencia Desde - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1344870033 - Field 3119236513 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigencia Hasta</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Atributo Entidad Liq. - Field Vigencia Hasta - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 2142621019 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Categoría CCT</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -68,6 +158,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 1882589984" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Esta versión no puede quedar con la vigencia abierta: existe una versión posterior que arranca el %1.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrAbiertaConSiguiente</note>
+        </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 960358303" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La fecha de fin de vigencia (%1) no puede ser anterior al inicio (%2).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrIntervaloInvertido</note>
+        </trans-unit>
         <trans-unit id="Table 2665257399 - NamedType 2707655734" size-unit="char" translate="yes" xml:space="preserve">
           <source>La condición contiene un error de sintaxis: %1</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -78,10 +178,30 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrSintaxisFormula</note>
         </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 3377980836" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La versión que arranca el %1 está vigente hasta el %2 y se superpone con la nueva vigencia del %3. Cerrá antes la versión anterior.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrSuperponeAnterior</note>
+        </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 4159660333" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La fecha de fin %1 se superpone con la versión que arranca el %2.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrSuperponeSiguiente</note>
+        </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 1985524849" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No se puede cerrar el concepto %1 (versión %2) el %3: la liquidación %4, del %5, usó esta versión después de esa fecha. Cerralo en una fecha posterior o revertí esa liquidación.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrUsoPosterior</note>
+        </trans-unit>
         <trans-unit id="Table 2665257399 - NamedType 135427445" size-unit="char" translate="yes" xml:space="preserve">
           <source>La fórmula hace referencia a variables que no existen en el sistema: %1</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrVariableDesconocida</note>
+        </trans-unit>
+        <trans-unit id="Table 2665257399 - NamedType 648950311" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No se puede borrar ni mover la versión %2 del concepto %1: la usó la liquidación %3. Cerrá su vigencia en lugar de borrarla.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - NamedType ErrVersionEnUso</note>
         </trans-unit>
         <trans-unit id="Table 2665257399 - Field 1559139290 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Activo</source>
@@ -192,6 +312,11 @@
           <source>Vigencia Desde</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - Field Vigencia Desde - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2665257399 - Field 3119236513 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigencia Hasta</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Concepto Liquidación - Field Vigencia Hasta - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 2124718141 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Convenio Colectivo</source>
@@ -453,15 +578,15 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Detalle Acumulador Liq. - Field Importe Concepto - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 2227411716 - Field 3617845007 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Invertir signo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Detalle Acumulador Liq. - Field Invertir Signo - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 2227411716 - Field 3855173673 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>% Aplicado</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Detalle Acumulador Liq. - Field Porcentaje - Property Caption</note>
-        </trans-unit>
-        <trans-unit id="Table 2227411716 - Field 422483277 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Restar</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Table Detalle Acumulador Liq. - Field Restar - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 2319473624 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Detalle Deducciones Ganancias</source>
@@ -818,15 +943,15 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Fracción Acumulador - Field Descripción - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 458000926 - Field 3617845007 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Invertir signo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Fracción Acumulador - Field Invertir Signo - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 458000926 - Field 3855173673 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>% del importe</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Fracción Acumulador - Field Porcentaje - Property Caption</note>
-        </trans-unit>
-        <trans-unit id="Table 458000926 - Field 422483277 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Restar</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Table Fracción Acumulador - Field Restar - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 458000926 - Field 1744877165 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Vigencia Desde</source>
@@ -847,6 +972,11 @@
           <source>La tabla con ID %1 no existe en esta base de datos.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Fuente Datos Liquidación - NamedType ErrTablaNoExiste</note>
+        </trans-unit>
+        <trans-unit id="Table 1967472386 - NamedType 65064570" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El campo "%1" es de tipo %2 y la fuente está declarada como %3. Si no coinciden, la lectura devuelve cero sin avisar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Fuente Datos Liquidación - NamedType ErrTipoCampoNoCoincide</note>
         </trans-unit>
         <trans-unit id="Table 1967472386 - Field 1559139290 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Activo</source>
@@ -932,6 +1062,11 @@
           <source>Nombre Variable</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Fuente Datos Liquidación - Field Nombre Variable - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1967472386 - Field 746847600 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo Dato</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Fuente Datos Liquidación - Field Tipo Dato - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 7221294 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Historial de Cambios de Fórmula</source>
@@ -1357,6 +1492,11 @@
           <source>Vigencia Concepto</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Línea Liquidación - Field Vigencia Concepto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2790921651 - Field 3511714542 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigencias Distribución</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Liquidación - Field Vigencias Distribución - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 86116035 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Novedad Liquidación</source>
@@ -1933,6 +2073,11 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Resumen Variable Liq. - Field Valor - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 3549548597 - Field 334671056 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Texto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Resumen Variable Liq. - Field Valor Texto - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 1515779969 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Tabla Escalonada</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -2008,6 +2153,46 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Tabla Escalonada Det. - Field Vigencia Desde - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 3006160590 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - NamedType 429526316" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El tipo de atributo %1 ya tiene valores cargados en entidades. Borrá esas asignaciones antes de cambiarlo o eliminarlo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - NamedType ErrTipoConDatos</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 743017303 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Código</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Código - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 2615446671 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Descripción - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 1614739569 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre Variable Sugerido</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Nombre Variable - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 4279955139 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Obligatorio</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Obligatorio - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 746847600 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo de Dato</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Tipo Dato - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 3006160590 - Field 2631538343 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Se carga en</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Atributo Liq. - Field Tipo Entidad - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 1642375973 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Tipo Liq. Selección Buffer</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -2072,6 +2257,36 @@
           <source>Orden</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Liquidación - Field Orden - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - NamedType 3081274439" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El valor %1 ya está asignado en %2 registro(s), que conservan el número anterior. El nuevo rige solo para las asignaciones que se carguen desde ahora; para cambiar las vigentes, cargá una vigencia nueva en cada entidad.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - NamedType MsgValorEnUso</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - Field 2042182462 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cód. Tipo Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - Field Cód. Tipo Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - Field 743017303 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Código</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - Field Código - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - Field 2615446671 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - Field Descripción - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2230826898 - Field 1926017482 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor Numérico</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Valor Atributo Liq. - Field Valor Numérico - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 3148174294 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Variable Test Liquidación</source>
@@ -2217,6 +2432,11 @@
           <source>Consulta una tabla escalonada vigente. El código va entre comillas simples. Ej: TRAMO('TAB_IMP_4CAT', BASE_IG4 * 12)</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Codeunit Catálogo Variables Liq. - NamedType AyudaTramo</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 3718971405 - NamedType 763976061" size-unit="char" translate="yes" xml:space="preserve">
+          <source>1 = %1 está en moneda extranjera. Ej: IF(%1_ESFCY, %1 * TC_CERCANO, %1)</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Catálogo Variables Liq. - NamedType TxtDescEsFCY</note>
         </trans-unit>
         <trans-unit id="Codeunit 2947165278 - NamedType 1556493349" size-unit="char" translate="yes" xml:space="preserve">
           <source>%1: el último valor vigente es del %2 (%3 día(s) de antigüedad respecto a la liquidación). Verifique si corresponde cargar una versión más reciente.</source>
@@ -2603,15 +2823,15 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Alimentadores Acumulador Sub - Control DescripciónConcepto - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 1802186569 - Control 1938902287 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Si está activo, el importe se resta del acumulador en lugar de sumarse.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Alimentadores Acumulador Sub - Control InvertirSigno - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 1802186569 - Control 3855173673 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>% Importe</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Alimentadores Acumulador Sub - Control Porcentaje - Property Caption</note>
-        </trans-unit>
-        <trans-unit id="Page 1802186569 - Control 422483277 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Si está activo, el importe se resta del acumulador en lugar de sumarse.</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Alimentadores Acumulador Sub - Control Restar - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="Page 904537498 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Asistente de Fórmulas</source>
@@ -2953,6 +3173,76 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Asistente Fórmula Liq. - Action VerTextoPlano - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 2511134697 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Control 2480382128 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor elegido de la lista del atributo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Control Cód. Valor - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Control 1926017482 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El número que efectivamente ve la fórmula. Queda congelado al asignar, para que un recálculo de un período viejo dé lo mismo que dio.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Control Valor Numérico - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Control 3119236513 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>En blanco = vigencia abierta. Al cargar una vigencia nueva, la anterior se cierra sola el día previo si estaba abierta.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Control Vigencia Hasta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Action 3160498507 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra solo los atributos vigentes hoy.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Action VerActuales - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Action 3160498507 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ver solo actuales</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Action VerActuales - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Action 3162603080 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra también las vigencias que ya terminaron y las que todavía no empezaron.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Action VerTodas - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2511134697 - Action 3162603080 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ver historial completo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos de Entidad - Action VerTodas - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Control 2042182462 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Control Cód. Tipo Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Control 3721954710 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valor</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Control ValorMostrar - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Control 1744877165 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Desde</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Control Vigencia Desde - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Action 606350970 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Abre todos los atributos de esta entidad, incluidas las vigencias cerradas y las futuras.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Action VerHistorial - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3192822189 - Action 606350970 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ver historial</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Atributos Entidad FactBox - Action VerHistorial - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 924755399 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Buques</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -3094,7 +3384,7 @@
           <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Control ConveniosCCT - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 416627403 - Control 286807621 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Distribución en acumuladores</source>
+          <source>Distribución en acumuladores — todas las vigencias</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Control Fracciones - Property Caption</note>
         </trans-unit>
@@ -3153,6 +3443,11 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Control Variable Cantidad - Property ToolTip</note>
         </trans-unit>
+        <trans-unit id="Page 416627403 - Control 3119236513 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Último día en que esta versión se aplica. En blanco = vigencia abierta. Cargar una fecha da de baja el concepto desde ese día sin alterar lo ya liquidado.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Control Vigencia Hasta - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 416627403 - Control 2546398709 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Texto plano</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -3184,7 +3479,7 @@
           <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Action Copiar - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 416627403 - Action 4142470897 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Quién cambió la fórmula o la condición de este concepto, cuándo, y de qué texto a qué texto. Permite además restaurar una versión anterior.</source>
+          <source>Quién cambió la fórmula o la condición de este concepto, cuándo, y de qué texto a qué texto. Permite además restaurar una versión anterior. Se habilita cuando el concepto tiene al menos un cambio registrado.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Concepto Liq. Card - Action HistorialCambios - Property ToolTip</note>
         </trans-unit>
@@ -3252,6 +3547,11 @@
           <source>Ya existe una vigencia del concepto %1 con fecha %2. Insertá manualmente la nueva versión con otra fecha desde la lista.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Conceptos Liquidación - NamedType ErrVigenciaExiste</note>
+        </trans-unit>
+        <trans-unit id="Page 3550454850 - Control 3119236513 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Último día en que esta versión se aplica. En blanco = vigencia abierta. Cargar una fecha da de baja el concepto desde ese día sin alterar lo ya liquidado.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Conceptos Liquidación - Control Vigencia Hasta - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="Page 3550454850 - Action 1226528938 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Marca "Imprime en Recibo" = Sí en todos los conceptos existentes. Ejecutar una sola vez luego de actualizar la extensión.</source>
@@ -4044,7 +4344,7 @@
           <note from="Xliff Generator" annotates="general" priority="3">Page Detalle Acumulador Liq. - Control TotalDetalle - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 2227411716 - Control 4112284775 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Total de los conceptos con "Restar" tildado. El signo con el que un concepto entra al acumulador NO sale del Tipo Concepto: sale de este flag, y se configura por acumulador. Un concepto puede restar en uno y sumar en otro. Si esperabas que algo descontara y acá ves 0,00, falta tildar "Restar" en su fila de Fracción Acumulador.</source>
+          <source>Total de los conceptos con "Invertir signo" tildado. El signo con el que un concepto entra al acumulador NO sale del Tipo Concepto: sale de este flag, y se configura por acumulador. Un concepto puede restar en uno y sumar en otro. Si esperabas que algo descontara y acá ves 0,00, falta tildar "Invertir signo" en su fila de Fracción Acumulador.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Detalle Acumulador Liq. - Control TotalRestan - Property ToolTip</note>
         </trans-unit>
@@ -4428,6 +4728,46 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Registro Proceso Liq. - Control GrpProceso - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 1893689263 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Control 2445482498 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>General</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Control General - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Control 4279955139 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Marca los atributos que se esperan cargados en toda entidad. No bloquea la liquidación: un atributo faltante debe avisar, no impedir que se pague.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Control Obligatorio - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Control 746847600 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Define en qué columna se carga el valor y cómo llega a una fórmula. No se puede cambiar una vez que hay valores asignados.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Control Tipo Dato - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Control 3509094500 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores permitidos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Control Valores - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Action 240289651 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Abre la lista completa de valores de este atributo en su propia pantalla, para cargar de a muchos o buscar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Action VerValores - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Action 240289651 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores permitidos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Action VerValores - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1893689263 - Action 3383493608 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proceso</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Ficha Tipo Atributo - Action Category_Process - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 2313953964 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Filtros</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -4468,15 +4808,30 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control DescAccumulator - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 2235966802 - Control 1938902287 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Si está activo, el importe se resta del acumulador en lugar de sumarse. Útil para conceptos de descuento que deben cancelar base de cálculo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control InvertirSigno - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 2235966802 - Control 3855173673 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>% Importe</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control Porcentaje - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 2235966802 - Control 422483277 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Si está activo, el importe se resta del acumulador en lugar de sumarse. Útil para conceptos de descuento que deben cancelar base de cálculo.</source>
+        <trans-unit id="Page 2235966802 - Control 1744877165 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Desde cuándo rige esta distribución. Se versiona por separado de la vigencia del concepto: cambiar la fórmula no obliga a redeclarar la distribución.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control Restar - Property ToolTip</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control Vigencia Desde - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2235966802 - Control 3809962942 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tildado = es la fila que el motor usaría para este acumulador en esta vigencia del concepto. Sin tildar = quedó desplazada por una posterior, o todavía no entró en vigor.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control Vigente - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2235966802 - Control 3809962942 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigente</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Fracción Acumulador Sub - Control Vigente - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 3786115980 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Fuente de Datos de Liquidación</source>
@@ -4943,6 +5298,11 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Lista Liquidaciones - NamedType QstEliminarSeleccion</note>
         </trans-unit>
+        <trans-unit id="Page 2718007653 - NamedType 1956805278" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Calculando liquidaciones\\Liquidación  #1##################\Empleado     #2##################\\Progreso     @3@@@@@@@@@@@@@@@@@@@@</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Lista Liquidaciones - NamedType TxtProgresoCalculo</note>
+        </trans-unit>
         <trans-unit id="Page 2718007653 - Action 3523170599 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Ver Líneas</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -5078,6 +5438,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Control Fórmula Evaluada - Property ToolTip</note>
         </trans-unit>
+        <trans-unit id="Page 2678384510 - Control 1245573544 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Indica si esta línea sale impresa en el recibo. Las que no se imprimen se muestran atenuadas.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Control Imprime en Recibo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Control 3511714542 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Con qué vigencia de la distribución se acumuló esta línea, un acumulador por entrada. Sirve para detectar si una fracción cargada con fecha retroactiva cambiaría el resultado de un recálculo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Control Vigencias Distribución - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 2678384510 - Action 2591392821 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Abre la ficha del concepto (la versión/vigencia que se usó en esta línea).</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -5098,35 +5468,65 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action AbrirDetalle - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 2277520537 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Muestra u oculta los acumuladores (tipo Informativo) en la lista de líneas.</source>
+        <trans-unit id="Page 2678384510 - Action 1507019569 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra también los acumuladores (tipo Informativo) en la lista de líneas.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleAcumuladores - Property ToolTip</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarAcumuladoresAction - Property ToolTip</note>
         </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 2277520537 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+        <trans-unit id="Page 2678384510 - Action 1507019569 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Mostrar acumuladores</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleAcumuladores - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarAcumuladoresAction - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 3865242660 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Muestra u oculta los conceptos que no se imprimen en el recibo.</source>
+        <trans-unit id="Page 2678384510 - Action 1269047883 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra también los conceptos con importe cero.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleNoImprimibles - Property ToolTip</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarCeroAction - Property ToolTip</note>
         </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 3865242660 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Mostrar no imprimibles</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleNoImprimibles - Property Caption</note>
-        </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 3622527103 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Muestra u oculta los conceptos con importe cero.</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleSinCero - Property ToolTip</note>
-        </trans-unit>
-        <trans-unit id="Page 2678384510 - Action 3622527103 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+        <trans-unit id="Page 2678384510 - Action 1269047883 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Mostrar importes cero</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action ToggleSinCero - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarCeroAction - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 971415788 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra también los conceptos que no salen en el recibo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarNoImprimiblesAction - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 971415788 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Mostrar no imprimibles</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action MostrarNoImprimiblesAction - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 2617800995 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Oculta los acumuladores (tipo Informativo) de la lista de líneas.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarAcumuladoresAction - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 2617800995 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ocultar acumuladores</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarAcumuladoresAction - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 3088138649 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Oculta los conceptos con importe cero.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarCeroAction - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 3088138649 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ocultar importes cero</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarCeroAction - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 4051110218 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Oculta los conceptos que no salen en el recibo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarNoImprimiblesAction - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2678384510 - Action 4051110218 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ocultar no imprimibles</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Líneas Liquidación - Action OcultarNoImprimiblesAction - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 2678384510 - Action 3810184950 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Muestra los conceptos que componen este acumulador y sus importes aportados.</source>
@@ -5673,6 +6073,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action GrpEmpleados - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 1459256753 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores de los atributos por empleado, buque o marea, con su historial de vigencias. Abre mostrando solo los vigentes hoy.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavAtributosEntidad - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 1459256753 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavAtributosEntidad - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 1091715438 - Action 2010824622 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Cód. Estados</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -5773,6 +6183,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavRegistrosProceso - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 815850123 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Conceptos con una versión marcada como inactiva, y qué cambia para cada uno ahora que la baja se resuelve por fecha de vigencia y no por el booleano. Revisar antes de liquidar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavVersionesInactivas - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 815850123 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Versiones Inactivas a Revisar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavVersionesInactivas - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 1091715438 - Action 1102215055 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Parámetros</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -5802,6 +6222,26 @@
           <source>Tablas Escalonadas</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavTablasEscalonadas - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 1597919686 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Define qué atributos se pueden cargar en empleados, buques y mareas. Se leen desde las fórmulas con una Fuente de Datos.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavTiposAtributo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 1597919686 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipos de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavTiposAtributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 2116685925 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Listas cerradas contra las que se validan los atributos, con el número que cada valor le pasa a las fórmulas.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavValoresAtributo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1091715438 - Action 2116685925 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Payroll Role Center - Action NavValoresAtributo - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 1091715438 - Action 3184390556 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Variables Sistema</source>
@@ -5953,20 +6393,65 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Control Cód. Calendario - Property ToolTip</note>
         </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3184836403 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Abre las liquidaciones de este período.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action VerLiquidaciones - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 349371785 - Action 3184836403 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Liquidaciones</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action VerLiquidaciones - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 349371785 - Action 89209095 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Calcular Período</source>
+        <trans-unit id="Page 349371785 - Action 2701165780 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Deshace cálculos o limpia borradores sin tocar el estado del período.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CalcularPeriodo - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpCorregir - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2701165780 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Corregir</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpCorregir - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3902522806 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Eliminar Borradores</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action EliminarBorradores - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2387325734 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Revertir Calculadas</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action RevertirCalculadas - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2207042207 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cierra el período o lo vuelve a abrir.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpEstado - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2207042207 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Estado del período</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpEstado - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 349371785 - Action 3827483185 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Cerrar Período</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CerrarPeriodo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2897632113 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Reabrir Período</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action ReabrirPeriodo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 4101769622 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Genera las liquidaciones del período, para todos los empleados o para uno solo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpPreparar - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 4101769622 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Preparar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpPreparar - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 349371785 - Action 4019011412 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Crear Liq. para Empleado</source>
@@ -5978,20 +6463,35 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CrearLiquidaciones - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 349371785 - Action 3902522806 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Eliminar Borradores</source>
+        <trans-unit id="Page 349371785 - Action 1434177210 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Calcula las liquidaciones del período.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action EliminarBorradores - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpProcesar - Property ToolTip</note>
         </trans-unit>
-        <trans-unit id="Page 349371785 - Action 2897632113 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Reabrir Período</source>
+        <trans-unit id="Page 349371785 - Action 1434177210 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Procesar</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action ReabrirPeriodo - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpProcesar - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Page 349371785 - Action 2387325734 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Revertir Calculadas</source>
+        <trans-unit id="Page 349371785 - Action 89209095 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Calcular Período</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action RevertirCalculadas - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CalcularPeriodo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 1587086413 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Corregir</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action Category_Category4 - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 2224783030 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Período</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action Category_Category5 - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3383493608 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proceso</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action Category_Process - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 2480771287 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Registros de Proceso</source>
@@ -6138,6 +6638,41 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Tipo Liq. Selección Sub - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 3287648590 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipos de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Control 1614739569 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre sugerido para la Fuente de Datos que lo lea. El nombre real con el que la fórmula lo ve lo define esa fuente.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Control Nombre Variable - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Control 746847600 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Define en qué columna se carga el valor y cómo llega a una fórmula. "Lista de valores" es la opción preferida para todo lo que decida un cálculo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Control Tipo Dato - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Control 2631538343 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>A qué maestro se le carga este atributo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Control Tipo Entidad - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Action 240289651 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Lista cerrada contra la que se valida este atributo, y el número que cada valor le pasa a las fórmulas.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Action VerValores - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Action 240289651 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores permitidos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Action VerValores - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3287648590 - Action 3383493608 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proceso</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos de Atributo - Action Category_Process - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 2807101069 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Tipos de Liquidación</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -6172,6 +6707,26 @@
           <source>Sembrar y migrar datos</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Tipos Liquidación - Action SembrarMigrar - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2576220330 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores permitidos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Valores Atributo Sub - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2576220330 - Control 1926017482 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El número que ve la fórmula cuando una entidad tiene este valor asignado. Cambiarlo NO reescribe lo ya asignado: cada asignación conserva el número con el que se cargó, para que un recálculo viejo dé lo mismo que dio.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Valores Atributo Sub - Control Valor Numérico - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3685239469 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Valores de Atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Valores de Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3685239469 - Control 1926017482 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El número que ve la fórmula cuando una entidad tiene este valor asignado.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Valores de Atributo - Control Valor Numérico - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="Page 1803879092 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Variables Sistema Liquidación</source>
@@ -6228,10 +6783,35 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 1486821959 - NamedType 3735972023" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Indica si el valor de %1 está cargado en moneda extranjera (1) o no (0).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - NamedType DescMonedaTxt</note>
+        </trans-unit>
+        <trans-unit id="Page 1486821959 - Control 3661829869 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción de la variable, tomada de su tabla de configuración. Vacío = la variable no está configurada en ninguna (típicamente quedó huérfana de un renombre).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Control DescripciónVariable - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1486821959 - Control 3661829869 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Control DescripciónVariable - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Page 1486821959 - Control 1614739569 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Variable</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Control Nombre Variable - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 1486821959 - Control 3628038840 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>De dónde sale la variable: Parámetro, Sistema, Fuente Datos, Acumulador o Concepto.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Control TipoVariable - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 1486821959 - Control 3628038840 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Variables Cálculo Línea - Control TipoVariable - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 1486821959 - Control 472720858 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Valor</source>
@@ -6282,6 +6862,96 @@
           <source>Insertar en fórmula</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Variables Liq. Test Sub - Action InsertarEnFormula - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Versiones inactivas a revisar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 1666409752" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Es la última versión. Hasta ahora el motor la salteaba y seguía liquidando con la versión del %1; desde el cambio, el concepto queda dado de baja a partir del %2.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType DiagCaidaAAnterior</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 2242912700" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No tiene efecto: existe una versión posterior, vigente desde el %1, que es la que el motor resuelve. Esta fila nunca se aplicó.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType DiagPosterior</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 3945031557" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Es la única versión del concepto, así que nunca llegó a liquidar. El comportamiento no cambia.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType DiagUnica</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 643412764" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Deja de liquidar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType ImpDejaDeLiquidar</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 162262562" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Sin cambio</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType ImpNinguno</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 1590912377" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Se puede borrar sin consecuencias, o dejar como está.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType SugBorrar</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 2384185960" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Si la baja era la intención: poné Vigencia Hasta = %2 en la versión del %1 y borrá esta fila. Si el concepto tenía que seguir liquidando, borrá esta fila y listo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType SugCerrarAnterior</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 3716843007" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La baja empieza el %1, todavía no ocurrió. Decidí antes de esa fecha si el concepto se discontinúa o si esta fila hay que borrarla.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType SugCerrarAnteriorFutura</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - NamedType 3102629219" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Si el concepto no se usa más, borralo. Si tenía que liquidar, era esta fila la que lo impedía.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - NamedType SugUnica</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Control 3911816456 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué venía ejecutando el motor con esta fila y qué va a ejecutar ahora.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Control Diagnóstico - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Control 3911816456 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Detalle</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Control Diagnóstico - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Control 4148505479 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué cambia para este concepto ahora que la baja se resuelve por fecha y no por el booleano.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Control Impacto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Control 4148505479 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Impacto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Control Impacto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Control 462905466 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué hacer</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Control Sugerencia - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Action 3057477127 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Abrir concepto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Action AbrirConcepto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Action 737734411 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Muestra la cadena completa de versiones del concepto, para decidir con el contexto a la vista.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Action VerTodasLasVigencias - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3834992251 - Action 737734411 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ver todas las vigencias</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Versiones Inactivas a Revisar - Action VerTodasLasVigencias - Property Caption</note>
         </trans-unit>
         <trans-unit id="Report 20532746 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Asignar Estado Masivo</source>
@@ -6592,6 +7262,11 @@
           <source>Deducciones Ganancias 4ta Cat.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">PageExtension Empleado Pesca Card Ext. - Control DeduccionesGanancias - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="PageExtension 2401032456 - Control 247136164 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 866835530">
+          <source>Atributos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Empleado Pesca Card Ext. - Control AtributosVigentes - Property Caption</note>
         </trans-unit>
         <trans-unit id="PageExtension 2401032456 - Control 3710107562 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 866835530">
           <source>Estado Actual</source>
@@ -7593,11 +8268,6 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Concepto Liq. - EnumValue Contribución Patronal - Property Caption</note>
         </trans-unit>
-        <trans-unit id="Enum 2187115193 - EnumValue 315729947 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
-          <source>Deducción Remunerativa</source>
-          <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Concepto Liq. - EnumValue Deducción Remunerativa - Property Caption</note>
-        </trans-unit>
         <trans-unit id="Enum 2187115193 - EnumValue 1501667545 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Descuento Empleado</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -7628,6 +8298,46 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Concepto Liq. - EnumValue Seguridad Social - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Enum 1349508856 - EnumValue 3350651205 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Decimal</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Atributo Liq. - EnumValue Decimal - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 1349508856 - EnumValue 1846542321 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Entero</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Atributo Liq. - EnumValue Entero - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 1349508856 - EnumValue 1991915875 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Fecha</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Atributo Liq. - EnumValue Fecha - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 1349508856 - EnumValue 3592209725 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Lista de valores</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Atributo Liq. - EnumValue Lista - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 1349508856 - EnumValue 3514686166 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Texto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Atributo Liq. - EnumValue Texto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 381370017 - EnumValue 3350651205 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Decimal</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Fuente Liq. - EnumValue Decimal - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 381370017 - EnumValue 1991915875 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Fecha</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Fuente Liq. - EnumValue Fecha - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 381370017 - EnumValue 3514686166 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Texto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Dato Fuente Liq. - EnumValue Texto - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Enum 982943271 - EnumValue 4160810746 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Buque</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -7637,6 +8347,11 @@
           <source>Empleado</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Entidad Estado - EnumValue Empleado - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 982943271 - EnumValue 1768628339 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proyecto (Marea)</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Tipo Entidad Estado - EnumValue Proyecto - Property Caption</note>
         </trans-unit>
         <trans-unit id="Enum 435583395 - EnumValue 2617174532 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Alta</source>

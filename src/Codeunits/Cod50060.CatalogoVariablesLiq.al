@@ -74,12 +74,23 @@ codeunit 50064 "Catálogo Variables Liq."
         SetVarCat(Cat, 'ES_GROSSING_UP', 0, 'Liquidación con grossing-up activo (1) o no (0)', 'Sistema');
         SetVarCat(Cat, 'NETO_GARANTIZADO', 0, 'Neto garantizado objetivo del grossing-up', 'Sistema');
         SetVarCat(Cat, 'COMPLEMENTO_GU', 0, 'Complemento de grossing-up (se autoconverge en la liquidación real)', 'Sistema');
+        SetVarCat(Cat, 'NETO_GARANTIZADO_ESFCY', 0, 'El neto garantizado está cargado en moneda extranjera (1) o local (0)', 'Sistema');
 
         // 2. Parámetros con Nombre Variable: valor vigente para el contexto recibido, si alcanza.
         Param.SetFilter("Nombre Variable", '<>%1', '');
         if Param.FindSet() then
             repeat
                 SetVarCat(Cat, Param."Nombre Variable", GetParamConSufijo(Param, CodEmpleado, CodConvenio, CodCategoria), Param.Descripción, 'Parámetro');
+                // Cada parámetro expone además un compañero <VAR>_ESFCY, que el motor inyecta al
+                // lado del valor (ver Cod50016) para que la fórmula decida si multiplicar por el
+                // tipo de cambio: IF(BASICO_ESFCY, BASICO * TC_CERCANO, BASICO).
+                //
+                // Faltaban en el catálogo, así que el editor los pintaba como variable desconocida
+                // aunque el motor los resuelve perfecto. Es el mismo desajuste que el aviso de
+                // mayúsculas en las funciones: el editor era más estricto que el evaluador.
+                SetVarCat(Cat, Param."Nombre Variable" + SufijoMonedaTok,
+                    GetParamEsFCY(Param, CodEmpleado, CodConvenio, CodCategoria),
+                    StrSubstNo(TxtDescEsFCY, Param."Nombre Variable"), 'Parámetro');
             until Param.Next() = 0;
 
         // 3-5. Variables de sistema, fuentes de datos y acumuladores: necesitan una corrida del motor
@@ -97,8 +108,11 @@ codeunit 50064 "Catálogo Variables Liq."
                 SetVarCat(Cat, Fuente."Nombre Variable", 0, Fuente.Descripción, 'Fuente Datos');
             until Fuente.Next() = 0;
 
+        // Sin filtro de vigencia a propósito. Esto es un diccionario de NOMBRES, no el conjunto que
+        // se ejecuta: lo consumen el IntelliSense y "Variables del cálculo", y esa segunda pantalla
+        // resuelve las variables de liquidaciones viejas. Recortarlo a lo vigente hoy dejaba sin
+        // descripción a los acumuladores discontinuados justo cuando se mira el cálculo que los usó.
         Concepto.SetRange("Es Acumulador", true);
-        Concepto.SetRange(Activo, true);
         if Concepto.FindSet() then
             repeat
                 SetVarCat(Cat, Concepto.Código, 0, 'Acumulador: ' + Concepto.Descripción, 'Acumulador');
@@ -128,19 +142,35 @@ codeunit 50064 "Catálogo Variables Liq."
             until Cat.Next() = 0;
     end;
 
-    local procedure SetVarCat(var Cat: Record "Variable Liq. Test" temporary; VarNombre: Text[100]; VarValor: Decimal; VarDesc: Text[100]; VarTipo: Text[20])
+    // Los tres textos se recortan ACÁ y no en cada llamada. Las descripciones se arman concatenando
+    // datos de configuración —nombre de variable, descripción del concepto— que por sí solos ya
+    // llegan al largo del campo, así que cualquier prefijo o plantilla los pasa. Con los parámetros
+    // tipados el desborde explotaba en runtime desde el punto de llamada ("the length of the string
+    // is 119..."), lejos del campo que en realidad desbordaba.
+    //
+    // La descripción es texto de ayuda: recortarla no pierde nada que no se pueda ver en la ficha
+    // del parámetro o del concepto.
+    local procedure SetVarCat(var Cat: Record "Variable Liq. Test" temporary; VarNombre: Text; VarValor: Decimal; VarDesc: Text; VarTipo: Text)
+    var
+        Nombre: Text[100];
+        Desc: Text[100];
+        Tipo: Text[20];
     begin
-        if Cat.Get(VarNombre) then begin
+        Nombre := CopyStr(VarNombre, 1, MaxStrLen(Nombre));
+        Desc := CopyStr(VarDesc, 1, MaxStrLen(Desc));
+        Tipo := CopyStr(VarTipo, 1, MaxStrLen(Tipo));
+
+        if Cat.Get(Nombre) then begin
             Cat.Valor := VarValor;
-            Cat.Descripción := VarDesc;
-            Cat.Tipo := VarTipo;
+            Cat.Descripción := Desc;
+            Cat.Tipo := Tipo;
             Cat.Modify();
         end else begin
             Cat.Init();
-            Cat.Nombre := VarNombre;
+            Cat.Nombre := Nombre;
             Cat.Valor := VarValor;
-            Cat.Descripción := VarDesc;
-            Cat.Tipo := VarTipo;
+            Cat.Descripción := Desc;
+            Cat.Tipo := Tipo;
             Cat.Insert();
         end;
     end;
@@ -149,21 +179,53 @@ codeunit 50064 "Catálogo Variables Liq."
     // Código_EMP, Sufijo CCT → Código_CONVENIO_CATEGORÍA, Sufijo Convenio → Código_CONVENIO, si no
     // el Código pelado. Devuelve 0 cuando el contexto recibido no tiene el sufijo que el parámetro
     // necesita — el nombre igual entra al catálogo, que es lo que le importa al autocompletado.
-    local procedure GetParamConSufijo(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Decimal
+    // El armado del código efectivo está acá y no repetido en cada consumidor: el valor y la bandera
+    // de moneda tienen que salir SIEMPRE de la misma fila de Parámetro Vigente, si no el catálogo
+    // podría mostrar el importe de un sufijo y la moneda de otro.
+    local procedure CodigoEfectivoParam(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Code[50]
     begin
         if Param."Sufijo Empleado" then begin
-            if CodEmpleado = '' then exit(0);
-            exit(GetParamVigente(Param.Código + '_' + CodEmpleado));
+            if CodEmpleado = '' then exit('');
+            exit(Param.Código + '_' + CodEmpleado);
         end;
         if Param."Sufijo CCT" then begin
-            if (CodConvenio = '') or (CodCategoria = '') then exit(0);
-            exit(GetParamVigente(Param.Código + '_' + CodConvenio + '_' + CodCategoria));
+            if (CodConvenio = '') or (CodCategoria = '') then exit('');
+            exit(Param.Código + '_' + CodConvenio + '_' + CodCategoria);
         end;
         if Param."Sufijo Convenio" then begin
-            if CodConvenio = '' then exit(0);
-            exit(GetParamVigente(Param.Código + '_' + CodConvenio));
+            if CodConvenio = '' then exit('');
+            exit(Param.Código + '_' + CodConvenio);
         end;
-        exit(GetParamVigente(Param.Código));
+        exit(Param.Código);
+    end;
+
+    local procedure GetParamConSufijo(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Decimal
+    var
+        CodigoEfectivo: Code[50];
+    begin
+        CodigoEfectivo := CodigoEfectivoParam(Param, CodEmpleado, CodConvenio, CodCategoria);
+        if CodigoEfectivo = '' then
+            exit(0);
+        exit(GetParamVigente(CodigoEfectivo));
+    end;
+
+    // 1 = el valor vigente está cargado en moneda extranjera. Mismo criterio que Cod50016: lo define
+    // que la fila de Parámetro Vigente tenga Moneda.
+    local procedure GetParamEsFCY(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Decimal
+    var
+        ParamVig: Record "Parámetro Vigente";
+        CodigoEfectivo: Code[50];
+    begin
+        CodigoEfectivo := CodigoEfectivoParam(Param, CodEmpleado, CodConvenio, CodCategoria);
+        if CodigoEfectivo = '' then
+            exit(0);
+        ParamVig.SetCurrentKey("Cód. Parámetro", "Vigencia Desde");
+        ParamVig.SetRange("Cód. Parámetro", CodigoEfectivo);
+        ParamVig.SetFilter("Vigencia Desde", '<=%1', WorkDate());
+        if ParamVig.FindLast() then
+            if ParamVig.Moneda <> '' then
+                exit(1);
+        exit(0);
     end;
 
     local procedure GetParamVigente(CodigoEfectivo: Code[50]): Decimal
@@ -274,7 +336,7 @@ codeunit 50064 "Catálogo Variables Liq."
         Obj: JsonObject;
         Cod: Text;
     begin
-        Concepto.SetRange(Activo, true);
+        // Igual que arriba: es un mapa código → descripción y conviene que esté completo.
         if Concepto.FindSet() then
             repeat
                 if Descs.ContainsKey(Concepto.Código) then
@@ -350,4 +412,8 @@ codeunit 50064 "Catálogo Variables Liq."
         AyudaAnd: Label 'Conjunción lógica. Debe escribirse en mayúsculas.';
         AyudaOr: Label 'Disyunción lógica. Debe escribirse en mayúsculas.';
         AyudaNot: Label 'Negación lógica. Debe escribirse en mayúsculas.';
+        SufijoMonedaTok: Label '_ESFCY', Locked = true;
+        // Lo esencial va primero: si un nombre de variable largo hace que SetVarCat recorte, lo que
+        // se pierde es el ejemplo, no el significado.
+        TxtDescEsFCY: Label '1 = %1 está en moneda extranjera. Ej: IF(%1_ESFCY, %1 * TC_CERCANO, %1)';
 }

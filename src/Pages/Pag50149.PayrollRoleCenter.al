@@ -129,6 +129,22 @@ page 50149 "Payroll Role Center"
                     Image = DataEntry;
                     RunObject = Page "Fuente Datos Liquidación";
                 }
+                action(NavTiposAtributo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Tipos de Atributo';
+                    Image = Dimensions;
+                    RunObject = Page "Tipos de Atributo";
+                    ToolTip = 'Define qué atributos se pueden cargar en empleados, buques y mareas. Se leen desde las fórmulas con una Fuente de Datos.';
+                }
+                action(NavValoresAtributo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Valores de Atributo';
+                    Image = DimensionSets;
+                    RunObject = Page "Valores de Atributo";
+                    ToolTip = 'Listas cerradas contra las que se validan los atributos, con el número que cada valor le pasa a las fórmulas.';
+                }
                 action(NavTablasEscalonadas)
                 {
                     ApplicationArea = All;
@@ -162,6 +178,14 @@ page 50149 "Payroll Role Center"
                     Caption = 'Cód. Estados';
                     Image = Status;
                     RunObject = Page "Cód. Estados Empleado";
+                }
+                action(NavAtributosEntidad)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Atributos';
+                    Image = List;
+                    RunObject = Page "Atributos de Entidad";
+                    ToolTip = 'Valores de los atributos por empleado, buque o marea, con su historial de vigencias. Abre mostrando solo los vigentes hoy.';
                 }
                 action(NavImportacionesSiradig)
                 {
@@ -199,6 +223,14 @@ page 50149 "Payroll Role Center"
                     Image = History;
                     RunObject = Page "Registros Proceso Liq.";
                     ToolTip = 'Historial de cálculos, aprobaciones y reaperturas, con los errores y las acciones de cada uno. Es dónde mirar cuando una liquidación falló o salió con advertencias.';
+                }
+                action(NavVersionesInactivas)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Versiones Inactivas a Revisar';
+                    Image = Versions;
+                    RunObject = Page "Versiones Inactivas a Revisar";
+                    ToolTip = 'Conceptos con una versión marcada como inactiva, y qué cambia para cada uno ahora que la baja se resuelve por fecha de vigencia y no por el booleano. Revisar antes de liquidar.';
                 }
                 action(NavControlOrden)
                 {

@@ -11,7 +11,8 @@
       "Read(//c/Users/ulises.sasovsky/.claude/projects/d--Users-ulises-sasovsky-OneDrive-Personal-OneDrive-Documentos-Proyectos-25-2-25-2---Custom-Extensiones-Payroll/memory/**)",
       "Bash(xargs grep -l \"Días solapados\\\\|Duración desde inicio\")",
       "Bash(grep -nE \"NombreFechaFin|NombreFechaInicio|var$|: Text|IsFuncFechas\" src/Pages/Pag50141.FuenteDatosCard.al)",
-      "WebFetch(domain:felectronica.lakaut.com.ar)"
+      "WebFetch(domain:felectronica.lakaut.com.ar)",
+      "Bash(xargs cat)"
     ]
   }
 }
