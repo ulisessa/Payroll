@@ -28,6 +28,7 @@ page 50158 "Acumuladores Disponibles FB"
         // un acumulador dado de baja puede seguir apareciendo acá: es ruido en un selector, no un
         // error de cálculo, y no justifica meter un filtro de fecha delicado en una página.
         Rec.FiltrarVigentesA(WorkDate());
-        Rec.SetRange(Activo, true);
+        // Sin filtro por "Activo": el campo dejó de tener efecto en el cálculo, así que usarlo acá
+        // escondería del selector acumuladores que el motor sí está aplicando.
     end;
 }

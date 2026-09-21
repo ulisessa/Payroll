@@ -86,7 +86,7 @@ page 50139 "Asistente Fórmula Liq."
                 {
                     ApplicationArea = All;
                     Caption = 'Cód. Categoría';
-                    ToolTip = 'Categoría para resolver parámetros con Sufijo CCT. Se completa sola desde el empleado; cambiarla a mano permite simular otra categoría.';
+                    ToolTip = 'Categoría con la que se resuelven las excepciones de parámetro por convenio y categoría. Se completa sola desde el empleado; cambiarla a mano permite simular otra categoría.';
                     trigger OnValidate()
                     begin
                         RecargarSiHayContexto();
@@ -442,7 +442,7 @@ page 50139 "Asistente Fórmula Liq."
                     {
                         ApplicationArea = All;
                         Caption = 'AND';
-                        ToolTip = 'Conjunción lógica. Ej: ANIOS_ANTIGUEDAD >= 2 AND BASE_SS > 0';
+                        ToolTip = 'Conjunción lógica. Ej: AÑOS_ANTIGUEDAD >= 2 AND BASE_SS > 0';
                         trigger OnAction()
                         begin
                             InsertText(' AND ');
@@ -560,15 +560,14 @@ page 50139 "Asistente Fórmula Liq."
 
     local procedure GuardarTextoDeEditor(Campo: Text; Texto: Text)
     var
-        CR: Char;
-        LF: Char;
+        Formateador: Codeunit "Formateador Fórmula Liq.";
     begin
-        // Se normaliza igual que NormalizarTexto en Tab60007 (saltos de línea → espacio): el motor
-        // solo saltea el espacio simple, así que un salto de línea le daría "token inesperado".
-        // Conviene que el diagnóstico corra sobre exactamente el texto que se va a persistir.
-        CR := 13;
-        LF := 10;
-        Texto := Texto.Replace('' + CR, ' ').Replace('' + LF, ' ');
+        Texto := Formateador.Formatear(Texto);
+        // El texto se guarda tal como se escribió, saltos de línea incluidos. Antes se aplanaba acá
+        // —igual que en el campo— porque el tokenizador del evaluador solo salteaba el espacio simple
+        // y un salto le daba "token inesperado". Ahora tolera saltos y tabulaciones, y las fórmulas
+        // se guardan formateadas en varias líneas: aplanarlas mientras se escribe borraría el formato
+        // renglón por renglón, a medida que el editor manda su texto con debounce.
         if Campo = CampoCondicionTok then
             CondicionText := CopyStr(Texto, 1, MaxStrLen(CondicionText))
         else
@@ -677,7 +676,7 @@ page 50139 "Asistente Fórmula Liq."
 
     // Mismo origen que la liquidación real: la Ficha Empleado (Tab60011, OnValidate de No. Empleado)
     // y, si el empleado está asignado al proyecto, la asignación pisa esos valores (Cod50014
-    // LiquidarRecord). Así los parámetros con Sufijo CCT/Convenio resuelven acá el mismo valor que en
+    // LiquidarRecord). Así las excepciones de parámetro por convenio y categoría resuelven acá el mismo valor que en
     // el motor sin que haya que tipearlos. Solo corre al cambiar empleado o proyecto: editar Convenio
     // o Categoría a mano para simular otra escala sigue mandando.
     local procedure DerivarConvenioCategoria()
@@ -690,10 +689,6 @@ page 50139 "Asistente Fórmula Liq."
         if Emp.Get(CodEmpleado) then begin
             CodConvenio := Emp."Cód. Convenio";
             CodCategoria := Emp."Cód. Categoría";
-        end;
-        if (CodProyecto <> '') and PersProy.Get(CodEmpleado, CodProyecto) then begin
-            CodConvenio := PersProy."Cód. Convenio";
-            CodCategoria := PersProy."Cód. Categoría";
         end;
     end;
 
@@ -741,7 +736,9 @@ page 50139 "Asistente Fórmula Liq."
         if (CodProyecto <> '') and TipoLiqRec.EsArribo(TipoLiqCtx) and Job.Get(CodProyecto) and (Job."Ending Date" <> 0D) then
             FechaRef := Job."Ending Date";
 
-        CtxBuilder.Init(CodEmpleado, CodProyecto, CodPeriodo, FechaRef, CodConvenio, CodCategoria, '', TipoLiqCtx);
+        // 0D = sin cobertura: el asistente prueba fórmulas contra el período entero,
+        // que es el caso general. La ventana acotada la impone la liquidación real.
+        CtxBuilder.Init(CodEmpleado, CodProyecto, CodPeriodo, FechaRef, CodConvenio, CodCategoria, '', TipoLiqCtx, 0D);
         CtxBuilder.BuildContext(Ctx);
         CtxBuilder.GetTipoMap(TipoMap);
         CurrPage.Variables.Page.LoadFromContext(Ctx, TipoMap);

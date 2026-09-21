@@ -55,7 +55,7 @@ page 50178 "Filtro Fuente Datos Liq. Sub"
                 {
                     ApplicationArea = All;
                     Caption = 'Filtro / Valor';
-                    ToolTip = 'Expresión de filtro BC (rangos .., OR |, comodines *). Tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {FECHA_REF}, {SEM_DESDE}, {SEM_HASTA}.';
+                    ToolTip = 'Expresión de filtro BC (rangos .., OR |, comodines *). Tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {PERIODO_DESDE}, {FECHA_REF}, {SEM_DESDE}, {SEM_HASTA}. Para acotar por las dos puntas: {PERIODO_DESDE}..{FECHA_REF}. Y {ASIG_DESDE}..{ASIG_HASTA} para acotar al embarque de ESE tripulante en ESA marea, que no es el mismo para toda la tripulación; {MAREA_DESDE} y {MAREA_HASTA} son la zarpada y el arribo del proyecto, para comparar contra ese tramo.';
                 }
             }
         }

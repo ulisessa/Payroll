@@ -159,9 +159,6 @@ codeunit 50054 "Gestión Marea"
                     Tgt.Init();
                     Tgt."No. Empleado" := Src."No. Empleado";
                     Tgt."No. Proyecto" := TargetJob."No.";
-                    Tgt."Cód. Convenio" := Src."Cód. Convenio";
-                    Tgt."Cód. Categoría" := Src."Cód. Categoría";
-                    Tgt."Rol en Proyecto" := Src."Rol en Proyecto";
                     Tgt.Observaciones := Src.Observaciones;
                     // Re-derives Buque/Marea and defaults dates from the new project.
                     Tgt.Validate("No. Proyecto");

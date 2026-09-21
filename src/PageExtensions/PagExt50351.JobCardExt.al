@@ -50,6 +50,27 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
 
     actions
     {
+        addlast(reporting)
+        {
+            action(ControlLiquidacionExcel)
+            {
+                ApplicationArea = All;
+                Caption = 'Control de Liquidación (Excel)';
+                Image = ExportToExcel;
+                Promoted = true;
+                PromotedCategory = Report;
+                PromotedIsBig = true;
+                ToolTip = 'Baja a Excel la matriz de control de la marea: una fila por concepto y una columna por categoría, con el importe de un tripulante representante de cada una, los totales del viaje y —al pie— los casos en que alguien cobró distinto que sus pares de la misma categoría.';
+
+                trigger OnAction()
+                var
+                    ControlExcel: Codeunit "Control Marea Excel Liq.";
+                begin
+                    Rec.TestField("No.");
+                    ControlExcel.Generar(Rec."No.");
+                end;
+            }
+        }
         addlast(navigation)
         {
             group(GrpPesca)
@@ -96,9 +117,6 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                                 PersNueva.Init();
                                 PersNueva."No. Empleado" := PersOrigen."No. Empleado";
                                 PersNueva."No. Proyecto" := Rec."No.";
-                                PersNueva."Cód. Convenio" := PersOrigen."Cód. Convenio";
-                                PersNueva."Cód. Categoría" := PersOrigen."Cód. Categoría";
-                                PersNueva."Rol en Proyecto" := PersOrigen."Rol en Proyecto";
                                 PersNueva.Observaciones := PersOrigen.Observaciones;
                                 // Re-derives Buque/Marea and defaults the dates from THIS project.
                                 PersNueva.Validate("No. Proyecto");
@@ -118,6 +136,18 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                     RunObject = Page "Lista Liquidaciones";
                     RunPageLink = "No. Proyecto" = FIELD("No.");
                     ToolTip = 'Muestra todas las liquidaciones generadas para este proyecto.';
+                }
+                action(ControlLiquidacionPantalla)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Control de Liquidación';
+                    Image = Costs;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    PromotedIsBig = true;
+                    RunObject = Page "Control Liquidación Marea";
+                    RunPageLink = "No." = field("No.");
+                    ToolTip = 'Matriz de conceptos por tripulante, con los datos de cálculo de la marea, los filtros por convenio y categoría, y drill-down a cada liquidación. Desde ahí también se baja el control a Excel.';
                 }
                 action(LiquidarMarea)
                 {
@@ -140,6 +170,7 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                         TipoLiquidacion := 'REGULAR';
                         Creadas := ProcLiq.CrearPorProyecto(Rec, Periodo.Código, TipoLiquidacion);
                         Message(MsgCreadosFmt, Creadas, Periodo.Código);
+                        ProcLiq.AvisarOmitidos();
                     end;
                 }
                 action(LiquidarDevengados)
@@ -163,6 +194,7 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                         TipoLiquidacion := 'DEVENGADOS';
                         Creadas := ProcLiq.CrearPorProyecto(Rec, Periodo.Código, TipoLiquidacion);
                         Message(MsgCreadosFmt, Creadas, Periodo.Código);
+                        ProcLiq.AvisarOmitidos();
                     end;
                 }
                 action(LiquidarCierreMarea)
@@ -182,6 +214,7 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                     begin
                         Creadas := ProcLiq.CrearCierreMarea(Rec);
                         Message(MsgCierreMareaFmt, Creadas, Rec."Ending Date");
+                        ProcLiq.AvisarOmitidos();
                     end;
                 }
                 action(CrearNuevaMarea)

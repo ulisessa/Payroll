@@ -47,6 +47,18 @@ page 50117 "Ficha Liquidación"
                     ApplicationArea = All;
                     Editable = IsEditable;
                 }
+                field("Cobertura Desde"; Rec."Cobertura Desde")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Primer día que cubre esta liquidación. Una mensual cubre el período entero; un cierre de marea, sólo los días del viaje.';
+                }
+                field("Cobertura Hasta"; Rec."Cobertura Hasta")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Último día que cubre. Si entre las liquidaciones de un empleado quedan días sin cubrir, falta liquidar esos días: eso es lo que busca el Control de Cobertura.';
+                }
             }
             group(Empleado)
             {
@@ -130,13 +142,19 @@ page 50117 "Ficha Liquidación"
             part(AcumuladoresAnuales; "Resumen Variable Liq. Sub")
             {
                 ApplicationArea = All;
-                Caption = 'Acumuladores Anuales';
+                Caption = 'Contexto del Cálculo';
                 SubPageLink = "No. Liquidación" = FIELD("No.");
             }
             part(Incidencias; "Incidencias Liquidación Sub")
             {
                 ApplicationArea = All;
                 Caption = 'Incidencias';
+                SubPageLink = "No. Liquidación" = FIELD("No.");
+            }
+            part(Novedades; "Novedades Liq. Sub")
+            {
+                ApplicationArea = All;
+                Caption = 'Novedades aplicadas';
                 SubPageLink = "No. Liquidación" = FIELD("No.");
             }
         }
@@ -183,6 +201,31 @@ page 50117 "Ficha Liquidación"
                     CurrPage.Update(false);
                     if Motor.GetAdvertencias() <> '' then
                         Message(MsgAdvertenciasParametros, Motor.GetAdvertencias());
+                end;
+            }
+            action(RecalcularEnCadena)
+            {
+                ApplicationArea = All;
+                Caption = 'Recalcular en cadena';
+                Image = Restore;
+                ToolTip = 'Rehace esta liquidación y todos los períodos posteriores del mismo empleado, en orden del más viejo al más nuevo. Es la forma de corregir un período viejo: recalcularlo solo daría números distintos de los que habría dado en su momento, porque francos, acumuladores anuales y Ganancias leen todo lo que ya esté liquidado.';
+
+                trigger OnAction()
+                var
+                    Cadena: Codeunit "Recálculo En Cadena Liq.";
+                    Posteriores: Integer;
+                    Recalculadas: Integer;
+                begin
+                    Posteriores := Cadena.CuantasPosteriores(Rec);
+                    if Posteriores = 0 then begin
+                        Message(MsgSinPosteriores);
+                        exit;
+                    end;
+                    if not Confirm(QstCadena, false, Posteriores) then
+                        exit;
+                    Recalculadas := Cadena.Ejecutar(Rec);
+                    CurrPage.Update(false);
+                    Message(MsgCadena, Recalculadas);
                 end;
             }
             action(Aprobar)
@@ -315,5 +358,8 @@ page 50117 "Ficha Liquidación"
         CanCalcular: Boolean;
         EstadoStyle: Text;
         MsgAdvertenciasParametros: Label 'Atención — parámetros posiblemente desactualizados:\%1';
+        MsgSinPosteriores: Label 'Este empleado no tiene períodos posteriores liquidados. Alcanza con Calcular.';
+        QstCadena: Label 'Se van a rehacer esta liquidación y %1 período(s) posterior(es) del mismo empleado, en orden. ¿Continuar?', Comment = '%1=cantidad de posteriores';
+        MsgCadena: Label '%1 liquidación(es) recalculada(s) en orden.';
         ErrCalculoConRegistro: Label 'No se pudo calcular la liquidación:\%1\\El detalle quedó guardado en el registro de proceso No. %2 (acción "Registros de proceso").';
 }

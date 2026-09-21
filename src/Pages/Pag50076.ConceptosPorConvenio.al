@@ -12,6 +12,8 @@ page 50076 "Conceptos por Convenio"
     //     convenio no revoca a los demás. Por eso destildar borra todas las vigencias de la
     //     combinación, no solo la más reciente.
     //   · Categoría en blanco = la fila aplica a todas las categorías del convenio.
+    //   · Solo se tocan INCLUSIONES: una fila con "Excluye" dice lo contrario y se administra de a
+    //     una en la subpágina de la ficha del concepto.
     PageType = Card;
     Caption = 'Conceptos por Convenio';
     UsageCategory = Administration;
@@ -110,6 +112,28 @@ page 50076 "Conceptos por Convenio"
                     RecomputarLista();
                 end;
             }
+            action(AsignarMarcados)
+            {
+                ApplicationArea = All;
+                Caption = 'Asignar los marcados';
+                Image = Add;
+                ToolTip = 'Asigna al convenio (y categoría) solo los conceptos tildados en la grilla. Sin nada tildado, el de la fila donde está el cursor.';
+                trigger OnAction()
+                begin
+                    AplicarASeleccion(true);
+                end;
+            }
+            action(QuitarMarcados)
+            {
+                ApplicationArea = All;
+                Caption = 'Quitar los marcados';
+                Image = Delete;
+                ToolTip = 'Quita la asignación de los conceptos tildados en la grilla. Sin nada tildado, el de la fila donde está el cursor.';
+                trigger OnAction()
+                begin
+                    AplicarASeleccion(false);
+                end;
+            }
             action(AsignarTodos)
             {
                 ApplicationArea = All;
@@ -160,6 +184,22 @@ page 50076 "Conceptos por Convenio"
         RecomputarLista();
     end;
 
+    // Sin Confirm, a diferencia de "todos los listados": acá el alcance es lo que el usuario acaba de
+    // tildar y tiene a la vista, así que preguntar por algo que ya eligió explícitamente sobra.
+    local procedure AplicarASeleccion(Asignar: Boolean)
+    var
+        Cuantos: Integer;
+    begin
+        if FConvenio = '' then
+            Error(ErrSinConvenio);
+        if Asignar and (FVigencia = 0D) then
+            Error(ErrSinVigencia);
+
+        Cuantos := CurrPage.Lista.Page.AplicarASeleccion(Asignar);
+        RecomputarLista();
+        Message(MsgMovidos, Cuantos);
+    end;
+
     local procedure AplicarATodosLosListados(Asignar: Boolean)
     var
         CCTVig: Record "Concepto CCT Vigente";
@@ -176,6 +216,7 @@ page 50076 "Conceptos por Convenio"
         if not TempLista.FindSet() then exit;
         repeat
             CCTVig.Reset();
+            CCTVig.SetRange(Excluye, false);
             CCTVig.SetRange("Cód. Concepto", TempLista.Código);
             CCTVig.SetRange("Cód. Convenio", FConvenio);
             CCTVig.SetRange("Cód. Categoría", FCategoria);
@@ -249,6 +290,7 @@ page 50076 "Conceptos por Convenio"
     var
         CCTVig: Record "Concepto CCT Vigente";
     begin
+        CCTVig.SetRange(Excluye, false);
         CCTVig.SetRange("Cód. Convenio", FConvenio);
         CCTVig.SetRange("Cód. Categoría", FCategoria);
         if not CCTVig.FindSet() then exit;
@@ -267,6 +309,7 @@ page 50076 "Conceptos por Convenio"
     begin
         foreach CodConcepto in Origen do begin
             CCTVig.Reset();
+            CCTVig.SetRange(Excluye, false);
             CCTVig.SetRange("Cód. Concepto", CodConcepto);
             CCTVig.SetRange("Cód. Convenio", ConvenioDestino);
             CCTVig.SetRange("Cód. Categoría", CategoriaDestino);
@@ -349,6 +392,9 @@ page 50076 "Conceptos por Convenio"
     begin
         if FConvenio = '' then
             exit(false);
+        // Solo inclusiones: esta pantalla asigna y quita, y una exclusión no es ni una cosa ni la
+        // otra. Se administran de a una en la subpágina de la ficha del concepto.
+        CCTVig.SetRange(Excluye, false);
         CCTVig.SetRange("Cód. Concepto", CodConcepto);
         CCTVig.SetRange("Cód. Convenio", FConvenio);
         CCTVig.SetRange("Cód. Categoría", FCategoria);

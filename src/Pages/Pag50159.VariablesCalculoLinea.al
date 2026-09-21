@@ -25,7 +25,7 @@ page 50159 "Variables Cálculo Línea"
                     ApplicationArea = All;
                     Caption = 'Tipo';
                     Width = 12;
-                    ToolTip = 'De dónde sale la variable: Parámetro, Sistema, Fuente Datos, Acumulador o Concepto.';
+                    ToolTip = 'De dónde sale la variable: Parámetro, Sistema, Fuente Datos, Acumulador, Concepto o Tramo (lo que devolvió una consulta TRAMO a una tabla escalonada).';
                 }
                 field(DescripciónVariable; DescripciónVariable)
                 {
@@ -40,6 +40,10 @@ page 50159 "Variables Cálculo Línea"
                     var
                         Concepto: Record "Concepto Liquidación";
                     begin
+                        if EsTramo() then begin
+                            AbrirTablaEscalonada();
+                            exit;
+                        end;
                         if BuscarConcepto(Concepto) then
                             Page.Run(Page::"Concepto Liq. Card", Concepto);
                     end;
@@ -83,11 +87,12 @@ page 50159 "Variables Cálculo Línea"
     var
         Catalogo: Codeunit "Catálogo Variables Liq.";
     begin
-        // El catálogo ya resuelve nombre → tipo + descripción para las cinco familias de variables
-        // (constantes del motor, parámetros, variables de sistema, fuentes de datos y acumuladores)
-        // leyendo las tablas de configuración reales. Se carga una vez por apertura, en vez de
-        // consultar cuatro tablas por cada fila de la grilla — y como es la misma fuente que alimenta
-        // al editor de fórmulas, las descripciones no pueden divergir entre las dos pantallas.
+        // El catálogo ya resuelve nombre → tipo + descripción para las seis familias de variables
+        // (constantes del motor, parámetros, variables de sistema, fuentes de datos, atributos de
+        // entidad y acumuladores) leyendo las tablas de configuración reales. Se carga una vez por
+        // apertura, en vez de consultar una tabla por familia por cada fila de la grilla — y como es
+        // la misma fuente que alimenta al editor de fórmulas, las descripciones no pueden divergir
+        // entre las dos pantallas.
         Catalogo.CargarCatalogo(CatalogoVar, '', '', '');
     end;
 
@@ -104,6 +109,17 @@ page 50159 "Variables Cálculo Línea"
         TipoVariable := '';
         DescripciónVariable := '';
         EsAcumulador := false;
+
+        // Una consulta TRAMO no es una variable de configuración y no está en ningún catálogo: su
+        // descripción —en qué tramo cayó la base, con qué monto fijo y qué porcentaje— la trae la
+        // propia fila, escrita por el motor en el momento del cálculo. Es la única forma de saberlo
+        // después: si la tabla se corrige más tarde, el tramo que se aplicó ya no es el que se ve
+        // hoy en la tabla.
+        if EsTramo() then begin
+            TipoVariable := TipoTramoTok;
+            DescripciónVariable := Rec.Detalle;
+            exit;
+        end;
 
         if CatalogoVar.Get(CopyStr(NombreSinPrefijo(), 1, MaxStrLen(CatalogoVar.Nombre))) then begin
             TipoVariable := CatalogoVar.Tipo;
@@ -143,6 +159,44 @@ page 50159 "Variables Cálculo Línea"
             exit;
         TipoVariable := TipoParametroTok;
         DescripciónVariable := CopyStr(StrSubstNo(DescMonedaTxt, Param."Nombre Variable"), 1, MaxStrLen(DescripciónVariable));
+    end;
+
+    local procedure EsTramo(): Boolean
+    begin
+        exit(Rec."Nombre Variable".StartsWith(PrefijoTramoTok));
+    end;
+
+    // El código de la tabla es lo que va entre paréntesis: TRAMO(TAB_IMP_4CAT) → TAB_IMP_4CAT. Un
+    // sufijo de desambiguación —"TRAMO(X) #2", cuando la misma tabla se consultó dos veces en la
+    // línea— queda afuera solo, porque se corta en el paréntesis y no al final del texto.
+    local procedure CodigoTabla(): Code[20]
+    var
+        Nombre: Text;
+        Cierre: Integer;
+    begin
+        Nombre := CopyStr(Rec."Nombre Variable", StrLen(PrefijoTramoTok) + 1);
+        Cierre := StrPos(Nombre, ')');
+        if Cierre <= 1 then
+            exit('');
+        exit(CopyStr(Nombre, 1, Cierre - 1));
+    end;
+
+    /// <remarks>
+    /// Abre la LISTA filtrada por el código y no la ficha de una versión: la clave de la tabla es
+    /// (Código, Vigencia Desde) y acá no se guarda con cuál se calculó —está escrita en el Detalle,
+    /// para leer—. Abrir "la última" haría pasar por aplicada una versión que quizás se cargó
+    /// después del cálculo, que es justo el error que esta vista existe para no cometer.
+    /// </remarks>
+    local procedure AbrirTablaEscalonada()
+    var
+        Tabla: Record "Tabla Escalonada";
+    begin
+        if CodigoTabla() = '' then
+            exit;
+        Tabla.SetRange(Código, CodigoTabla());
+        if Tabla.IsEmpty() then
+            exit;
+        Page.Run(Page::"Tabla Escalonada List", Tabla);
     end;
 
     local procedure NombreSinPrefijo(): Text
@@ -192,9 +246,11 @@ page 50159 "Variables Cálculo Línea"
         CatalogoVar: Record "Variable Liq. Test" temporary;
         ValorVisible: Text[50];
         TipoVariable: Text[20];
-        DescripciónVariable: Text[100];
+        DescripciónVariable: Text[250];
         EsAcumulador: Boolean;
         TipoAcumuladorTok: Label 'Acumulador', Locked = true;
+        TipoTramoTok: Label 'Tramo', Locked = true;
+        PrefijoTramoTok: Label 'TRAMO(', Locked = true;
         TipoConceptoTok: Label 'Concepto', Locked = true;
         TipoParametroTok: Label 'Parámetro', Locked = true;
         SufijoMonedaTok: Label '_ESFCY', Locked = true;

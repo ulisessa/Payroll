@@ -28,6 +28,13 @@ page 50156 "Detalle Variable Línea Sub"
                     ApplicationArea = All;
                     Caption = 'Valor';
                 }
+                field(Detalle; Rec.Detalle)
+                {
+                    ApplicationArea = All;
+                    // Solo tiene contenido en las filas TRAMO: en qué tramo cayó la base y con qué
+                    // monto fijo y porcentaje se resolvió. En una variable común queda vacío.
+                    ToolTip = 'Para una consulta TRAMO, en qué tramo de la tabla escalonada cayó la base y con qué monto fijo y porcentaje se resolvió.';
+                }
             }
         }
     }

@@ -73,8 +73,9 @@ page 50110 "Períodos Liquidación"
                         if not Confirm(QstCrearLiqs, true, Rec.Código) then
                             exit;
                         TipoLiquidacion := 'REGULAR';
-                        Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, TipoLiquidacion, 0);
+                        Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, TipoLiquidacion);
                         Message(MsgCreadas, Creadas, Rec.Código);
+                        ProcLiq.AvisarOmitidos();
                         CurrPage.Update(false);
                     end;
                 }
@@ -141,9 +142,11 @@ page 50110 "Períodos Liquidación"
                         Liq: Record "Liquidación";
                         LiqAct: Record "Liquidación";
                         GestionLiq: Codeunit "Gestión Liquidación";
+                        Posterior: Record "Liquidación";
                         Numeros: List of [Code[20]];
                         Numero: Code[20];
                         Revertidas: Integer;
+                        Bloqueadas: Integer;
                     begin
                         Liq.SetRange("Cód. Período", Rec.Código);
                         Liq.SetRange(Estado, Liq.Estado::Calculada);
@@ -165,13 +168,21 @@ page 50110 "Períodos Liquidación"
     
                         foreach Numero in Numeros do
                             if LiqAct.Get(Numero) then
-                                if LiqAct.Estado = LiqAct.Estado::Calculada then begin
-                                    GestionLiq.Reabrir(LiqAct);
-                                    Revertidas += 1;
-                                end;
-    
+                                if LiqAct.Estado = LiqAct.Estado::Calculada then
+                                    // Las que tienen posteriores se saltean: revertir el período no
+                                    // puede cortarse por la mitad ni llevarse puestas las novedades y
+                                    // cuotas que un período más nuevo ya consumió.
+                                    if GestionLiq.PuedeReabrir(LiqAct, Posterior) then begin
+                                        GestionLiq.Reabrir(LiqAct);
+                                        Revertidas += 1;
+                                    end else
+                                        Bloqueadas += 1;
+
                         CurrPage.Update(false);
-                        Message(MsgRevertidas, Revertidas, Rec.Código);
+                        if Bloqueadas > 0 then
+                            Message(MsgRevertidasBloqueadas, Revertidas, Rec.Código, Bloqueadas)
+                        else
+                            Message(MsgRevertidas, Revertidas, Rec.Código);
                     end;
                 }
                 action(EliminarBorradores)
@@ -243,9 +254,11 @@ page 50110 "Períodos Liquidación"
                         Liq: Record "Liquidación";
                         LiqAct: Record "Liquidación";
                         GestionLiq: Codeunit "Gestión Liquidación";
+                        Posterior: Record "Liquidación";
                         Numeros: List of [Code[20]];
                         Numero: Code[20];
                         Revertidas: Integer;
+                        Bloqueadas: Integer;
                     begin
                         if not Confirm(QstReabrirPeriodo, false, Rec.Código) then
                             exit;
@@ -265,24 +278,33 @@ page 50110 "Períodos Liquidación"
                             until Liq.Next() = 0;
     
                         foreach Numero in Numeros do
-                            if LiqAct.Get(Numero) then begin
-                                // Aprobada baja primero a Calculada, que es lo único que Reabrir acepta.
-                                if LiqAct.Estado = LiqAct.Estado::Aprobada then begin
-                                    LiqAct.Estado := LiqAct.Estado::Calculada;
-                                    LiqAct.Modify(true);
+                            if LiqAct.Get(Numero) then
+                                // La pregunta va ANTES de bajar el estado: si tiene posteriores no se
+                                // reabre, y una Aprobada degradada a Calculada que después no se
+                                // reabre queda peor que como estaba, sin que nadie lo haya pedido.
+                                if not GestionLiq.PuedeReabrir(LiqAct, Posterior) then
+                                    Bloqueadas += 1
+                                else begin
+                                    // Aprobada baja primero a Calculada, que es lo único que Reabrir acepta.
+                                    if LiqAct.Estado = LiqAct.Estado::Aprobada then begin
+                                        LiqAct.Estado := LiqAct.Estado::Calculada;
+                                        LiqAct.Modify(true);
+                                    end;
+                                    if LiqAct.Estado = LiqAct.Estado::Calculada then begin
+                                        GestionLiq.Reabrir(LiqAct);
+                                        Revertidas += 1;
+                                    end;
                                 end;
-                                if LiqAct.Estado = LiqAct.Estado::Calculada then begin
-                                    GestionLiq.Reabrir(LiqAct);
-                                    Revertidas += 1;
-                                end;
-                            end;
-    
+
                         Rec.Estado := Rec.Estado::Abierto;
                         Rec."Fecha Cierre" := 0D;
                         Rec."Usuario Cierre" := '';
                         Rec.Modify(true);
                         CurrPage.Update(false);
-                        Message(MsgPeriodoReabierto, Rec.Código, Revertidas);
+                        if Bloqueadas > 0 then
+                            Message(MsgPeriodoReabiertoBloqueadas, Rec.Código, Revertidas, Bloqueadas)
+                        else
+                            Message(MsgPeriodoReabierto, Rec.Código, Revertidas);
                     end;
                 }
             }
@@ -345,9 +367,11 @@ page 50110 "Períodos Liquidación"
         QstRevertirCalculadas: Label '¿Revertir todas las liquidaciones calculadas del período %1 a Borrador?';
         MsgSinCalculadas: Label 'No hay liquidaciones en estado Calculada en este período.';
         MsgRevertidas: Label '%1 liquidación(es) revertida(s) a Borrador en el período %2.';
+        MsgRevertidasBloqueadas: Label '%1 liquidación(es) revertida(s) a Borrador en el período %2.\\%3 quedaron como estaban porque el empleado tiene liquidaciones posteriores: reabrirlas liberaría novedades y cuotas que la posterior volvería a tomar. Usá "Recalcular en cadena" sobre cada una.', Comment = '%1=revertidas, %2=período, %3=bloqueadas';
         QstReabrirPeriodo: Label '¿Confirma la reapertura del período %1? Todas las liquidaciones calculadas/aprobadas volverán a estado Borrador.';
         ErrContabilizadas: Label 'Existen liquidaciones contabilizadas en el período %1. Revierta la contabilización antes de reabrir.';
         MsgPeriodoReabierto: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.';
+        MsgPeriodoReabiertoBloqueadas: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.\\%3 quedaron con su estado original porque el empleado tiene liquidaciones posteriores: reabrirlas liberaría novedades y cuotas que la posterior volvería a tomar. Usá "Recalcular en cadena" sobre cada una.', Comment = '%1=período, %2=revertidas, %3=bloqueadas';
         QstCrearLiqs: Label '¿Crear liquidaciones para todos los empleados activos del período %1?';
         QstCalcular: Label '¿Calcular todas las liquidaciones del período %1?';
         MsgCreadas: Label '%1 liquidación(es) creada(s) en el período %2.';

@@ -18,9 +18,6 @@ page 50108 "Parámetros"
                 field(Código; Rec.Código) { ApplicationArea = All; }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field("Nombre Variable"; Rec."Nombre Variable") { ApplicationArea = All; }
-                field("Sufijo CCT"; Rec."Sufijo CCT") { ApplicationArea = All; }
-                field("Sufijo Empleado"; Rec."Sufijo Empleado") { ApplicationArea = All; }
-                field("Sufijo Convenio"; Rec."Sufijo Convenio") { ApplicationArea = All; }
                 field("Antigüedad Máxima Vigencia"; Rec."Antigüedad Máxima Vigencia")
                 {
                     ApplicationArea = All;

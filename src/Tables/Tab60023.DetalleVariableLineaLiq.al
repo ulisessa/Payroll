@@ -25,6 +25,14 @@ table 60023 "Detalle Variable Línea Liq."
             Caption = 'Valor';
             DecimalPlaces = 0 : 6;
         }
+        field(5; Detalle; Text[250])
+        {
+            Caption = 'Detalle';
+            // Solo para las filas que no son una variable de configuración y por lo tanto no tienen
+            // dónde ir a buscar su descripción: hoy, las consultas TRAMO. Ahí guarda en qué tramo
+            // cayó la base y con qué monto fijo y porcentaje se resolvió. Para una variable común
+            // queda vacío y la descripción sale del catálogo, como siempre.
+        }
     }
 
     keys

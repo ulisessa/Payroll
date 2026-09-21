@@ -27,11 +27,21 @@ page 110007 "Tipos de Atributo"
                     ApplicationArea = All;
                     ToolTip = 'A qué maestro se le carga este atributo.';
                 }
-                field(Obligatorio; Rec.Obligatorio) { ApplicationArea = All; }
+                field("Cód. Clase"; Rec."Cód. Clase")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Clase';
+                    ToolTip = 'Acota este tipo a una clase de entidad, para que un buque no ofrezca los atributos de una planta. En blanco = aplica a todas.';
+                }
+                field(Obligatorio; Rec.Obligatorio)
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Los obligatorios son los que "Aplicar plantilla" materializa al clasificar una entidad.';
+                }
                 field("Nombre Variable"; Rec."Nombre Variable")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Nombre sugerido para la Fuente de Datos que lo lea. El nombre real con el que la fórmula lo ve lo define esa fuente.';
+                    ToolTip = 'Con este nombre cargado, el atributo se puede usar directamente en una fórmula: en cada liquidación toma el valor de la entidad que corresponda, vigente a esa fecha. En blanco no se inyecta.';
                 }
             }
         }
@@ -65,6 +75,25 @@ page 110007 "Tipos de Atributo"
     trigger OnAfterGetRecord()
     begin
         EsLista := Rec.UsaLista();
+    end;
+
+    // Hereda la clase del filtro con el que se abrió la lista. Se lee el filtro en vez de confiar en
+    // que la plataforma lo copie sola: eso solo ocurre con ciertos grupos de filtro, y acá la lista
+    // se abre tanto desde "Clases de Entidad" (que fija el filtro) como filtrando a mano en la
+    // pantalla, donde no pasaba nada y el atributo nuevo nacía sin clase.
+    trigger OnNewRecord(BelowxRec: Boolean)
+    var
+        FiltroClase: Text;
+    begin
+        if Rec."Cód. Clase" <> '' then
+            exit;
+        FiltroClase := Rec.GetFilter("Cód. Clase");
+        // Solo un valor simple: un filtro con rangos o comodines no identifica una clase única.
+        if (FiltroClase = '') or (StrPos(FiltroClase, '|') > 0) or (StrPos(FiltroClase, '.') > 0) or
+           (StrPos(FiltroClase, '*') > 0) or (StrPos(FiltroClase, '<') > 0) or (StrPos(FiltroClase, '>') > 0)
+        then
+            exit;
+        Rec."Cód. Clase" := CopyStr(DelChr(FiltroClase, '<>', ''''), 1, MaxStrLen(Rec."Cód. Clase"));
     end;
 
     var

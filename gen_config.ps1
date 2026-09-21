@@ -5,8 +5,33 @@ $VIG = '01/12/2023'
 $TIPO_MAP = @{
     'HR'='Haber Remunerativo'; 'HN'='Haber No Remunerativo'
     'DE'='Descuento Empleado'; 'CP'='Contribucion Patronal'
-    'RE'='Retencion'; 'SS'='Seguridad Social'
+    'RE'='Retencion'; 'SS'='Seguridad Social'; 'IN'='Informativo'
 }
+# Códigos de Tipo Liquidación (tabla maestra, sembrada por Cod50055) para la columna
+# "Tipos Liq. Aplicables". La tabla de conceptos de más abajo los nombra por su descripción; el campo
+# guarda CÓDIGOS separados por '|', que es lo que compara el motor (Cod50014.ConceptoAplicaATipoLiq).
+$TIPO_LIQ_MAP = @{
+    'Cierre Marea'      = 'CIERRE_MAREA'
+    'Vacaciones'        = 'VACACIONES'
+    'Aguinaldo'         = 'AGUINALDO'
+    'Liquidacion Final' = 'LIQ_FINAL'
+    'Reliquidacion'     = 'RELIQUIDACION'
+    'Devengados'        = 'DEVENGADOS'
+    'Regular'           = 'REGULAR'
+}
+
+# Vacío = el concepto aplica a todos los tipos de liquidación. Una descripción que no esté en el mapa
+# corta la generación en vez de escribirse tal cual: un valor que no sea un código existente deja el
+# campo sin coincidir con ningún tipo, y el concepto se cuela en TODAS las liquidaciones sin avisar.
+function Get-TiposLiq([string]$desc) {
+    $t = "$desc".Trim()
+    if ($t -eq '') { return '' }
+    if (-not $TIPO_LIQ_MAP.ContainsKey($t)) {
+        throw "Tipo de liquidacion desconocido en la tabla de conceptos: '$t'. Agregalo a `$TIPO_LIQ_MAP con su codigo."
+    }
+    return $TIPO_LIQ_MAP[$t]
+}
+
 $PRIMARY_ACC = @{
     'HR'='REMUNERATIVO_BRUTO'; 'HN'='NO_REMUNERATIVO'
     'DE'='TOTAL_DESCUENTOS'; 'RE'='TOTAL_DESCUENTOS'
@@ -37,6 +62,10 @@ $ACUMULADORES = New-Object System.Collections.ArrayList
 #        cct[7]: 175,768,729,ESP,130,372,ADM,
 #        acc[10]: SS,OS,SIND,LRT,IG4,SAC,PROM,FER,ZONA,AUSEN, formula
 $CONCEPTOS = New-Object System.Collections.ArrayList
+# NETO_GARANT: objetivo del grossing-up. Informativo a proposito -- CalcNetoDesdeBD no suma este
+# tipo, asi que deja su linea auditable sin mover el neto que el bucle intenta alcanzar. El motor lo
+# ubica por "Cod. Concepto Neto Garantizado" de Config. RRHH, no por este codigo.
+[void]$CONCEPTOS.Add(@('NETO_GARANT','Neto garantizado (objetivo grossing-up)','IN',' ',5,1, 1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0,0,0,'NETO_GU * (1 + DIAS_VAC_INICIO / 150)'))
 [void]$CONCEPTOS.Add(@('1003','Sueldo','HR',' ',10,1, 1,1,1,0,1,1,1, 1,1,1,1,1,1,1,0,1,1,'BASICO * PCT_ESCALA'))
 [void]$CONCEPTOS.Add(@('1013','Sueldo de navegacion','HR','Cierre Marea',15,1, 0,0,1,0,0,0,0, 1,1,1,1,1,1,1,1,0,0,'DIAS_MAR * PRECIO_NAV'))
 [void]$CONCEPTOS.Add(@('1023','Sueldo de feriado','HR',' ',20,0, 1,1,1,0,0,0,0, 1,1,1,1,1,1,1,0,0,0,''))
@@ -333,6 +362,10 @@ $instrLines = @(
     '- Ganancias formula incluye DEDUCCION_ESP + DEDUC_GANANCIAS (cargas de familia)'
     '- Fraccion Acumulador: el % debe sumar 100 por concepto+vigencia'
     '- Concepto CCT Vigente: si no hay filas para un concepto, aplica a TODOS los CCT'
+    '- Concepto: "Tipos Liq. Aplicables" lleva CODIGOS separados por | (vacio = todos los tipos).'
+    '  Reemplaza a la vieja columna "Aplica Tipo Liq.", que escribia un campo obsoleto que el motor no lee.'
+    '- Concepto: "Imprime en Recibo" viene en 1 para todos los conceptos y en 0 para los acumuladores.'
+    '  Si algun concepto no debe salir en el recibo, apagalo DESPUES de aplicar el paquete.'
 )
 for ($row = 0; $row -lt $instrLines.Count; $row++) {
     $wsI.Cells.Item($row + 1, 1).Value2 = $instrLines[$row]
@@ -545,17 +578,28 @@ Write-SheetFromList $xl 'Variable Sistema Liq.' @('Cod. Calculo','Nombre Variabl
 
 # ── 6. Concepto Liquidacion ───────────────────────────────────────────
 Write-Host "  Generando Concepto Liquidacion..."
-$concHeaders = @('Codigo','Vigencia Desde','Descripcion','Nombre Impresion','Tipo Concepto','Formula','Condicion','Orden Calculo','Aplica A','Activo','Es Acumulador','Aplica Tipo Liq.')
+# "Tipos Liq. Aplicables" y no "Aplica Tipo Liq.": la segunda es el campo 14, que está marcado
+# ObsoleteState = Pending desde que se pasó a selección múltiple, y el motor NO la lee. El paquete
+# venía llenando esa columna, así que los conceptos restringidos a Cierre Marea, Vacaciones o
+# Liquidación Final quedaban sin restricción y entraban en cualquier liquidación.
+#
+# "Imprime en Recibo" tampoco viajaba en el paquete. Al no estar, ninguna fila que el apply cree en
+# vez de modificar conserva el flag, y el recibo sale sin líneas: filtra por el campo homónimo de
+# Línea Liquidación, que el motor copia del concepto al calcular.
+$concHeaders = @('Codigo','Vigencia Desde','Descripcion','Nombre Impresion','Tipo Concepto','Formula','Condicion','Orden Calculo','Aplica A','Activo','Es Acumulador','Tipos Liq. Aplicables','Imprime en Recibo')
 $concRows = New-Object System.Collections.ArrayList
+# Los acumuladores no se imprimen: son líneas informativas, y el motor además las fuerza a false al
+# calcular. Dejarlos en 1 acá solo haría ruido en la ficha del concepto.
 foreach ($a in $ACUMULADORES) {
-    [void]$concRows.Add([object[]]@($a[0], $VIG, $a[1], '', $a[2], '', '', 0, 'Todos', 1, 1, ' '))
+    [void]$concRows.Add([object[]]@($a[0], $VIG, $a[1], '', $a[2], '', '', 0, 'Todos', 1, 1, '', 0))
 }
 foreach ($c in $CONCEPTOS) {
     $tipoDesc = $TIPO_MAP["$($c[2])"]
     $nombre = "$($c[1])"
     $nombre50 = if ($nombre.Length -gt 50) { $nombre.Substring(0,50) } else { $nombre }
     $formula = "$($c[23])"
-    [void]$concRows.Add([object[]]@($c[0], $VIG, $c[1], $nombre50, $tipoDesc, $formula, '', $c[4], 'Todos', $c[5], 0, $c[3]))
+    $tiposLiq = Get-TiposLiq $c[3]
+    [void]$concRows.Add([object[]]@($c[0], $VIG, $c[1], $nombre50, $tipoDesc, $formula, '', $c[4], 'Todos', $c[5], 0, $tiposLiq, 1))
 }
 
 $wsCon = Write-SheetFromList $xl 'Concepto Liquidacion' $concHeaders $concRows '375623'

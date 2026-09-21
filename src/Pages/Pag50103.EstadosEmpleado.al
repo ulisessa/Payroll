@@ -6,6 +6,10 @@ page 50103 "Estados Empleado"
     Caption = 'Estados Empleado';
     PageType = List;
     SourceTable = "Estado Empleado";
+    // Lo más nuevo arriba, igual que en la subpágina de la ficha. Ordena por la clave K2 completa
+    // y no sólo por "Fecha Inicio": un campo suelto no tiene índice que lo sostenga y BC lo
+    // resuelve ordenando en memoria las 244.000 filas del histórico migrado de Meta4.
+    SourceTableView = sorting("Tipo Entidad", "No. Empleado", "Fecha Inicio") order(descending);
     UsageCategory = None;
     DelayedInsert = true;
 
@@ -37,6 +41,12 @@ page 50103 "Estados Empleado"
                 {
                     ApplicationArea = All;
                     ToolTip = 'Último día del estado, inclusive. Vacío = estado abierto (vigente). Mientras haya un estado posterior se mantiene sola contra el inicio de ése; si la acortás o la alargás, ese estado siguiente se corre para que no queden días sin estado.';
+                }
+                field("No. Proyecto"; Rec."No. Proyecto")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Proyecto del que salió este estado. En blanco = estado cargado a mano o propagado desde el buque. Estaba oculto y no debía: dos estados del mismo día que sólo se diferencian en este campo se veían como filas repetidas.';
                 }
                 field(Observaciones; Rec.Observaciones)
                 {

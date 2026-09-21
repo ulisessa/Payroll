@@ -21,6 +21,8 @@ tableextension 52003 "Proyecto Pesca Ext." extends Job
             MinValue = 0;
             // Zona (adicional patagónico/desfavorable) del viaje: toda la dotación de la marea la comparte.
             // El motor la inyecta como COD_ZONA; si es 0 cae al valor de la ficha del empleado.
+            // Es la RED: si hay una Fuente de Datos llamada COD_ZONA —el camino para tomar la zona
+            // del atributo con historial— manda esa y estos dos campos no se leen.
         }
         field(52022; "Proyecto Inactividad Nómina"; Code[20])
         {
@@ -37,6 +39,23 @@ tableextension 52003 "Proyecto Pesca Ext." extends Job
             end;
         }
     }
+
+    /// <remarks>
+    /// Cargar la fecha de arribo ES cerrar la marea. Hasta ahora eso no arrastraba nada: las
+    /// asignaciones quedaban abiertas y, con ellas, los estados de navegación — el tripulante seguía
+    /// "navegando" en un buque que ya estaba en puerto.
+    ///
+    /// Sólo dispara cuando la fecha de arribo pasa de vacía a cargada. Corregirla después no vuelve a
+    /// cerrar nada: las asignaciones ya tienen su baja y reabrirlas en cadena sería peor que el error
+    /// que se estaría corrigiendo.
+    /// </remarks>
+    trigger OnModify()
+    var
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
+    begin
+        if (xRec."Ending Date" = 0D) and ("Ending Date" <> 0D) then
+            EstadoMgt.CerrarAsignacionesDeProyecto("No.", "Ending Date");
+    end;
 
     var
         ErrInactSiMismo: Label 'El proyecto de inactividad no puede ser el mismo proyecto.';

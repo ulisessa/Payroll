@@ -15,3 +15,13 @@
 # OS artifacts
 Thumbs.db
 desktop.ini
+*.xlsx
+*.xls
+*.csv
+*.docx
+*.pdf
+
+
+# Libreta del modo RAD: su lista "Removed" dropea tablas con sus datos al publicar.
+# Es caché local, se regenera sola, y versionada reparte una foto desactualizada.
+.vscode/rad.json

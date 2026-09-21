@@ -1,5 +1,7 @@
 namespace UAS.Payroll;
 
+using Microsoft.HumanResources.Employee;
+
 codeunit 50053 "Gestión Francos"
 {
     // FIFO ledger for compensatory days off (francos). The ledger lives in Línea Liquidación:
@@ -8,7 +10,7 @@ codeunit 50053 "Gestión Francos"
     //   • Consumption   — concept with "Rol Franco" = Consumo. Pays enjoyed francos.
     // Francos are non-fungible: a consumed day is valued at its lot's category, not the employee's current
     // one. Consumption follows FIFO (oldest lots first). The per-day value comes from the reserved
-    // parameter VALOR_FRANCO (Sufijo CCT), looked up as VALOR_FRANCO_<CONVENIO>_<CATEGORÍA> at the pay date.
+    // parameter VALOR_FRANCO, looked up as VALOR_FRANCO_<CONVENIO>_<CATEGORÍA> at the pay date.
 
     var
         ParamValorFranco: Label 'VALOR_FRANCO', Locked = true;
@@ -61,16 +63,139 @@ codeunit 50053 "Gestión Francos"
         if not CodigosPorRol(Codigos, Rol) then exit(0);
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.SetRange("No. Empleado", EmployeeNo);
+        // EL CONJUNTO DE CONCEPTOS VA COMO FILTRO. Antes se traían TODAS las líneas del empleado
+        // —todos sus años, todos sus conceptos— para sumar las de dos, y el descarte se hacía con un
+        // Contains adentro del bucle, que además es otro barrido lineal por fila. El predicado es
+        // exactamente el mismo; lo único que cambia es dónde se evalúa. FiltrarLotes ya lo hacía así.
+        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
         if Inclusivo then
             Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha)
         else
             Lin.SetFilter("Fecha Liquidación", '<%1', Fecha);
+        Lin.SetLoadFields(Cantidad);
         if Lin.FindSet() then
             repeat
-                if Codigos.Contains(Lin."Cód. Concepto") then
-                    Total += Lin.Cantidad;
+                Total += Lin.Cantidad;
             until Lin.Next() = 0;
         exit(Total);
+    end;
+
+    /// <summary>
+    /// Llena Buffer con el saldo de francos abierto por tripulante y categoría, valuado a Fecha.
+    /// </summary>
+    /// <remarks>
+    /// Es la herramienta de control del ledger. Contesta la única pregunta que no se puede contestar
+    /// mirando una liquidación: cuántos francos tiene cada tripulante pendientes, ganados en qué
+    /// categoría, y cuánto costaría pagarlos hoy.
+    ///
+    /// La atribución del consumo a una categoría no está guardada en ningún lado —la línea de consumo
+    /// no dice de qué lote salió—, así que se deduce recorriendo los lotes del más viejo al más nuevo
+    /// y descontando el total consumido. Es EL MISMO recorrido que hace CaminarFIFO al liquidar: si
+    /// este informe usara otro criterio, mostraría un saldo por categoría que el motor no va a pagar.
+    ///
+    /// FiltroEmpleado en blanco recorre a todos los que tengan algún lote. Los que nunca devengaron no
+    /// generan fila: una grilla llena de ceros esconde a los pocos que sí tienen saldo.
+    /// </remarks>
+    procedure ResumenPorCategoria(FiltroEmpleado: Text; Fecha: Date; var Buffer: Record "Francos Buffer Liq." temporary)
+    var
+        Lin: Record "Línea Liquidación";
+        Empleados: List of [Code[20]];
+        Codigos: List of [Code[20]];
+        EmployeeNo: Code[20];
+    begin
+        Buffer.Reset();
+        Buffer.DeleteAll();
+        if Fecha = 0D then
+            Fecha := WorkDate();
+
+        // Se parte de los LOTES y no del maestro de empleados: preguntarle el saldo a cada empleado
+        // de la empresa recorrería el ledger una vez por persona, la mayoría para devolver cero.
+        if not CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo) then
+            exit;
+        Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
+        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha);
+        if FiltroEmpleado <> '' then
+            Lin.SetFilter("No. Empleado", FiltroEmpleado);
+        Lin.SetLoadFields("No. Empleado");
+        if Lin.FindSet() then
+            repeat
+                if not Empleados.Contains(Lin."No. Empleado") then
+                    Empleados.Add(Lin."No. Empleado");
+            until Lin.Next() = 0;
+
+        foreach EmployeeNo in Empleados do
+            AcumularFrancosEmpleado(Buffer, EmployeeNo, Fecha);
+
+        Buffer.Reset();
+        if Buffer.FindFirst() then;
+    end;
+
+    local procedure AcumularFrancosEmpleado(var Buffer: Record "Francos Buffer Liq." temporary; EmployeeNo: Code[20]; Fecha: Date)
+    var
+        Lin: Record "Línea Liquidación";
+        Emp: Record Employee;
+        CatCCT: Record "Categoría CCT";
+        Codigos: List of [Code[20]];
+        PorConsumir: Decimal;
+        DelLote: Decimal;
+    begin
+        if not CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo) then
+            exit;
+        if not Emp.Get(EmployeeNo) then
+            Clear(Emp);
+
+        // Consumo estrictamente ANTERIOR a la fecha de corte, igual que SaldoFrancosAFecha: lo que se
+        // consume el día del corte pertenece al período que arranca ahí, no al saldo que se controla.
+        PorConsumir := TotalPorRolHasta(EmployeeNo, "Rol Franco Liq."::Consumo, Fecha, false);
+
+        Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
+        Lin.Ascending(true);
+        Lin.SetRange("No. Empleado", EmployeeNo);
+        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha);
+        if not Lin.FindSet() then
+            exit;
+
+        repeat
+            // FIFO: el consumo pendiente de atribuir se come los lotes más viejos primero.
+            DelLote := 0;
+            if PorConsumir > 0 then begin
+                DelLote := Lin.Cantidad;
+                if DelLote > PorConsumir then
+                    DelLote := PorConsumir;
+                PorConsumir -= DelLote;
+            end;
+
+            if not Buffer.Get(EmployeeNo, Lin."Cód. Convenio", Lin."Cód. Categoría") then begin
+                Buffer.Init();
+                Buffer."No. Empleado" := EmployeeNo;
+                Buffer."Cód. Convenio" := Lin."Cód. Convenio";
+                Buffer."Cód. Categoría" := Lin."Cód. Categoría";
+                Buffer."Nombre Empleado" := CopyStr(Emp.FullName(), 1, MaxStrLen(Buffer."Nombre Empleado"));
+                if CatCCT.Get(Lin."Cód. Convenio", Lin."Cód. Categoría") then
+                    Buffer."Descripción Categoría" := CatCCT.Descripción;
+                Buffer."Lote Más Antiguo" := Lin."Fecha Liquidación";
+                Buffer.Insert();
+            end;
+            Buffer.Devengados += Lin.Cantidad;
+            Buffer.Consumidos += DelLote;
+            Buffer.Lotes += 1;
+            Buffer."Lote Más Reciente" := Lin."Fecha Liquidación";
+            Buffer.Modify();
+        until Lin.Next() = 0;
+
+        // Recién con todos los lotes vistos se puede saldar y valuar.
+        Buffer.Reset();
+        Buffer.SetRange("No. Empleado", EmployeeNo);
+        if Buffer.FindSet() then
+            repeat
+                Buffer.Saldo := Buffer.Devengados - Buffer.Consumidos;
+                Buffer."Valor Franco" := ValorFrancoDia(Buffer."Cód. Convenio", Buffer."Cód. Categoría", Fecha);
+                Buffer."Importe Saldo" := Round(Buffer.Saldo * Buffer."Valor Franco", 0.01);
+                Buffer.Modify();
+            until Buffer.Next() = 0;
+        Buffer.Reset();
     end;
 
     // Walks the accrual lots oldest-first, skips the already-consumed days, then consumes up to
@@ -188,7 +313,10 @@ codeunit 50053 "Gestión Francos"
         Lin: Record "Línea Liquidación";
         Total: Decimal;
     begin
+        // FiltrarLotes ya acota los conceptos en la base; acá sólo se evita traer el registro
+        // entero para leerle un campo.
         FiltrarLotes(Lin, EmployeeNo, LiqActual);
+        Lin.SetLoadFields(Cantidad);
         if Lin.FindSet() then
             repeat
                 Total += Lin.Cantidad;
@@ -206,10 +334,12 @@ codeunit 50053 "Gestión Francos"
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.SetRange("No. Empleado", EmployeeNo);
         Lin.SetFilter("No. Liquidación", '<>%1', LiqActual);
+        // Mismo cambio que en TotalPorRolHasta: el filtro de conceptos se evalúa en la base.
+        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        Lin.SetLoadFields(Cantidad);
         if Lin.FindSet() then
             repeat
-                if Codigos.Contains(Lin."Cód. Concepto") then
-                    Total += Lin.Cantidad;
+                Total += Lin.Cantidad;
             until Lin.Next() = 0;
         exit(Total);
     end;
@@ -244,15 +374,25 @@ codeunit 50053 "Gestión Francos"
         exit(Codigos.Count() > 0);
     end;
 
-    local procedure ConstruirFiltroCodigos(Codigos: List of [Code[20]]): Text
+    /// <summary>Los códigos como filtro de BC: 'A'|'B'|'C'.</summary>
+    /// <remarks>
+    /// CADA CÓDIGO VA ENTRE COMILLAS. Sin ellas, un código con un carácter que el parser de filtros
+    /// interpreta —&amp;, |, *, .., &lt;, &gt;, @— dejaría de buscarse a sí mismo y pasaría a ser sintaxis:
+    /// el filtro seguiría siendo válido y devolvería otro conjunto, sin error. Hoy ningún concepto
+    /// tiene esos caracteres, así que esto no cambia nada; existe para que siga siendo cierto el día
+    /// que alguien cree uno.
+    /// </remarks>
+    internal procedure ConstruirFiltroCodigos(Codigos: List of [Code[20]]): Text
     var
         Filtro: TextBuilder;
         Cod: Code[20];
+        CodigoTexto: Text;
     begin
         foreach Cod in Codigos do begin
             if Filtro.Length() > 0 then
                 Filtro.Append('|');
-            Filtro.Append(Cod);
+            CodigoTexto := Cod;
+            Filtro.Append('''' + CodigoTexto.Replace('''', '''''') + '''');
         end;
         exit(Filtro.ToText());
     end;

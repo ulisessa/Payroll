@@ -6,8 +6,40 @@ pageextension 50358 "Proyecto Pesca List Ext." extends "Job List"
 {
     actions
     {
+        addlast(reporting)
+        {
+            action(ControlLiquidacionExcelList)
+            {
+                ApplicationArea = All;
+                Caption = 'Control de Liquidación (Excel)';
+                Image = ExportToExcel;
+                Promoted = true;
+                PromotedCategory = Report;
+                ToolTip = 'Baja a Excel la matriz de control de la marea seleccionada: una fila por concepto y una columna por categoría, con el importe de un tripulante representante de cada una.';
+
+                trigger OnAction()
+                var
+                    ControlExcel: Codeunit "Control Marea Excel Liq.";
+                begin
+                    Rec.TestField("No.");
+                    ControlExcel.Generar(Rec."No.");
+                end;
+            }
+        }
         addlast(Processing)
         {
+            action(ControlLiquidacionList)
+            {
+                ApplicationArea = All;
+                Caption = 'Control de Liquidación';
+                Image = Costs;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                RunObject = Page "Control Liquidación Marea";
+                RunPageLink = "No." = field("No.");
+                ToolTip = 'Matriz de conceptos por tripulante de la marea seleccionada, con los datos de cálculo del viaje y drill-down a cada liquidación.';
+            }
             action(CrearNuevaMareaList)
             {
                 ApplicationArea = All;

@@ -66,10 +66,12 @@ codeunit 50064 "Catálogo Variables Liq."
         Param: Record "Parámetro";
         VarSis: Record "Variable Sistema Liq.";
         Fuente: Record "Fuente Datos Liquidación";
+        TipoAtr: Record "Tipo Atributo Liq.";
         Concepto: Record "Concepto Liquidación";
     begin
         // 1. Constantes que el motor inyecta por código (Cod50014 Inject*), no son dato de tabla.
-        SetVarCat(Cat, 'COD_ZONA', 0, 'Zona desfavorable aplicada (de Proyecto, o Ficha Empleado si el proyecto no la tiene)', 'Sistema');
+        SetVarCat(Cat, 'COD_ZONA', 0, 'Zona desfavorable aplicada. La define una Fuente de Datos llamada COD_ZONA si existe (ej. el atributo con historial); si no, sale del Proyecto, o de la Ficha Empleado cuando el proyecto no la tiene', 'Sistema');
+        SetVarCat(Cat, 'CANT_INCIDENCIA', 0, 'Cantidad cargada como incidencia/novedad PARA ESTE concepto (ej. horas extras). 0 si no hay. Permite que la fórmula la valorice en vez de recibir un importe ya hecho', 'Sistema');
         SetVarCat(Cat, 'ES_JUBILADO', 0, 'Empleado jubilado a la fecha de referencia (1) o no (0)', 'Sistema');
         SetVarCat(Cat, 'ES_GROSSING_UP', 0, 'Liquidación con grossing-up activo (1) o no (0)', 'Sistema');
         SetVarCat(Cat, 'NETO_GARANTIZADO', 0, 'Neto garantizado objetivo del grossing-up', 'Sistema');
@@ -107,6 +109,16 @@ codeunit 50064 "Catálogo Variables Liq."
             repeat
                 SetVarCat(Cat, Fuente."Nombre Variable", 0, Fuente.Descripción, 'Fuente Datos');
             until Fuente.Next() = 0;
+
+        // Los tipos de atributo con Nombre Variable: el contexto los resuelve contra la entidad de
+        // cada liquidación, así que acá van en 0 como las fuentes. Se muestra en qué maestro se
+        // cargan, que es lo que decide si el valor va a existir para una liquidación dada.
+        TipoAtr.SetFilter("Nombre Variable", '<>%1', '');
+        if TipoAtr.FindSet() then
+            repeat
+                SetVarCat(Cat, TipoAtr."Nombre Variable", 0,
+                    StrSubstNo(TxtDescAtributo, TipoAtr.Descripción, Format(TipoAtr."Tipo Entidad")), 'Atributo');
+            until TipoAtr.Next() = 0;
 
         // Sin filtro de vigencia a propósito. Esto es un diccionario de NOMBRES, no el conjunto que
         // se ejecuta: lo consumen el IntelliSense y "Variables del cálculo", y esa segunda pantalla
@@ -150,6 +162,89 @@ codeunit 50064 "Catálogo Variables Liq."
     //
     // La descripción es texto de ayuda: recortarla no pierde nada que no se pueda ver en la ficha
     // del parámetro o del concepto.
+    /// <summary>
+    /// Nombres que resuelven a dos cosas distintas. Devuelve '' si no hay ninguno.
+    /// </summary>
+    /// <remarks>
+    /// Todo lo que el motor puede nombrar en una fórmula vive en UN solo diccionario: parámetros,
+    /// variables de sistema, fuentes de datos y —al terminar de calcularse— el importe de cada
+    /// concepto, guardado bajo su propio código. Dos cosas con el mismo nombre no dan error: la
+    /// segunda pisa a la primera, y la fórmula sigue andando con el número equivocado.
+    ///
+    /// El caso que motivó esto: un concepto con código AÑOS_ANTIGUEDAD y una variable de sistema con
+    /// el mismo nombre. Mientras el concepto no se calcula, la variable vale lo que corresponde;
+    /// desde que se calcula, cualquier fórmula posterior lee el importe del concepto creyendo leer la
+    /// antigüedad. Los dos números se parecen —uno es el otro redondeado— así que el error no se ve.
+    ///
+    /// El catálogo del editor no sirve para detectarlo: SetVarCat pisa el nombre repetido igual que
+    /// el motor. Por eso esta revisión recorre las cuatro fuentes por separado.
+    /// </remarks>
+    procedure NombresEnConflicto(): Text
+    var
+        Param: Record "Parámetro";
+        VarSis: Record "Variable Sistema Liq.";
+        Fuente: Record "Fuente Datos Liquidación";
+        TipoAtr: Record "Tipo Atributo Liq.";
+        Concepto: Record "Concepto Liquidación";
+        Origen: Dictionary of [Text, Text];
+        Reportados: List of [Text];
+        Salida: TextBuilder;
+    begin
+        Param.SetFilter("Nombre Variable", '<>%1', '');
+        if Param.FindSet() then
+            repeat
+                Anotar(Origen, Reportados, Salida, Param."Nombre Variable", TxtOrigenParam);
+            until Param.Next() = 0;
+
+        VarSis.SetRange(Activo, true);
+        if VarSis.FindSet() then
+            repeat
+                Anotar(Origen, Reportados, Salida, VarSis."Nombre Variable", TxtOrigenSistema);
+            until VarSis.Next() = 0;
+
+        Fuente.SetRange(Activo, true);
+        if Fuente.FindSet() then
+            repeat
+                Anotar(Origen, Reportados, Salida, Fuente."Nombre Variable", TxtOrigenFuente);
+            until Fuente.Next() = 0;
+
+        TipoAtr.SetFilter("Nombre Variable", '<>%1', '');
+        if TipoAtr.FindSet() then
+            repeat
+                Anotar(Origen, Reportados, Salida, TipoAtr."Nombre Variable", TxtOrigenAtributo);
+            until TipoAtr.Next() = 0;
+
+        // TODOS los conceptos, no solo los acumuladores: el motor deja el importe de cada uno en el
+        // contexto bajo su código, sea acumulador o no. Se recorre por código distinto, porque las
+        // vigencias de un mismo concepto son varias filas con el mismo nombre.
+        Concepto.SetCurrentKey(Código);
+        if Concepto.FindSet() then
+            repeat
+                if not Reportados.Contains('C' + Concepto.Código) then begin
+                    Reportados.Add('C' + Concepto.Código);
+                    Anotar(Origen, Reportados, Salida, Concepto.Código, TxtOrigenConcepto);
+                end;
+            until Concepto.Next() = 0;
+
+        exit(Salida.ToText());
+    end;
+
+    local procedure Anotar(var Origen: Dictionary of [Text, Text]; var Reportados: List of [Text]; var Salida: TextBuilder; Nombre: Text; Tipo: Text)
+    begin
+        if Nombre = '' then
+            exit;
+        if not Origen.ContainsKey(Nombre) then begin
+            Origen.Add(Nombre, Tipo);
+            exit;
+        end;
+        if Origen.Get(Nombre) = Tipo then
+            exit;
+        if Reportados.Contains('X' + Nombre) then
+            exit;
+        Reportados.Add('X' + Nombre);
+        Salida.AppendLine(StrSubstNo(TxtConflicto, Nombre, Origen.Get(Nombre), Tipo));
+    end;
+
     local procedure SetVarCat(var Cat: Record "Variable Liq. Test" temporary; VarNombre: Text; VarValor: Decimal; VarDesc: Text; VarTipo: Text)
     var
         Nombre: Text[100];
@@ -175,28 +270,18 @@ codeunit 50064 "Catálogo Variables Liq."
         end;
     end;
 
-    // Réplica de la prioridad de sufijos del motor (Cod50016 LoadParametros): Sufijo Empleado →
-    // Código_EMP, Sufijo CCT → Código_CONVENIO_CATEGORÍA, Sufijo Convenio → Código_CONVENIO, si no
+    // Misma cascada que el motor, resuelta en Claves Parámetro Liq.:
     // el Código pelado. Devuelve 0 cuando el contexto recibido no tiene el sufijo que el parámetro
     // necesita — el nombre igual entra al catálogo, que es lo que le importa al autocompletado.
     // El armado del código efectivo está acá y no repetido en cada consumidor: el valor y la bandera
     // de moneda tienen que salir SIEMPRE de la misma fila de Parámetro Vigente, si no el catálogo
     // podría mostrar el importe de un sufijo y la moneda de otro.
     local procedure CodigoEfectivoParam(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Code[50]
+    var
+        Claves: Codeunit "Claves Parámetro Liq.";
     begin
-        if Param."Sufijo Empleado" then begin
-            if CodEmpleado = '' then exit('');
-            exit(Param.Código + '_' + CodEmpleado);
-        end;
-        if Param."Sufijo CCT" then begin
-            if (CodConvenio = '') or (CodCategoria = '') then exit('');
-            exit(Param.Código + '_' + CodConvenio + '_' + CodCategoria);
-        end;
-        if Param."Sufijo Convenio" then begin
-            if CodConvenio = '' then exit('');
-            exit(Param.Código + '_' + CodConvenio);
-        end;
-        exit(Param.Código);
+        // Misma cascada que el motor, resuelta contra la tabla porque acá no hay contexto cargado.
+        exit(Claves.ResolverEnTabla(Param.Código, CodEmpleado, CodConvenio, CodCategoria, WorkDate()));
     end;
 
     local procedure GetParamConSufijo(Param: Record "Parámetro"; CodEmpleado: Code[20]; CodConvenio: Code[20]; CodCategoria: Code[20]): Decimal
@@ -375,6 +460,7 @@ codeunit 50064 "Catálogo Variables Liq."
         DefFunc('MIN', 'MIN(a, b)', 'a|b', AyudaMin, false);
         DefFunc('MAX', 'MAX(a, b)', 'a|b', AyudaMax, false);
         DefFunc('IF', 'IF(condición, si_verdadero, si_falso)', 'condición|si_verdadero|si_falso', AyudaIf, false);
+        DefFunc('CASE', 'CASE(cond1, valor1, cond2, valor2, …, default)', 'cond1|valor1|cond2|valor2|default', AyudaCase, false);
         DefFunc('DIV', 'DIV(a, b)', 'a|b', AyudaDiv, false);
 
         DefOp('AND', AyudaAnd);
@@ -399,6 +485,12 @@ codeunit 50064 "Catálogo Variables Liq."
     end;
 
     var
+        TxtOrigenParam: Label 'parámetro';
+        TxtOrigenSistema: Label 'variable de sistema';
+        TxtOrigenFuente: Label 'fuente de datos';
+        TxtOrigenAtributo: Label 'tipo de atributo';
+        TxtOrigenConcepto: Label 'concepto';
+        TxtConflicto: Label '%1  —  es %2 y también %3', Comment = '%1=nombre, %2 y %3=orígenes';
         AyudaTramo: Label 'Consulta una tabla escalonada vigente. El código va entre comillas simples. Ej: TRAMO(''TAB_IMP_4CAT'', BASE_IG4 * 12)';
         AyudaRound: Label 'Redondea al múltiplo indicado. Ej: ROUND(x, 0.01) redondea a centavos.';
         AyudaRedondear: Label 'Redondea a la cantidad de decimales indicada. Ej: REDONDEAR(5473.286, 2) = 5473,29';
@@ -408,6 +500,7 @@ codeunit 50064 "Catálogo Variables Liq."
         AyudaMin: Label 'El menor de los dos valores.';
         AyudaMax: Label 'El mayor de los dos valores.';
         AyudaIf: Label 'Condicional. Solo se evalúa la rama elegida, así que un error en la rama descartada no se dispara.';
+        AyudaCase: Label 'Devuelve el valor de la primera condición verdadera. El último argumento suelto es el default. Ej: CASE(ANTIG >= 10, PCT_10, ANTIG >= 5, PCT_5, 0)';
         AyudaDiv: Label 'División segura: devuelve 0 si el divisor es 0, en vez de error.';
         AyudaAnd: Label 'Conjunción lógica. Debe escribirse en mayúsculas.';
         AyudaOr: Label 'Disyunción lógica. Debe escribirse en mayúsculas.';
@@ -415,5 +508,6 @@ codeunit 50064 "Catálogo Variables Liq."
         SufijoMonedaTok: Label '_ESFCY', Locked = true;
         // Lo esencial va primero: si un nombre de variable largo hace que SetVarCat recorte, lo que
         // se pierde es el ejemplo, no el significado.
+        TxtDescAtributo: Label 'Atributo: %1 (se carga en %2)', Comment = '%1=descripción del tipo de atributo, %2=maestro en el que se carga';
         TxtDescEsFCY: Label '1 = %1 está en moneda extranjera. Ej: IF(%1_ESFCY, %1 * TC_CERCANO, %1)';
 }

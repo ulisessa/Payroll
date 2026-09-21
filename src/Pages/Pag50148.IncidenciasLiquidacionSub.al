@@ -38,14 +38,8 @@ page 50148 "Incidencias Liquidación Sub"
     }
 
     trigger OnAfterGetRecord()
-    var
-        Concepto: Record "Concepto Liquidación";
     begin
-        Concepto.SetRange(Código, Rec."Cód. Concepto");
-        if Concepto.FindLast() then
-            DescConcepto := Concepto.Descripción
-        else
-            DescConcepto := '';
+        DescConcepto := DescMgt.Descripcion(Rec."Cód. Concepto");
     end;
 
     trigger OnAfterGetCurrRecord()
@@ -61,5 +55,6 @@ page 50148 "Incidencias Liquidación Sub"
 
     var
         DescConcepto: Text[100];
+        DescMgt: Codeunit "Descripción Concepto Liq.";
         IsEditable: Boolean;
 }

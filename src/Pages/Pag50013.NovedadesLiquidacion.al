@@ -26,14 +26,46 @@ page 50013 "Novedades Liquidación"
                 {
                     ApplicationArea = All;
                     Caption = 'Período';
+                    ShowMandatory = true;
                     TableRelation = "Período Liquidación".Código;
-                    ToolTip = 'Período sobre el que se cargan las novedades. Se propone el que contiene la fecha de trabajo.';
+                    ToolTip = 'Período sobre el que se cargan las novedades. Se propone el que contiene la fecha de trabajo. Junto con el Concepto son los dos únicos datos obligatorios de una novedad: todo lo demás se puede dejar en blanco y el motor lo resuelve.';
 
                     trigger OnValidate()
                     begin
                         AplicarFiltroPeriodo();
+                        ContarEstados();
                         CurrPage.Update(false);
                     end;
+                }
+                field(CantPendientes; CantPendientes)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Pendientes';
+                    Editable = false;
+                    Style = Ambiguous;
+                    StyleExpr = CantPendientes > 0;
+                    ToolTip = 'Novedades del período que todavía no entraron en ninguna liquidación. Antes de cerrar el período esto tendría que estar en cero: lo que quede acá no se le pagó a nadie.';
+                }
+                field(CantAplicadas; CantAplicadas)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Aplicadas';
+                    Editable = false;
+                }
+                field(CantNoAplicadas; CantNoAplicadas)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Con motivo de no aplicación';
+                    Editable = false;
+                    Style = Attention;
+                    StyleExpr = CantNoAplicadas > 0;
+                    ToolTip = 'Novedades que el motor evaluó y descartó, con el motivo anotado. Son las que hay que mirar: alguien las cargó esperando que se pagaran.';
+                }
+                field(CantAnuladas; CantAnuladas)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Anuladas';
+                    Editable = false;
                 }
             }
             repeater(Lines)
@@ -41,7 +73,7 @@ page 50013 "Novedades Liquidación"
                 field(Fecha; Rec.Fecha)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Fecha dentro del período. Define a qué liquidación entra cuando el empleado tiene más de una en el mismo período: un cierre de marea solo toma las novedades fechadas dentro del viaje.';
+                    ToolTip = 'Día al que corresponde la novedad, dentro del período. Es lo que decide en qué liquidación entra: se mira qué estaba haciendo el empleado ese día —navegando, en francos, en puerto— y la novedad va a la liquidación de ese proyecto. En blanco aplica a todo el período y no distingue entre las liquidaciones del empleado.';
                 }
                 field("No. Empleado"; Rec."No. Empleado")
                 {
@@ -59,7 +91,7 @@ page 50013 "Novedades Liquidación"
                 field("No. Proyecto"; Rec."No. Proyecto")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'En blanco = cualquier proyecto. Cargado, la novedad entra únicamente en la liquidación de esa marea, sin depender de la Fecha.';
+                    ToolTip = 'Normalmente se deja en blanco: el proyecto lo deduce la Fecha, mirando el historial de estados del empleado ese día. Cargalo sólo para forzar la novedad a una marea concreta, ignorando lo que diga el historial.';
                 }
                 field("Cód. Convenio"; Rec."Cód. Convenio")
                 {
@@ -76,7 +108,12 @@ page 50013 "Novedades Liquidación"
                     ApplicationArea = All;
                     ToolTip = 'En blanco = cualquier tipo de liquidación (mensual, cierre de marea, SAC…).';
                 }
-                field("Cód. Concepto"; Rec."Cód. Concepto") { ApplicationArea = All; }
+                field("Cód. Concepto"; Rec."Cód. Concepto")
+                {
+                    ApplicationArea = All;
+                    ShowMandatory = true;
+                    ToolTip = 'Qué se paga o se descuenta. Es el único dato que la novedad no puede deducir de nada: sin concepto no hay nada que liquidar.';
+                }
                 field(DescConcepto; DescConcepto)
                 {
                     ApplicationArea = All;
@@ -261,6 +298,7 @@ page 50013 "Novedades Liquidación"
         else
             CodPeriodoFiltro := Periodo.PeriodoPorDefecto();
         AplicarFiltroPeriodo();
+        ContarEstados();
     end;
 
     // El período de la hoja se hereda en cada línea nueva: es el único campo obligatorio que el
@@ -272,16 +310,9 @@ page 50013 "Novedades Liquidación"
     end;
 
     trigger OnAfterGetRecord()
-    var
-        Concepto: Record "Concepto Liquidación";
     begin
         Alcance := Rec.DescribirAlcance();
-
-        Concepto.SetRange(Código, Rec."Cód. Concepto");
-        if Concepto.FindLast() then
-            DescConcepto := Concepto.Descripción
-        else
-            DescConcepto := '';
+        DescConcepto := DescMgt.Descripcion(Rec."Cód. Concepto");
 
         case Rec.Estado of
             Rec.Estado::Aplicada:
@@ -304,6 +335,39 @@ page 50013 "Novedades Liquidación"
             Rec.SetRange("Cód. Período");
     end;
 
+    /// <remarks>
+    /// Cuenta sobre una instancia aparte y no sobre Rec: contar exigiría cambiarle los filtros a la
+    /// grilla, y el usuario vería la hoja saltando de vista sola cada vez que se recalculan los
+    /// números.
+    /// </remarks>
+    local procedure ContarEstados()
+    var
+        Nov: Record "Novedad Liquidación";
+    begin
+        CantPendientes := 0;
+        CantAplicadas := 0;
+        CantAnuladas := 0;
+        CantNoAplicadas := 0;
+        if CodPeriodoFiltro = '' then
+            exit;
+
+        Nov.SetCurrentKey("Cód. Período", Estado);
+        Nov.SetRange("Cód. Período", CodPeriodoFiltro);
+
+        Nov.SetRange(Estado, Nov.Estado::Pendiente);
+        CantPendientes := Nov.Count();
+        Nov.SetRange(Estado, Nov.Estado::Aplicada);
+        CantAplicadas := Nov.Count();
+        Nov.SetRange(Estado, Nov.Estado::Anulada);
+        CantAnuladas := Nov.Count();
+
+        // Las descartadas no son un estado sino un motivo anotado: pueden haber quedado Pendientes
+        // después de que el motor las evaluara y las dejara afuera.
+        Nov.SetRange(Estado);
+        Nov.SetFilter("Motivo No Aplicada", '<>%1', '');
+        CantNoAplicadas := Nov.Count();
+    end;
+
     local procedure VerificarPeriodoElegido()
     begin
         if CodPeriodoFiltro = '' then
@@ -312,8 +376,13 @@ page 50013 "Novedades Liquidación"
 
     var
         CodPeriodoFiltro: Code[10];
+        CantPendientes: Integer;
+        CantAplicadas: Integer;
+        CantAnuladas: Integer;
+        CantNoAplicadas: Integer;
         Alcance: Text;
         DescConcepto: Text[100];
+        DescMgt: Codeunit "Descripción Concepto Liq.";
         EstadoStyle: Text[20];
         ErrSinPeriodo: Label 'Elegí primero el Período de la hoja.';
         MsgImportadas: Label 'Se importaron %1 novedad(es). %2 fila(s) omitida(s) por empleado o concepto inexistente (incluida la fila de encabezado).';

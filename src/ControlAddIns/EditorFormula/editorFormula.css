@@ -1,4 +1,4 @@
-/* Editor de fórmulas de liquidación — control add-in.
+﻿/* Editor de fórmulas de liquidación — control add-in.
    Regla de oro de este archivo: .uas-hl y .uas-ta tienen que compartir EXACTAMENTE las mismas
    métricas de texto (familia, tamaño, interlineado, padding, quiebre de línea). Cualquier diferencia
    corre el resaltado respecto de las letras que el usuario ve tipear. Si tocás una, tocá la otra. */
@@ -31,6 +31,7 @@ html, body {
     --tk-sistema: #8a6d00;
     --tk-fuente-datos: #006d78;
     --tk-acumulador: #2b579a;
+    --tk-atributo: #a4327d;
 
     position: relative;
     box-sizing: border-box;
@@ -65,6 +66,7 @@ html, body {
     --tk-sistema: #e0c169;
     --tk-fuente-datos: #6fd2dc;
     --tk-acumulador: #8fb8f0;
+    --tk-atributo: #e79ed0;
 }
 
 /* La sombra del popup también se invierte: una sombra negra sobre fondo oscuro no despega nada. */
@@ -172,6 +174,7 @@ html, body {
 .uas-tk-var-sistema { color: var(--tk-sistema); }
 .uas-tk-var-fuente-datos { color: var(--tk-fuente-datos); }
 .uas-tk-var-acumulador { color: var(--tk-acumulador); }
+.uas-tk-var-atributo { color: var(--tk-atributo); }
 .uas-tk-var-variable,
 .uas-tk-var-otro { color: var(--texto); }
 
@@ -273,6 +276,7 @@ html, body {
 .uas-tipo-sistema { color: var(--tk-sistema); }
 .uas-tipo-fuente-datos { color: var(--tk-fuente-datos); }
 .uas-tipo-acumulador { color: var(--tk-acumulador); }
+.uas-tipo-atributo { color: var(--tk-atributo); }
 .uas-tipo-concepto-reevalua,
 .uas-tipo-concepto-ya-calculado { color: var(--tk-concepto); }
 
@@ -313,4 +317,81 @@ html, body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* ── Panel de nombres de referencias ────────────────────────────────────────
+   Vista de sólo lectura: la misma fórmula con la descripción de cada concepto al lado. Va en un
+   bloque aparte y NO anotando .uas-hl a propósito — el resaltado tiene que coincidir carácter por
+   carácter con el textarea, y cualquier texto de más ahí lo correría. */
+
+.uas-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.uas-btn-nom {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 1px 7px;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 15px;
+    color: var(--tenue);
+    background: var(--fondo-alt);
+    border: 1px solid var(--borde);
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.uas-btn-nom:hover {
+    color: var(--texto);
+    border-color: var(--borde-foco);
+}
+
+.uas-btn-nom:focus-visible {
+    outline: 2px solid var(--borde-foco);
+    outline-offset: 1px;
+}
+
+.uas-btn-nom-on {
+    color: var(--fondo);
+    background: var(--borde-foco);
+    border-color: var(--borde-foco);
+}
+
+/* Ocupa la caja del propio campo —se muestra en lugar de .uas-lienzo, no debajo—, así que hereda de
+   .uas-editor el alto, el borde y el scroll. Por eso no fija alto acá: el del campo Fórmula son sus
+   264 px y el de Condición sus 72, sin que este archivo tenga que saberlo.
+   Las métricas de texto sí acompañan a .uas-hl / .uas-ta para que la fórmula se lea igual que
+   cuando se está editando. */
+.uas-nombres {
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 5px 7px;
+    background: var(--fondo);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    tab-size: 4;
+}
+
+.uas-nom {
+    margin: 0 2px 0 3px;
+    padding: 0 4px;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 11px;
+    color: var(--tenue);
+    background: var(--fondo);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    white-space: normal;
+}
+
+.uas-nom-falta {
+    color: var(--rojo);
+    border-color: var(--rojo);
 }

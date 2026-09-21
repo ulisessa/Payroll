@@ -140,6 +140,18 @@ codeunit 50046 "Orquestador SIRADIG"
             ArchivoActual.CreateInStream(InStreamArchivo);
             Clear(Importador);
             Importador.SetParametros(NombreArchivo, InStreamArchivo, AutoProcesar);
+
+            // Commit antes del Run: BC no deja leer el valor de retorno de Codeunit.Run() con una
+            // transacción de escritura abierta, y acá ese valor es lo que separa el archivo que
+            // importó del que hay que contar como error. El primer archivo pasa porque todavía no
+            // se escribió nada; del SEGUNDO en adelante, lo que importó el anterior deja la
+            // transacción abierta y el Run falla con "OK := Codeunit.Run() no está permitido".
+            // O sea: con un archivo anda y con varios no, que es el caso de uso de este bucle.
+            //
+            // Cada archivo ya era su propia unidad de trabajo —si falla, se anota y se sigue— así
+            // que confirmarlo no cambia la semántica, la hace cierta.
+            Commit();
+
             if Importador.Run() then begin
                 ImportadosOk += 1;
                 Importador.GetContadores(Deducciones, Cargas);

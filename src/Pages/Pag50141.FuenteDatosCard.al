@@ -173,7 +173,7 @@ page 50141 "Fuente Datos Card"
             part(Filtros; "Filtro Fuente Datos Liq. Sub")
             {
                 ApplicationArea = All;
-                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA})';
+                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {PERIODO_DESDE}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA}, {ASIG_DESDE}, {ASIG_HASTA}, {MAREA_DESDE}, {MAREA_HASTA})';
                 SubPageLink = "Nombre Variable" = FIELD("Nombre Variable");
             }
         }
@@ -276,6 +276,6 @@ page 50141 "Fuente Datos Card"
         exit(Rec."Función Agregado" in [
             Rec."Función Agregado"::"DIAS_OVERLAP",
             Rec."Función Agregado"::"DURACION_INICIO",
-            Rec."Función Agregado"::"DURACION_ANIO"]);
+            Rec."Función Agregado"::"DURACION_AÑO"]);
     end;
 }

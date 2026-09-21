@@ -23,6 +23,12 @@ page 50197 "Concepto CCT Vigente List"
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
                 field("Cód. Convenio"; Rec."Cód. Convenio") { ApplicationArea = All; }
                 field("Cód. Categoría"; Rec."Cód. Categoría") { ApplicationArea = All; }
+                field(Excluye; Rec.Excluye)
+                {
+                    ApplicationArea = All;
+                    Style = Attention;
+                    StyleExpr = Rec.Excluye;
+                }
             }
         }
     }

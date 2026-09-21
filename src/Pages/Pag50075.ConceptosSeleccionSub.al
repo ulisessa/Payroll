@@ -30,7 +30,11 @@ page 50075 "Conceptos Selección Sub"
                     trigger OnValidate()
                     begin
                         Alternar(Rec.Código, Rec.Marcado);
-                        CurrPage.Update(false);
+                        // Update(TRUE) y no (false): con origen temporal, un refresco sin guardar
+                        // vuelve a leer el buffer —donde el tilde todavía no se escribió— y el
+                        // casillero se borra solo, aunque la asignación sí se haya hecho. Se veía
+                        // como "no me deja asignar" cuando en realidad ya estaba asignado.
+                        CurrPage.Update(true);
                     end;
                 }
                 field(Código; Rec.Código) { ApplicationArea = All; Editable = false; }
@@ -68,6 +72,41 @@ page 50075 "Conceptos Selección Sub"
                 Rec.Insert();
             until Origen.Next() = 0;
         CurrPage.Update(false);
+    end;
+
+    /// <summary>
+    /// Asigna o quita los conceptos MARCADOS en la lista. Devuelve cuántos tocó.
+    /// </summary>
+    /// <remarks>
+    /// "Asignar todos los listados" opera sobre todo lo que se está mostrando, que con un filtro
+    /// ancho son cientos. Esto es lo del medio: lo que el usuario tildó a mano en la grilla.
+    ///
+    /// La selección se relee del buffer de la página —Todos comparte su tabla temporal— en vez de
+    /// usar lo que devuelve SetSelectionFilter: con origen temporal, la plataforma copia los
+    /// registros marcados y no siempre copia el registro entero. Si no hay nada marcado, se opera
+    /// sobre la fila donde está el cursor, que es lo que el usuario ve seleccionado.
+    /// </remarks>
+    procedure AplicarASeleccion(Asignar: Boolean) Cuantos: Integer
+    var
+        Todos: Record "Tipo Liq. Selección Buffer" temporary;
+        Marcados: Record "Tipo Liq. Selección Buffer" temporary;
+    begin
+        Todos.Copy(Rec, true);
+        CurrPage.SetSelectionFilter(Marcados);
+        if Marcados.FindSet() then begin
+            repeat
+                if Todos.Get(Marcados.Código) then begin
+                    Alternar(Todos.Código, Asignar);
+                    Cuantos += 1;
+                end;
+            until Marcados.Next() = 0;
+            exit;
+        end;
+
+        if Rec.Código = '' then
+            exit;
+        Alternar(Rec.Código, Asignar);
+        Cuantos := 1;
     end;
 
     // Alta/baja de la fila exacta (convenio + categoría en contexto). Al quitar se borran TODAS las

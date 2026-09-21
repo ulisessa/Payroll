@@ -31,47 +31,38 @@ table 60016 "Parámetro"
             DataClassification = CustomerContent;
             // Variable name exposed in the formula context. Blank = not auto-loaded.
         }
+        // Las tres banderas de sufijo quedaron sin uso. Declaraban por qué eje se especializaba el
+        // parámetro, y de esa declaración dependían tres cosas: qué cascada corría el motor, qué
+        // columnas se habilitaban al cargar los valores, y una migración de claves cada vez que la
+        // bandera cambiaba.
+        //
+        // Ahora la clave derivada sale de los campos que cada valor tenga completos y la cascada las
+        // consulta todas (ver Claves Parámetro Liq.). Un parámetro puede tener a la vez un valor por
+        // defecto, una excepción por convenio y otra por empleado, cosa que las banderas impedían por
+        // ser excluyentes entre sí.
+        //
+        // Se conservan como obsoletas y no se borran: los datos existentes las tienen cargadas y
+        // eliminar un campo de una extensión publicada exige el paso previo por ObsoleteState.
         field(5; "Sufijo CCT"; Boolean)
         {
-            Caption = 'Sufijo Convenio/Categoría';
+            Caption = 'Sufijo Convenio/Categoría (obsoleto)';
             DataClassification = CustomerContent;
-            // When true the effective lookup key = Código + '_' + CodConvenio + '_' + CodCategoria.
-            // Use for per-CCT basic salaries (e.g. 'BASICO_FC_GER').
-            trigger OnValidate()
-            begin
-                if "Sufijo CCT" then begin
-                    "Sufijo Empleado" := false;
-                    "Sufijo Convenio" := false;
-                end;
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(6; "Sufijo Empleado"; Boolean)
         {
-            Caption = 'Sufijo Empleado';
+            Caption = 'Sufijo Empleado (obsoleto)';
             DataClassification = CustomerContent;
-            // When true the effective lookup key = Código + '_' + EmployeeNo.
-            // Use for per-employee salaries (e.g. 'BASICO_EMP001').
-            trigger OnValidate()
-            begin
-                if "Sufijo Empleado" then begin
-                    "Sufijo CCT" := false;
-                    "Sufijo Convenio" := false;
-                end;
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(8; "Sufijo Convenio"; Boolean)
         {
-            Caption = 'Sufijo Convenio';
+            Caption = 'Sufijo Convenio (obsoleto)';
             DataClassification = CustomerContent;
-            // When true the effective lookup key = Código + '_' + CodConvenio (no category).
-            // Use for per-convenio values shared by all categories (e.g. 'COEF_FRANCOS_729/15').
-            trigger OnValidate()
-            begin
-                if "Sufijo Convenio" then begin
-                    "Sufijo CCT" := false;
-                    "Sufijo Empleado" := false;
-                end;
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(7; "Antigüedad Máxima Vigencia"; DateFormula)
         {

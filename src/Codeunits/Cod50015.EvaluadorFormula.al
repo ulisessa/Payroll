@@ -23,7 +23,13 @@ codeunit 50015 "Evaluador Fórmula"
     var
         FExpr: Text;
         FPos: Integer;
+        FTokStart: Integer; // dónde arranca el token actual — lo usa la traza, ver AnotarTermino
         FLen: Integer;
+        // Traza de sumas y restas para el detalle de cálculo. Apagada por defecto: no cuesta nada
+        // cuando no se pide, y liquidar un lote no tiene por qué armar texto que nadie va a leer.
+        FTrazaActiva: Boolean;
+        FTrazaNivel: Integer;
+        FTraza: Text;
         FTokKind: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
         FTokText: Text;
         FTokNum: Decimal;
@@ -32,11 +38,17 @@ codeunit 50015 "Evaluador Fórmula"
         FParamLog: Text;
         FResolvedVars: Dictionary of [Text, Boolean]; // tracks which vars were actually used
         FLenient: Boolean; // when true, unknown variables resolve to 0 instead of throwing
+        FModoValidacion: Boolean; // tolera solo los errores que dependen del valor — ver SetModoValidacion
         // TRAMO caches — valid for the lifetime of one Init() call (one liquidation).
         // FTramoVigCache avoids the Cab.FindLast query after the first call per table.
         // FTramoResultCache avoids the Det.FindLast query for repeated (table, value) pairs.
         FTramoVigCache: Dictionary of [Text, Date];
         FTramoResultCache: Dictionary of [Text, Decimal];
+        // La entrada de log ya armada para cada par (tabla, valor). Existe para poder RE-emitir el
+        // log cuando el resultado sale de la caché: la caché vive toda la liquidación, pero el
+        // detalle de variables se arma por LÍNEA, y loguear solo en el primer cálculo dejaba sin
+        // fila a todas las líneas siguientes que consultan la misma tabla con el mismo valor.
+        FTramoLogCache: Dictionary of [Text, Text];
         // Pila de códigos de concepto en curso de resolución vía @CÓDIGO, para cortar
         // referencias circulares (A depende de B que depende de A) en vez de recursión infinita.
         FResolvingConceptos: List of [Text];
@@ -54,6 +66,7 @@ codeunit 50015 "Evaluador Fórmula"
         Clear(FResolvedVars);
         Clear(FTramoVigCache);
         Clear(FTramoResultCache);
+        Clear(FTramoLogCache);
         Clear(FResolvingConceptos);
         Clear(FLastConceptoRefValues);
     end;
@@ -231,18 +244,156 @@ codeunit 50015 "Evaluador Fórmula"
     local procedure ParseAddSub(): Decimal
     var
         Result: Decimal;
+        Termino: Decimal;
         Op: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
+        Nivel: Integer;
+        Orden: Integer;
+        Inicio: Integer;
     begin
-        Result := ParseMulDiv();
-        while FTokKind in [FTokKind::Plus, FTokKind::Minus] do begin
-            Op := FTokKind;
-            NextTok();
-            if Op = FTokKind::Plus then
-                Result += ParseMulDiv()
-            else
-                Result -= ParseMulDiv();
+        // LA TRAZA SE TOMA ACÁ Y NO EN OTRO NIVEL. Un "paso a paso" de un cálculo es la cadena de
+        // sumas y restas: es donde el signo de cada término significa algo y donde tiene sentido un
+        // total corriente. Multiplicar y dividir no se lee así —nadie quiere ver el acumulado a
+        // mitad de "base * 11 / 100 / 12"—, y por eso ParseMulDiv no traza.
+        //
+        // El orden y el signo salen de la FÓRMULA, no de una configuración aparte. Es la diferencia
+        // que hace que esto sirva para cualquier concepto sin cargar nada, y que no pueda quedar
+        // desincronizado: si alguien cambia la fórmula, la traza cambia con ella.
+        if not FTrazaActiva then begin
+            Result := ParseMulDiv();
+            while FTokKind in [FTokKind::Plus, FTokKind::Minus] do begin
+                Op := FTokKind;
+                NextTok();
+                if Op = FTokKind::Plus then
+                    Result += ParseMulDiv()
+                else
+                    Result -= ParseMulDiv();
+            end;
+            exit(Result);
         end;
+
+        FTrazaNivel += 1;
+        Nivel := FTrazaNivel;
+        Orden := 0;
+
+        Inicio := FTokStart;
+        Result := ParseMulDiv();
+        // Se anota DESPUÉS de parsear, porque recién ahí se sabe dónde terminó el término y cuánto
+        // valió. Y sólo si hubo al menos un +/-: un ParseAddSub sin operadores no es una suma, es
+        // sólo el camino hacia abajo del parser, y trazarlo llenaría la página de ruido.
+        if FTokKind in [FTokKind::Plus, FTokKind::Minus] then begin
+            Orden += 1;
+            AnotarTermino(Nivel, Orden, '+', Inicio, Result, Result);
+            while FTokKind in [FTokKind::Plus, FTokKind::Minus] do begin
+                Op := FTokKind;
+                NextTok();
+                Inicio := FTokStart;
+                Termino := ParseMulDiv();
+                Orden += 1;
+                if Op = FTokKind::Plus then begin
+                    Result += Termino;
+                    AnotarTermino(Nivel, Orden, '+', Inicio, Termino, Result);
+                end else begin
+                    Result -= Termino;
+                    AnotarTermino(Nivel, Orden, '-', Inicio, Termino, Result);
+                end;
+            end;
+        end;
+
+        FTrazaNivel -= 1;
         exit(Result);
+    end;
+
+    // Una fila de la traza. El texto del término se recorta del original entre donde arrancó y
+    // donde está parado el parser ahora — que es el comienzo del token siguiente, o sea el
+    // operador que cierra este término (o el fin de la expresión).
+    local procedure AnotarTermino(Nivel: Integer; Orden: Integer; Signo: Text; Inicio: Integer; Valor: Decimal; Acumulado: Decimal)
+    var
+        Trozo: Text;
+        Fin: Integer;
+    begin
+        Fin := FTokStart;
+        if FTokKind = FTokKind::EOF then
+            Fin := FLen + 1;
+        if Fin <= Inicio then
+            Trozo := ''
+        else
+            Trozo := CopyStr(FExpr, Inicio, Fin - Inicio);
+
+        // APLANAR EL TÉRMINO ANTES DE METERLO EN LA FILA. Las fórmulas se guardan formateadas en
+        // varias líneas, así que el trozo recortado puede traer saltos adentro —no sólo al final—
+        // y cada uno partiría la fila en dos al volcar la traza. Se reemplazan por espacios los
+        // tres caracteres que usa el formato: TAB separa campos, CR y LF separan filas.
+        Trozo := Trozo.Replace(TabChar(), ' ').Replace(CrChar(), ' ').Replace(LfChar(), ' ');
+        while StrPos(Trozo, '  ') > 0 do
+            Trozo := Trozo.Replace('  ', ' ');
+        Trozo := Trozo.Trim();
+
+        FTraza += Format(Nivel) + TabChar() + Format(Orden) + TabChar() + Signo + TabChar() +
+                  Format(Valor, 0, 9) + TabChar() + Format(Acumulado, 0, 9) + TabChar() + Trozo +
+                  LfChar();
+    end;
+
+    // Los separadores. Se arman asignando el código a un Char porque AL no tiene Chr() y
+    // Format(9, 0, '<Char>') —que parece razonable— no es una expresión de formato válida:
+    // revienta en tiempo de ejecución con "campo o atributo no válido para la propiedad Format".
+    local procedure TabChar(): Text
+    var
+        C: Char;
+    begin
+        C := 9;
+        exit(Format(C));
+    end;
+
+    local procedure CrChar(): Text
+    var
+        C: Char;
+    begin
+        C := 13;
+        exit(Format(C));
+    end;
+
+    local procedure LfChar(): Text
+    var
+        C: Char;
+    begin
+        C := 10;
+        exit(Format(C));
+    end;
+
+    /// <summary>
+    /// Precarga el valor de una referencia @CÓDIGO o #CÓDIGO en vez de dejar que el evaluador la
+    /// recalcule contra la base. Lo usa el detalle de cálculo para reproducir una línea con los
+    /// valores que REALMENTE se usaron el día que se liquidó: sin esto, una fórmula como
+    /// "-(#4423 + #4433)" volvería a calcular esos dos conceptos con los datos de hoy y el
+    /// resultado podría no coincidir con el importe guardado.
+    /// </summary>
+    procedure SeedConceptoRef(CodigoConcepto: Text; Valor: Decimal)
+    begin
+        if FLastConceptoRefValues.ContainsKey(CodigoConcepto) then
+            FLastConceptoRefValues.Set(CodigoConcepto, Valor)
+        else
+            FLastConceptoRefValues.Add(CodigoConcepto, Valor);
+    end;
+
+    /// <summary>
+    /// Enciende la traza de sumas y restas. La consume la página de detalle de cálculo, que
+    /// re-evalúa la fórmula GUARDADA en la línea con los valores GUARDADOS en el detalle de
+    /// variables — no la fórmula de hoy, que puede haber cambiado desde que se liquidó.
+    /// </summary>
+    procedure ActivarTraza(Activa: Boolean)
+    begin
+        FTrazaActiva := Activa;
+        FTraza := '';
+        FTrazaNivel := 0;
+    end;
+
+    /// <summary>
+    /// Devuelve la traza como filas separadas por LF, con los campos separados por TAB:
+    /// Nivel, Orden, Signo, Valor, Acumulado, Texto del término.
+    /// </summary>
+    procedure GetTraza(): Text
+    begin
+        exit(FTraza);
     end;
 
     local procedure ParseMulDiv(): Decimal
@@ -260,7 +411,10 @@ codeunit 50015 "Evaluador Fórmula"
             else begin
                 Divisor := ParseUnary();
                 if Divisor = 0 then begin
-                    if FLenient then
+                    // En validación los valores son ficticios (todos en cero): dividir por una
+                    // variable no es un error de la fórmula, es una consecuencia de no haber
+                    // resuelto los valores. El error de verdad, si existe, aparece al calcular.
+                    if FLenient or FModoValidacion then
                         Result := 0
                     else
                         Error(ErrDivCero);
@@ -347,8 +501,18 @@ codeunit 50015 "Evaluador Fórmula"
                     // ROUND(value, precision)
                     Arg2 := ParseOr();
                     Expect(FTokKind::Comma);
-                    Result := Round(Arg2, ParseOr());
+                    Arg3 := ParseOr();
                     Expect(FTokKind::RPar);
+                    // Con precisión 0 la plataforma corta con un error propio ("the rounding
+                    // precision must not be 0") que desde una fórmula no se entiende. En validación
+                    // la precisión sale de una variable en cero, así que se devuelve sin redondear.
+                    if Arg3 = 0 then begin
+                        if FLenient or FModoValidacion then
+                            Result := Arg2
+                        else
+                            Error(ErrPrecisionCero);
+                    end else
+                        Result := Round(Arg2, Arg3);
                 end;
             'ABS':
                 begin
@@ -413,14 +577,25 @@ codeunit 50015 "Evaluador Fórmula"
                     if Arg2 <> 0 then begin
                         Result := ParseOr();
                         Expect(FTokKind::Comma);
-                        SkipExpression();
+                        SaltearOValidar();
                     end else begin
-                        SkipExpression();
+                        SaltearOValidar();
                         Expect(FTokKind::Comma);
                         Result := ParseOr();
                     end;
                     Expect(FTokKind::RPar);
                 end;
+            'CASE':
+                // CASE(cond1, valor1, cond2, valor2, …, default)
+                //
+                // Devuelve el valor de la PRIMERA condición verdadera. El argumento suelto del final
+                // —cuando la cantidad es impar— es el default; con cantidad par no hay default y el
+                // resultado es 0. Perezosa como el IF: solo se evalúa el valor que se devuelve.
+                //
+                // Es azúcar sobre IF anidados y existe por legibilidad: una escala de cuatro tramos
+                // son tres IF encajados y siete paréntesis, y esa profundidad es lo que hace que un
+                // paréntesis faltante se reporte a diez caracteres del lugar donde está el error.
+                Result := EvalCase();
             'DIV':
                 begin
                     // DIV(a, b) — safe division: returns 0 when b = 0 instead of error.
@@ -478,13 +653,22 @@ codeunit 50015 "Evaluador Fórmula"
         ResultCacheKey: Text;
         Result: Decimal;
     begin
-        if Value <= 0 then
+        if Value <= 0 then begin
+            // Se loguea igual: una fórmula con TRAMO que devuelve cero es justamente el caso que uno
+            // viene a mirar al detalle, y sin fila parece que la función nunca se llamó.
+            AppendParamLog(EntradaTramo(TableCode, 0, StrSubstNo(TxtTramoSinBase, FormatImporte(Value))));
             exit(0);
+        end;
 
-        // Result cache: exact (TableCode, Value) pair seen before in this liquidation
-        ResultCacheKey := TableCode + '|' + Format(Value);
-        if FTramoResultCache.ContainsKey(ResultCacheKey) then
+        // Result cache: exact (TableCode, Value) pair seen before in this liquidation.
+        // La clave va en formato invariante: con el formato local, un separador decimal distinto
+        // haría que el mismo valor genere dos claves.
+        ResultCacheKey := TableCode + '|' + Format(Value, 0, 9);
+        if FTramoResultCache.ContainsKey(ResultCacheKey) then begin
+            if FTramoLogCache.ContainsKey(ResultCacheKey) then
+                AppendParamLog(FTramoLogCache.Get(ResultCacheKey));
             exit(FTramoResultCache.Get(ResultCacheKey));
+        end;
 
         // Vigencia cache: avoid repeating Cab.FindLast for the same table
         if FTramoVigCache.ContainsKey(TableCode) then
@@ -495,13 +679,13 @@ codeunit 50015 "Evaluador Fórmula"
             if not Cab.FindLast() then begin
                 if FLenient then begin
                     FTramoResultCache.Add(ResultCacheKey, 0);
+                    GuardarLogTramo(ResultCacheKey, TableCode, 0, StrSubstNo(TxtTramoSinTabla, FFechaRef));
                     exit(0);
                 end;
                 Error(ErrTablaEscalonada, TableCode, FFechaRef);
             end;
             VigenciaEfectiva := Cab."Vigencia Desde";
             FTramoVigCache.Add(TableCode, VigenciaEfectiva);
-            AppendParamLog('TRAMO:' + TableCode + '|' + Format(VigenciaEfectiva));
         end;
 
         // Find the tramo that contains Value
@@ -511,8 +695,13 @@ codeunit 50015 "Evaluador Fórmula"
         Det.SetFilter("Límite Inferior", '<=%1', Value);
         Det.SetFilter("Límite Superior", '%1|>=%2', 0, Value); // 0 = unbounded
         if not Det.FindLast() then begin
-            if FLenient then begin
+            // "No hay tramo para ESTE valor" depende del valor, así que en validación no dice nada:
+            // el importe con el que se va a consultar todavía no existe. Que la TABLA no exista, en
+            // cambio, es un error de configuración y se sigue reportando.
+            if FLenient or FModoValidacion then begin
                 FTramoResultCache.Add(ResultCacheKey, 0);
+                GuardarLogTramo(ResultCacheKey, TableCode, 0,
+                    StrSubstNo(TxtTramoSinTramo, VigenciaEfectiva, FormatImporte(Value)));
                 exit(0);
             end;
             Error(ErrTramoNoEncontrado, TableCode, Value);
@@ -520,12 +709,158 @@ codeunit 50015 "Evaluador Fórmula"
 
         Result := Det."Monto Fijo" + (Det.Porcentaje / 100) * (Value - Det."Límite Inferior");
         FTramoResultCache.Add(ResultCacheKey, Result);
+        GuardarLogTramo(ResultCacheKey, TableCode, Result, DescribirTramo(Det, Value));
         exit(Result);
+    end;
+
+    /// <summary>
+    /// Arma la entrada de log de una consulta TRAMO: código, valor devuelto y en qué tramo cayó.
+    /// </summary>
+    /// <remarks>
+    /// El separador interno es "~" porque el "|" ya separa las ENTRADAS del log. La entrada vieja
+    /// —'TRAMO:CODIGO|fecha'— se partía en dos al leerla y la fecha quedaba como una entrada suelta.
+    ///
+    /// El valor va en formato invariante (Format(x, 0, 9)) porque del otro lado se lee con Evaluate:
+    /// escrito con el formato local, una coma decimal lo convierte en otro número.
+    /// </remarks>
+    local procedure EntradaTramo(TableCode: Text; Result: Decimal; Detalle: Text): Text
+    begin
+        exit('TRAMO:' + TableCode + '~' + Format(Result, 0, 9) + '~' + DelChr(Detalle, '=', '|~'));
+    end;
+
+    local procedure GuardarLogTramo(ClaveCache: Text; TableCode: Text; Result: Decimal; Detalle: Text)
+    var
+        Entrada: Text;
+    begin
+        Entrada := EntradaTramo(TableCode, Result, Detalle);
+        if not FTramoLogCache.ContainsKey(ClaveCache) then
+            FTramoLogCache.Add(ClaveCache, Entrada);
+        AppendParamLog(Entrada);
+    end;
+
+    local procedure DescribirTramo(var Det: Record "Tabla Escalonada Det."; Value: Decimal): Text
+    var
+        Hasta: Text;
+    begin
+        if Det."Límite Superior" = 0 then
+            Hasta := TxtSinLimite
+        else
+            Hasta := FormatImporte(Det."Límite Superior");
+        exit(StrSubstNo(TxtTramoDet, Det."No. Tramo", Det."Vigencia Desde", FormatImporte(Value),
+            FormatImporte(Det."Límite Inferior"), Hasta,
+            FormatImporte(Det."Monto Fijo"), Format(Det.Porcentaje)));
+    end;
+
+    local procedure FormatImporte(Valor: Decimal): Text
+    begin
+        exit(Format(Round(Valor, 0.01), 0, '<Precision,2:2><Standard Format,0>'));
+    end;
+
+    /// <summary>
+    /// Evalúa un CASE variádico, consumiendo hasta el paréntesis de cierre inclusive.
+    /// </summary>
+    /// <remarks>
+    /// No cuenta los argumentos de antemano —no puede: contarlos exigiría parsearlos, y parsear es
+    /// evaluar en este diseño—. Se apoya en una propiedad del recorrido: si después de una condición
+    /// viene ')' en vez de ',', esa expresión no era una condición sino el default. Y llegar hasta
+    /// ahí significa que ninguna condición anterior dio verdadera, así que devolverla es exactamente
+    /// lo correcto.
+    /// </remarks>
+    local procedure EvalCase(): Decimal
+    var
+        Cond: Decimal;
+        Elegido: Decimal;
+        Pares: Integer;
+    begin
+        while true do begin
+            Cond := ParseOr();
+
+            if FTokKind = FTokKind::RPar then begin
+                // Argumento sin par = default. Con un solo argumento no hay ninguna condición y la
+                // fórmula está mal escrita: un CASE(x) es un x con paréntesis de más.
+                if Pares = 0 then
+                    Error(ErrCaseSinPares);
+                Expect(FTokKind::RPar);
+                exit(Cond);
+            end;
+
+            Expect(FTokKind::Comma);
+            Pares += 1;
+
+            if Cond <> 0 then begin
+                Elegido := ParseOr();
+                SaltearRestoCase();
+                exit(Elegido);
+            end;
+
+            SaltearOValidar();
+            if FTokKind = FTokKind::RPar then begin
+                // Cantidad par de argumentos: ninguna condición dio verdadera y no hay default.
+                Expect(FTokKind::RPar);
+                exit(0);
+            end;
+            Expect(FTokKind::Comma);
+        end;
+    end;
+
+    local procedure SaltearRestoCase()
+    begin
+        while FTokKind = FTokKind::Comma do begin
+            Expect(FTokKind::Comma);
+            SaltearOValidar();
+        end;
+        Expect(FTokKind::RPar);
+    end;
+
+    /// <summary>
+    /// Descarta la rama no elegida: la saltea sin parsear, o la parsea si estamos validando.
+    /// </summary>
+    /// <remarks>
+    /// En un cálculo real la rama muerta se saltea a nivel de tokens, y eso es lo que permite que un
+    /// IF proteja una división por cero: la expresión peligrosa nunca se ejecuta.
+    ///
+    /// Pero saltear sin parsear también significa que un error de sintaxis o una variable inexistente
+    /// escondidos en una rama que hoy no se toma no los detecta nadie —ni la validación previa al
+    /// cálculo— hasta el día que la condición cambie y esa rama se vuelva la elegida. Con IF son dos
+    /// ramas; con CASE pueden ser ocho, así que el agujero crece.
+    ///
+    /// En los modos de validación, entonces, la rama sí se parsea y su resultado se descarta. Ahí es
+    /// seguro: esos modos ya toleran los errores que dependen del VALOR —dividir por una variable en
+    /// cero, un tramo inexistente, redondear con precisión cero— y dejan pasar solo los estructurales,
+    /// que son justamente los que se quieren encontrar.
+    /// </remarks>
+    local procedure SaltearOValidar()
+    var
+        Descartado: Decimal;
+    begin
+        if FLenient or FModoValidacion then
+            Descartado := ParseOr()
+        else
+            SkipExpression();
     end;
 
     procedure SetLenientMode(Lenient: Boolean)
     begin
         FLenient := Lenient;
+    end;
+
+    /// <summary>
+    /// Modo validación: tolera los errores que dependen del VALOR, no de la fórmula.
+    /// </summary>
+    /// <remarks>
+    /// La fase 1 del motor valida contra un contexto de nombres con todos los valores en cero, para
+    /// no pagar dos veces la resolución completa. Con esos valores ficticios, dividir por una
+    /// variable, buscar el tramo de un importe inexistente o redondear con precisión cero dejan de
+    /// ser errores de la fórmula y pasan a ser ruido. Lo estructural —variable desconocida, función
+    /// inexistente, tabla escalonada que no existe, sintaxis— se sigue reportando, que es para lo
+    /// que la validación existe.
+    ///
+    /// No es lo mismo que el modo tolerante: ése además hace desaparecer las variables desconocidas,
+    /// y eso es justamente lo que hay que detectar.
+    /// </remarks>
+    procedure SetModoValidacion(Activo: Boolean)
+    begin
+        FModoValidacion := Activo;
     end;
 
     local procedure ResolveVariable(VarName: Text): Decimal
@@ -664,9 +999,16 @@ codeunit 50015 "Evaluador Fórmula"
         Start: Integer;
         NumText: Text;
     begin
-        // Skip whitespace
-        while (FPos <= FLen) and (FExpr[FPos] = ' ') do
+        // Espacios, tabulaciones y saltos de línea. Los saltos importan desde que las fórmulas se
+        // guardan formateadas en varias líneas: antes el campo las aplanaba al validar, así que un
+        // CR o un LF no podían llegar hasta acá y caían en el else como "token inesperado".
+        while (FPos <= FLen) and EsEspacio(FExpr[FPos]) do
             FPos += 1;
+
+        // Dónde ARRANCA el token que se va a leer. La traza lo necesita para recortar del texto
+        // original el trozo que corresponde a cada término de una suma: sin esto sólo se puede
+        // mostrar el valor de cada término, no cómo estaba escrito.
+        FTokStart := FPos;
 
         if FPos > FLen then begin
             FTokKind := FTokKind::EOF;
@@ -768,11 +1110,18 @@ codeunit 50015 "Evaluador Fórmula"
             IsDigit(C) or (C = '.'):
                 begin
                     Start := FPos;
-                    // Consume digits, '.', and ',' when followed by a digit (decimal separator).
-                    while (FPos <= FLen) and
-                          (IsDigit(FExpr[FPos]) or (FExpr[FPos] = '.') or
-                           ((FExpr[FPos] = ',') and (FPos + 1 <= FLen) and IsDigit(FExpr[FPos + 1])))
-                    do
+                    // Solo dígitos y punto. La coma es SIEMPRE separador de argumentos.
+                    //
+                    // Antes una coma entre dígitos se consumía como separador decimal, y eso rompía
+                    // en silencio el patrón más común de todos: IF(condición,0,otra_cosa). El "0,0"
+                    // se leía como UN número —cero coma cero— y la función quedaba con dos
+                    // argumentos en vez de tres. La fórmula se veía impecable y fallaba, o peor,
+                    // resolvía otra cosa.
+                    //
+                    // El decimal se escribe con punto, que es como están escritas todas las fórmulas
+                    // cargadas (round(...,0.0001)). Si alguna usara coma —1,5— ahora se parte en dos
+                    // argumentos y falla al validar, ruidosamente, que es lo que corresponde.
+                    while (FPos <= FLen) and (IsDigit(FExpr[FPos]) or (FExpr[FPos] = '.')) do
                         FPos += 1;
                     NumText := CopyStr(FExpr, Start, FPos - Start);
                     if not ParseDecimalLiteral(NumText, FTokNum) then
@@ -802,6 +1151,11 @@ codeunit 50015 "Evaluador Fórmula"
         end;
     end;
 
+    local procedure EsEspacio(C: Char): Boolean
+    begin
+        exit((C = ' ') or (C = 9) or (C = 10) or (C = 13));
+    end;
+
     local procedure Expect(Kind: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq)
     begin
         if FTokKind <> Kind then
@@ -825,9 +1179,10 @@ codeunit 50015 "Evaluador Fórmula"
         FracLen: Integer;
         i: Integer;
     begin
-        // Comma decimal (e.g. '0,11'): Evaluate handles it correctly in Spanish BC.
+        // Ya no llegan comas: el tokenizador corta el número en la coma porque es separador de
+        // argumentos. Se deja el rechazo explícito por si alguien vuelve a meterla por otra vía.
         if NumText.Contains(',') then
-            exit(Evaluate(Value, NumText));
+            exit(false);
 
         // Period decimal (e.g. '0.11'): split manually to avoid locale ambiguity.
         DotPos := NumText.IndexOf('.');
@@ -863,9 +1218,23 @@ codeunit 50015 "Evaluador Fórmula"
         exit((C >= '0') and (C <= '9'));
     end;
 
+    /// <remarks>
+    /// Incluye las letras del español. Los nombres que el evaluador tiene que leer los escribe una
+    /// persona en campos Code —código de concepto, nombre de variable de un parámetro o de una fuente
+    /// de datos— y esos campos aceptan Ñ y acentos. Sin esto, la plataforma dejaba crear
+    /// AÑOS_ANTIGUEDAD y después el tokenizador cortaba el identificador en la Ñ: la fórmula fallaba
+    /// con "Variable desconocida: A", que no se parece en nada al problema real.
+    /// </remarks>
     local procedure IsAlpha(C: Char): Boolean
     begin
-        exit(((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z')));
+        if ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z')) then
+            exit(true);
+        exit(EsLetraEspañola(C));
+    end;
+
+    local procedure EsLetraEspañola(C: Char): Boolean
+    begin
+        exit(C in ['Ñ', 'ñ', 'Á', 'á', 'É', 'é', 'Í', 'í', 'Ó', 'ó', 'Ú', 'ú', 'Ü', 'ü']);
     end;
 
     local procedure IsAlphaNum(C: Char): Boolean
@@ -890,11 +1259,18 @@ codeunit 50015 "Evaluador Fórmula"
 
     var
         ErrDivCero: Label 'División por cero en la fórmula.';
+        ErrPrecisionCero: Label 'ROUND con precisión 0: la precisión no puede ser cero. Revisá la variable que la define.';
         ErrTokenInesperado: Label 'Token inesperado: "%1".';
         ErrTokenEsperado: Label 'Se esperaba token %1 pero se encontró "%2".';
-        ErrVariableDesconocida: Label 'Variable desconocida en la fórmula: "%1". Verifique la configuración de Fuente Datos Liquidación.';
+        ErrVariableDesconocida: Label 'Variable desconocida en la fórmula: "%1". Ningún Parámetro, Variable de Sistema, Fuente de Datos ni Tipo de Atributo la define con ese Nombre Variable.';
         ErrFuncionDesconocida: Label 'Función desconocida: "%1".';
+        ErrCaseSinPares: Label 'CASE necesita al menos una condición con su valor: CASE(condición, valor, …, default).';
         ErrNumeroInvalido: Label 'Número inválido en la fórmula: "%1".';
+        TxtTramoDet: Label 'Tramo %1 · vigencia %2 · base %3 · de %4 a %5 · fijo %6 + %7%% s/excedente';
+        TxtTramoSinBase: Label 'No se consultó la tabla: la base es %1.';
+        TxtTramoSinTabla: Label 'No hay ninguna versión de la tabla vigente al %1.';
+        TxtTramoSinTramo: Label 'La versión vigente desde el %1 no tiene ningún tramo que contenga %2.';
+        TxtSinLimite: Label 'sin límite';
         ErrTablaEscalonada: Label 'No se encontró la tabla escalonada "%1" vigente al %2.';
         ErrTramoNoEncontrado: Label 'El valor %2 no corresponde a ningún tramo de la tabla "%1".';
         ErrConceptoRefNoEncontrado: Label 'Variable desconocida: la fórmula referencia @%1, pero no existe ningún concepto "%1" vigente (no existe).';

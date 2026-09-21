@@ -173,7 +173,7 @@ table 60015 "Fuente Datos Liquidación"
             // For effective-dated tables (e.g. Estado Empleado, sin campo Fecha Fin): the interval end of
             // each row is derived as the next row's start date − 1 for the same entity, ignoring the row's
             // constant selection filters (only the token filters — {EMP_NO}, {JOB_NO}… — scope the entity).
-            // Applies to DIAS_OVERLAP/DURACION_INICIO/DURACION_ANIO.
+            // Applies to DIAS_OVERLAP/DURACION_INICIO/DURACION_AÑO.
         }
         field(16; "Etiqueta Recibo"; Text[100])
         {

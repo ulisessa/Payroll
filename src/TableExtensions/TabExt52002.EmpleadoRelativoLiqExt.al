@@ -17,7 +17,7 @@ tableextension 52002 "Empleado Relativo Liq. Ext." extends "Employee Relative"
 
             trigger OnValidate()
             begin
-                if ("Cód. Tipo Ded." <> '') and ("Fecha Ingreso Impuesto" <> 0D) and ("% Deducción" = 0) then
+                if ("Cód. Tipo Ded." <> '') and TieneFechaAltaImpositiva() and ("% Deducción" = 0) then
                     "% Deducción" := 100;
             end;
         }
@@ -25,17 +25,15 @@ tableextension 52002 "Empleado Relativo Liq. Ext." extends "Employee Relative"
         {
             Caption = 'Fecha Ingreso Impuesto';
             DataClassification = CustomerContent;
-
-            trigger OnValidate()
-            begin
-                if ("Cód. Tipo Ded." <> '') and ("Fecha Ingreso Impuesto" <> 0D) and ("% Deducción" = 0) then
-                    "% Deducción" := 100;
-            end;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Unificado en Fecha alta (familiar a cargo).';
         }
         field(50212; "Fecha Egreso Impuesto"; Date)
         {
             Caption = 'Fecha Egreso Impuesto';
             DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Unificado en Fecha baja (familiar a cargo).';
         }
         field(50213; "% Deducción"; Decimal)
         {
@@ -59,5 +57,38 @@ tableextension 52002 "Empleado Relativo Liq. Ext." extends "Employee Relative"
             Caption = 'Nro. Documento';
             DataClassification = CustomerContent;
         }
+        field(50216; "Adic. Obra Social"; Boolean)
+        {
+            Caption = 'Adic. Obra Social';
+            DataClassification = CustomerContent;
+            // Marca familiares a cargo por fuera del grupo habitual para calcular el
+            // adicional de obra social del trabajador (1,5% por cada uno).
+        }
     }
+
+    local procedure TieneFechaAltaImpositiva(): Boolean
+    var
+        RecRef: RecordRef;
+    begin
+        RecRef.GetTable(Rec);
+        // Canónica primero, legacy después: ver la cascada de Cod50016, que es la que manda.
+        exit((LeerFechaLegacy(RecRef, 50000) <> 0D) or
+               (LeerFechaLegacy(RecRef, 50010) <> 0D) or
+               (LeerFechaLegacy(RecRef, 50008) <> 0D));
+    end;
+
+    local procedure LeerFechaLegacy(var RecRef: RecordRef; FieldNo: Integer): Date
+    var
+        FieldVar: FieldRef;
+        V: Variant;
+        Result: Date;
+    begin
+        if not RecRef.FieldExist(FieldNo) then
+            exit(0D);
+        FieldVar := RecRef.Field(FieldNo);
+        V := FieldVar.Value();
+        if V.IsDate() then
+            Result := V;
+        exit(Result);
+    end;
 }

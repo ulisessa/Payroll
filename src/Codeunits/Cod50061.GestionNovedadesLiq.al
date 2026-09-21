@@ -98,25 +98,13 @@ codeunit 50066 "Gestión Novedades Liq."
     // Una liquidación mensual abarca todo el período; un cierre de marea, solo los días del viaje.
     // Sin esta distinción, el mensual y el cierre de marea del mismo período se llevarían las
     // mismas novedades y la que llegara segunda quedaría sin efecto.
+    //
+    // La regla vive en la tabla Liquidación y se delega ahí: es la misma que el motor guarda en
+    // "Cobertura Desde"/"Cobertura Hasta" y la que usa el control de cobertura. Mantener una copia
+    // acá haría que una novedad pudiera entrar en una liquidación que el control da por no cubierta.
     local procedure CalcularRangoLiquidacion(Liq: Record "Liquidación"; var Desde: Date; var Hasta: Date)
-    var
-        Periodo: Record "Período Liquidación";
-        TipoLiqRec: Record "Tipo Liquidación";
-        Job: Record Job;
     begin
-        if not Periodo.Get(Liq."Cód. Período") then
-            exit;
-        Desde := Periodo."Fecha Desde";
-        Hasta := Periodo."Fecha Hasta";
-
-        if not TipoLiqRec.EsArribo(Liq."Cód. Tipo Liq.") then
-            exit;
-        if (Liq."No. Proyecto" = '') or not Job.Get(Liq."No. Proyecto") then
-            exit;
-        if (Job."Starting Date" <> 0D) and (Job."Starting Date" > Desde) then
-            Desde := Job."Starting Date";
-        if (Job."Ending Date" <> 0D) and (Job."Ending Date" < Hasta) then
-            Hasta := Job."Ending Date";
+        Liq.Cobertura(Desde, Hasta);
     end;
 
     // Regla única de correspondencia novedad → liquidación. Campo selector en blanco = cualquiera.
@@ -124,26 +112,122 @@ codeunit 50066 "Gestión Novedades Liq."
     begin
         if (Nov."Cód. Tipo Liq." <> '') and (Nov."Cód. Tipo Liq." <> Liq."Cód. Tipo Liq.") then
             exit(false);
-        if (Nov."Cód. Convenio" <> '') and (Nov."Cód. Convenio" <> Liq."Cód. Convenio") then
-            exit(false);
-        if (Nov."Cód. Categoría" <> '') and (Nov."Cód. Categoría" <> Liq."Cód. Categoría") then
-            exit(false);
+        // El encuadre filtra SOLO en las novedades colectivas. Con un empleado nombrado, comparar
+        // además convenio y categoría no puede incluir nada que el empleado no incluyera ya: solo
+        // puede excluir. Y excluía — en silencio, sin error y sin motivo anotado — cada vez que el
+        // par de la novedad no coincidía con el de la liquidación, cosa perfectamente posible desde
+        // que la liquidación resuelve el suyo contra los atributos vigentes (ver
+        // ProponerParDelEmpleado en Novedad Liquidación).
+        //
+        // Los campos siguen existiendo y mostrándose: para una novedad individual son el encuadre
+        // con el que se cargó, no una condición.
+        if Nov."No. Empleado" = '' then begin
+            if (Nov."Cód. Convenio" <> '') and (Nov."Cód. Convenio" <> Liq."Cód. Convenio") then
+                exit(false);
+            if (Nov."Cód. Categoría" <> '') and (Nov."Cód. Categoría" <> Liq."Cód. Categoría") then
+                exit(false);
+        end;
         if (Nov."No. Empleado" <> '') and (Nov."No. Empleado" <> Liq."No. Empleado") then
             exit(false);
-        if (Nov."No. Proyecto" <> '') and (Nov."No. Proyecto" <> Liq."No. Proyecto") then
+
+        // EL PROYECTO: si la novedad lo nombra, manda; si no, lo decide el HISTORIAL DE ESTADOS.
+        //
+        // Con el proyecto en blanco, la fecha sola no alcanza para elegir: un tripulante tiene el
+        // mensual y el cierre de marea cubriendo los mismos días, las dos coberturas contienen la
+        // fecha y la novedad caía en la que se calculara primero. No se cobraba dos veces —para eso
+        // está la regla de más abajo— pero en cuál entraba dependía del orden, que no es un criterio.
+        //
+        // El historial de estados sí sabe qué estaba haciendo la persona ESE día: si estaba navegando,
+        // el estado nombra la marea y la novedad es de esa marea; si estaba en francos u órdenes,
+        // nombra el proyecto de nómina y la novedad es del mensual.
+        //
+        // Un proyecto cargado a mano en la novedad sigue ganando: es la excepción explícita. Y si el
+        // día no cae en ningún estado, o el estado no tiene proyecto, no se filtra por proyecto:
+        // se vuelve al comportamiento anterior en vez de descartar la novedad sin motivo.
+        if not ProyectoAplica(Nov, Liq) then
             exit(false);
+
         if Nov.Fecha <> 0D then
             if (Nov.Fecha < RangoDesde) or (Nov.Fecha > RangoHasta) then
                 exit(false);
-        // Ya entró en otra liquidación del mismo período (típico: mensual y cierre de marea del
-        // mismo empleado). Cobrarla dos veces sería peor que no cobrarla.
+        // Ya entró en otra liquidación DEL MISMO EMPLEADO (típico: mensual y cierre de marea de la
+        // misma persona en el mismo período). Cobrarla dos veces sería peor que no cobrarla.
+        //
+        // La comparación es por EMPLEADO y no por número de liquidación. Una novedad colectiva
+        // —empleado en blanco, acotada por proyecto, convenio o categoría— tiene que entrar en la
+        // liquidación de cada tripulante alcanzado. Comparando números, la primera liquidación que se
+        // calculaba se la llevaba entera: quedaba Aplicada con ese número y al resto de la
+        // tripulación no le llegaba nada. Sin error, sin motivo anotado y con la novedad mostrándose
+        // "Aplicada" en la hoja, que es la peor forma de fallar.
+        //
+        // Dentro de un proyecto un empleado no tiene más de una liquidación por fecha, así que el
+        // empleado alcanza para identificar el doble cobro.
         if (Nov.Estado = Nov.Estado::Aplicada) and (Nov."No. Liquidación" <> '') and (Nov."No. Liquidación" <> Liq."No.") then
-            exit(false);
+            if EmpleadoDeLiquidacion(Nov."No. Liquidación") = Liq."No. Empleado" then
+                exit(false);
         exit(true);
+    end;
+
+    /// <summary>¿El proyecto de esta liquidación es el que le corresponde a la novedad?</summary>
+    /// <remarks>
+    /// El empleado sale de la novedad, y si es colectiva —empleado en blanco— del de la liquidación:
+    /// una novedad colectiva alcanza a varios tripulantes y a cada uno hay que preguntarle por SU
+    /// estado de ese día, no por uno común que no existe.
+    /// </remarks>
+    local procedure ProyectoAplica(Nov: Record "Novedad Liquidación"; Liq: Record "Liquidación"): Boolean
+    var
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
+        EstadoEmp: Record "Estado Empleado";
+        EmpNo: Code[20];
+    begin
+        if Nov."No. Proyecto" <> '' then
+            exit(Nov."No. Proyecto" = Liq."No. Proyecto");
+
+        if Nov.Fecha = 0D then
+            exit(true);
+
+        EmpNo := Nov."No. Empleado";
+        if EmpNo = '' then
+            EmpNo := Liq."No. Empleado";
+        if EmpNo = '' then
+            exit(true);
+
+        if not EstadoMgt.GetEstado(EmpNo, Nov.Fecha, EstadoEmp) then
+            exit(true);
+        if EstadoEmp."No. Proyecto" = '' then
+            exit(true);
+
+        exit(EstadoEmp."No. Proyecto" = Liq."No. Proyecto");
+    end;
+
+    local procedure EmpleadoDeLiquidacion(NoLiq: Code[20]): Code[20]
+    var
+        Otra: Record "Liquidación";
+    begin
+        if NoLiq = '' then
+            exit('');
+        Otra.SetLoadFields("No. Empleado");
+        if Otra.Get(NoLiq) then
+            exit(Otra."No. Empleado");
+        exit('');
     end;
 
     local procedure AcumularEnTemp(var TempAcum: Record "Incidencia Liquidación" temporary; Nov: Record "Novedad Liquidación")
     begin
+        // Un unitario cargado que nunca llegó al Importe es plata que se evapora sin dejar rastro:
+        // el Importe de la novedad solo se calcula cuando Cantidad y Valor Unitario son los DOS
+        // distintos de cero, así que cargar el unitario y dejar la cantidad en cero materializa una
+        // incidencia en cero y el concepto liquida 0,00 sin un solo error.
+        //
+        // Se avisa y no se corta: cantidad cero con un unitario cargado también puede querer decir
+        // "este mes no hubo consumo", y eso es legítimo. El aviso va acá porque es el único punto
+        // donde se saben las dos cosas a la vez — qué se quiso cargar y qué va a salir.
+        if (Nov.Importe = 0) and (Nov.Cantidad = 0) and (Nov."Valor Unitario" <> 0) then
+            Registro.AdvertirVariable(
+                "Categoría Registro Liq."::Novedad,
+                StrSubstNo(RegNovedadSinImporteTxt, Nov."Cód. Concepto", Nov."Valor Unitario"),
+                '', Nov."Cód. Concepto");
+
         if not TempAcum.Get('', Nov."Cód. Concepto") then begin
             TempAcum.Init();
             TempAcum."No. Liquidación" := '';
@@ -205,6 +289,11 @@ codeunit 50066 "Gestión Novedades Liq."
         MarcarNovedades(Liq, TempAcum."Cód. Concepto", RangoDesde, RangoHasta, Motivo);
     end;
 
+    /// <remarks>
+    /// "No. Liquidación" es uno solo, así que en una novedad colectiva queda anotada la ÚLTIMA
+    /// liquidación que la tomó, no las N. El rastro por liquidación no se pierde: cada incidencia
+    /// generada queda marcada con "Desde Novedad", y es una por liquidación.
+    /// </remarks>
     local procedure MarcarNovedades(var Liq: Record "Liquidación"; CodConcepto: Code[20]; RangoDesde: Date; RangoHasta: Date; Motivo: Text[250])
     var
         Nov: Record "Novedad Liquidación";
@@ -637,6 +726,7 @@ codeunit 50066 "Gestión Novedades Liq."
     var
         Registro: Codeunit "Registro Procesos Liq.";
         RegNovedadAplicadaTxt: Label 'Novedad aplicada al concepto %1.';
+        RegNovedadSinImporteTxt: Label 'La novedad del concepto %1 tiene Valor Unitario %2 pero Cantidad 0, así que su Importe quedó en cero y el concepto va a liquidar 0,00. Si el unitario ES el importe, cargá Cantidad 1 o escribilo en el campo Importe.', Comment = '%1=código de concepto, %2=valor unitario cargado';
         RegNovedadSalteadaTxt: Label 'Novedad NO aplicada al concepto %1: la liquidación ya tenía una incidencia cargada a mano o por préstamos.';
         MotivoYaExisteTxt: Label 'La liquidación %2 ya tenía una incidencia para %1 cargada a mano o por préstamos: se respetó esa y la novedad quedó sin aplicar.';
         ErrFaltanPeriodos: Label 'Indicá el período de origen y el de destino.';

@@ -8,7 +8,9 @@ page 50196 "Tipo Liq. Selección Sub"
     Caption = 'Tipos de Liquidación';
     SourceTable = "Tipo Liq. Selección Buffer";
     SourceTableTemporary = true;
-    // FactBox parts render read-only by default unless the part page explicitly opts in.
+    // Esta parte tiene que ir en el area(Content) de la página que la hospeda. En area(FactBoxes) el
+    // cliente web la dibuja de solo lectura y las tildes quedan inertes: este Editable = true NO
+    // alcanza para revertirlo.
     Editable = true;
 
     layout

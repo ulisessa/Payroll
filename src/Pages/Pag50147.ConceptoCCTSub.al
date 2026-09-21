@@ -20,6 +20,13 @@ page 50147 "Concepto CCT Sub"
                     ApplicationArea = All;
                     ToolTip = 'Opcional. Vacío = aplica a todas las categorías de este convenio. Cargada = restringe el concepto solo a esa categoría.';
                 }
+                field(Excluye; Rec.Excluye)
+                {
+                    ApplicationArea = All;
+                    Style = Attention;
+                    StyleExpr = Rec.Excluye;
+                    ToolTip = 'Da vuelta la fila: en vez de decir a qué convenio aplica el concepto, dice a cuál NO. Sirve para "a todos menos a este", sin tener que enumerar los demás. Una exclusión gana sobre cualquier inclusión, y se quita borrando la fila.';
+                }
             }
         }
     }

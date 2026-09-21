@@ -8,7 +8,9 @@ table 60029 "Filtro Fuente Datos Liq."
     DataClassification = CustomerContent;
     // Each row defines one filter applied when resolving a Fuente Datos Liquidación.
     // Field tokens supported in Filtro Valor: {EMP_NO}, {JOB_NO}, {PERIODO},
-    // {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA}.
+    // {PERIODO_DESDE}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA}, {ASIG_DESDE},
+    // {ASIG_HASTA} (alta y baja del tripulante en la marea, acotadas al período), {MAREA_DESDE} y
+    // {MAREA_HASTA} (zarpada y arribo del proyecto, sin recortar).
 
     fields
     {

@@ -15,6 +15,9 @@ page 50074 "Convenios por Concepto"
     //     aplicando.
     //   · Las filas se crean con Cód. Categoría en blanco = aplica a todas las categorías del convenio.
     //     Para restringir por categoría se usa la subpágina de la ficha del concepto.
+    //   · Esta herramienta administra INCLUSIONES. Las filas con "Excluye" quedan fuera de todo lo
+    //     que hace: no se listan como convenio aplicable, no cuentan para el resaltado y "Quitar" no
+    //     las borra — si no, quitar un convenio excluido terminaría incluyéndolo.
     PageType = Card;
     Caption = 'Convenios por Concepto';
     UsageCategory = Administration;
@@ -158,6 +161,7 @@ page 50074 "Convenios por Concepto"
         CCTVig: Record "Concepto CCT Vigente";
         Nuevo: Record "Concepto CCT Vigente";
     begin
+        CCTVig.SetRange(Excluye, false);
         CCTVig.SetRange("Cód. Concepto", Codigo);
         CCTVig.SetRange("Cód. Convenio", Convenio);
         if not CCTVig.IsEmpty() then
@@ -178,6 +182,9 @@ page 50074 "Convenios por Concepto"
         CCTVig: Record "Concepto CCT Vigente";
     begin
         CCTVig.SetRange("Cód. Concepto", Codigo);
+        // Quitar borra asignaciones, no exclusiones: sin este filtro, "Quitar" sobre un convenio
+        // excluido borraba la exclusión y terminaba INCLUYENDO el concepto, justo al revés.
+        CCTVig.SetRange(Excluye, false);
         CCTVig.SetRange("Cód. Convenio", Convenio);
         CCTVig.DeleteAll();
     end;

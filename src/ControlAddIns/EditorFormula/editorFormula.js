@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // Editor de fórmulas de liquidación con IntelliSense.
 //
@@ -7,7 +7,7 @@
 // motor a propósito, porque el valor del editor está justamente en mostrar lo que el motor ve. Dos
 // ejemplos que sorprenden y que acá quedan visibles:
 //   · el motor distingue mayúsculas: 'basico' NO es 'BASICO', y 'and' no es el operador AND;
-//   · una coma entre dígitos es separador decimal, así que en MAX(1,2) el motor lee UN número 1,2.
+//   · la coma es SIEMPRE separador de argumentos: el decimal se escribe con punto (0.0001).
 // Si se toca el tokenizador de AL, hay que tocar este.
 
 var UASEditorFormula = (function () {
@@ -19,9 +19,13 @@ var UASEditorFormula = (function () {
     // del caret sin tener que reconstruir las métricas del textarea en un div espejo.
     var MARCA = '<span class="uas-marca">&#8203;</span>';
 
+    // El alto es fijo y el textarea crece hasta el de su contenido: quien scrollea es el contenedor.
+    // 264 px son unos 13 renglones a 19,5 px de interlineado, que es lo que ocupa la fórmula más
+    // larga del sistema —la base imponible de Ganancias— ya formateada. Con los 132 originales
+    // entraba media: alcanzaban cuando todo se guardaba en una sola línea.
     var CAMPOS = [
-        { id: 'formula', etiqueta: 'Fórmula', alto: 132 },
-        { id: 'condicion', etiqueta: 'Condición (opcional)', alto: 66 }
+        { id: 'formula', etiqueta: 'Fórmula', alto: 264 },
+        { id: 'condicion', etiqueta: 'Condición (opcional)', alto: 72 }
     ];
 
     var catalogo = { funciones: [], operadores: [], variables: [], conceptos: [] };
@@ -32,6 +36,10 @@ var UASEditorFormula = (function () {
     var mapaConceptos = Object.create(null);
 
     var raiz = null;
+    var contenedorRef = null;
+    var vigilante = null;
+    var reconstrucciones = 0;
+    var MAX_RECONSTRUCCIONES = 20;
     var editores = {};
     var popup = null;
     var pop = { abierto: false, ed: null, items: [], sel: 0, rango: null };
@@ -39,7 +47,12 @@ var UASEditorFormula = (function () {
     // ── Tokenizador (espejo de NextTok en Cod50015) ───────────────────────────
 
     function esDigito(c) { return c >= '0' && c <= '9'; }
-    function esAlfa(c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }
+    // Las letras del español entran en los identificadores, igual que en IsAlpha (Cod50015). Los
+    // nombres los escribe una persona en campos Code, que aceptan Ñ y acentos: sin esto el editor
+    // cortaba AÑOS_ANTIGUEDAD en la Ñ y marcaba en rojo "OS_ANTIGUEDAD" —el pedazo de atrás— sobre
+    // una fórmula que el motor calcula perfecto.
+    var LETRAS_ES = 'ÑñÁáÉéÍíÓóÚúÜü';
+    function esAlfa(c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || LETRAS_ES.indexOf(c) >= 0; }
     function esAlfaNum(c) { return esAlfa(c) || esDigito(c); }
 
     function tokenizar(s) {
@@ -56,8 +69,8 @@ var UASEditorFormula = (function () {
         while (i < n) {
             var c = s.charAt(i);
 
-            // El motor solo saltea el espacio simple. Los saltos de línea se aplanan a espacio al
-            // guardar (NormalizarTexto en Tab60007), por eso acá se tratan como espacio en blanco.
+            // Espacios, tabulaciones y saltos de línea: el motor los saltea a todos por igual, y las
+            // fórmulas se guardan formateadas en varias líneas.
             if (c === ' ' || c === '\t' || c === '\n' || c === '\r') {
                 var j0 = i;
                 while (j0 < n && ' \t\n\r'.indexOf(s.charAt(j0)) >= 0) j0++;
@@ -88,9 +101,11 @@ var UASEditorFormula = (function () {
                 i = j3; continue;
             }
             if (esDigito(c) || c === '.') {
+                // Solo dígitos y punto: la coma es siempre separador de argumentos, igual que en
+                // NextTok. Mientras la coma entre dígitos se comía como decimal, IF(cond,0,otra)
+                // quedaba con dos argumentos y fallaba sin que se notara en el texto.
                 var j4 = i;
-                while (j4 < n && (esDigito(s.charAt(j4)) || s.charAt(j4) === '.' ||
-                       (s.charAt(j4) === ',' && esDigito(s.charAt(j4 + 1))))) j4++;
+                while (j4 < n && (esDigito(s.charAt(j4)) || s.charAt(j4) === '.')) j4++;
                 agregar('numero', i, j4); i = j4; continue;
             }
             if (esAlfa(c) || c === '_' || c === '@' || c === '#') {
@@ -144,6 +159,16 @@ var UASEditorFormula = (function () {
             return { cls: 'error', motivo: 'No existe un concepto "' + cod + '".' };
         }
 
+        // Los operadores se comparan igual que las funciones (FTokText <> 'OR' en Cod50015), así que
+        // tampoco distinguen mayúsculas.
+        //
+        // Va ANTES de la detección de llamada a función, y no después: en "AND (X = 0)" el token que
+        // sigue a AND es un paréntesis, que es exactamente la firma de una llamada. Clasificándolo
+        // después, todo AND/OR/NOT seguido de un paréntesis —la forma normal de escribirlos— caía en
+        // la rama de funciones y salía subrayado como "Función desconocida", aunque el motor lo
+        // evalúa perfecto. No hay ambigüedad posible: ningún operador comparte nombre con función.
+        if (mapaOperadores[up]) return { cls: 'operador', ref: mapaOperadores[up] };
+
         var sig = siguienteReal(toks, idx);
         var esLlamada = sig && sig.texto === '(';
 
@@ -156,10 +181,6 @@ var UASEditorFormula = (function () {
             if (mapaFunciones[up]) return { cls: 'funcion', ref: mapaFunciones[up] };
             return { cls: 'error', motivo: 'Función desconocida: "' + t + '".' };
         }
-
-        // Los operadores se comparan igual que las funciones (FTokText <> 'OR' en Cod50015), así que
-        // tampoco distinguen mayúsculas.
-        if (mapaOperadores[up]) return { cls: 'operador', ref: mapaOperadores[up] };
 
         // Las variables TAMPOCO distinguen mayúsculas en la fórmula: Cod50015 hace
         // BeginParse(Formula.ToUpper()), o sea que pasa el texto entero a mayúsculas ANTES de
@@ -218,8 +239,76 @@ var UASEditorFormula = (function () {
         ed.hl.innerHTML = html + '\n';
         ed.marca = ed.hl.querySelector('.uas-marca');
         ed.toks = toks;
-        autoAlto(ed);
-        if (document.activeElement === ed.ta) asegurarVisible(ed);
+        renderNombres(ed, toks);
+        // Con el panel de nombres a la vista el lienzo está oculto, y medir un elemento oculto da
+        // scrollHeight 0: autoAlto dejaría el textarea colapsado y al volver se vería el salto.
+        if (ed.lienzo.style.display !== 'none') {
+            autoAlto(ed);
+            if (document.activeElement === ed.ta) asegurarVisible(ed);
+        }
+    }
+
+    // ── Panel de nombres de referencias ───────────────────────────────────────
+
+    // Muestra la misma fórmula con la descripción de cada concepto referenciado al lado. Es SÓLO
+    // una vista: no toca ta.value, no llama a emitir() y no vuelve al servidor. El nombre sale de
+    // mapaConceptos, que ya está en el navegador desde el SetCatalogo inicial.
+    //
+    // Va en un bloque aparte y no anotando el resaltado, porque .uas-hl tiene que coincidir carácter
+    // por carácter con el textarea que está debajo: cualquier texto de más ahí corre el resaltado
+    // respecto de las letras reales.
+    //
+    // Recibe los tokens que render() ya calculó en vez de volver a tokenizar: esto corre en cada
+    // tecla.
+    function renderNombres(ed, toks) {
+        if (!ed.btnNombres) return;
+
+        var html = '';
+        var hayRefs = false;
+        for (var i = 0; i < toks.length; i++) {
+            var tk = toks[i];
+            var c = clasificar(tk, toks, i);
+            html += tramo(c.cls, tk.texto);
+
+            var sigla = tk.tipo === 'ident' ? tk.texto.charAt(0) : '';
+            if (sigla !== '@' && sigla !== '#') continue;
+            hayRefs = true;
+            if (c.ref && c.ref.desc) html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
+            else html += '<span class="uas-nom uas-nom-falta">no existe</span>';
+        }
+
+        // Sin referencias el botón no tiene nada que mostrar, así que desaparece en vez de quedar
+        // como un control que no hace nada.
+        ed.btnNombres.style.display = hayRefs ? '' : 'none';
+
+        // El panel OCUPA la caja del campo en vez de sumarse debajo: se muestra uno u otro, nunca
+        // los dos. De ahí que tenga exactamente el alto del editor.
+        if (!hayRefs || !ed.verNombres) {
+            ed.nombres.style.display = 'none';
+            ed.lienzo.style.display = '';
+            return;
+        }
+        ed.nombres.innerHTML = html;
+        ed.nombres.style.display = '';
+        ed.lienzo.style.display = 'none';
+    }
+
+    // Ya no hace falta limitar a un panel por vez: cada uno ocupa la caja de su propio campo, así
+    // que abrir los dos no suma alto y ninguno queda fuera del control.
+    function alternarNombres(ed) {
+        ed.verNombres = !ed.verNombres;
+        sincronizarBotonNombres(ed);
+        render(ed);
+        // Al volver a la vista editable conviene devolver el cursor donde estaba: si no, hay que
+        // hacer un clic de más para seguir escribiendo.
+        if (!ed.verNombres) ed.ta.focus();
+    }
+
+    function sincronizarBotonNombres(ed) {
+        if (!ed.btnNombres) return;
+        ed.btnNombres.setAttribute('aria-pressed', ed.verNombres ? 'true' : 'false');
+        if (ed.verNombres) ed.btnNombres.classList.add('uas-btn-nom-on');
+        else ed.btnNombres.classList.remove('uas-btn-nom-on');
     }
 
     // El textarea crece hasta el alto de su contenido y quien scrollea es el contenedor. Así hay UNA
@@ -551,6 +640,17 @@ var UASEditorFormula = (function () {
         else ed.timer = setTimeout(enviar, DEBOUNCE_MS);
     }
 
+    // ¿Dos textos son la misma fórmula, ignorando el espacio en blanco? Se comparan los tokens, que
+    // es el mismo criterio con el que el formateador de AL se autoverifica antes de devolver nada.
+    function mismaFormula(a, b) {
+        var ta = tokenizar(a || '').filter(function (t) { return t.tipo !== 'espacio'; });
+        var tb = tokenizar(b || '').filter(function (t) { return t.tipo !== 'espacio'; });
+        if (ta.length !== tb.length) return false;
+        for (var i = 0; i < ta.length; i++)
+            if (ta[i].texto !== tb[i].texto) return false;
+        return true;
+    }
+
     function alCambiar(ed) {
         render(ed);
         actualizarEstado(ed);
@@ -565,7 +665,18 @@ var UASEditorFormula = (function () {
 
         var lbl = document.createElement('div');
         lbl.className = 'uas-label';
-        lbl.textContent = def.etiqueta;
+        var lblTexto = document.createElement('span');
+        lblTexto.textContent = def.etiqueta;
+        lbl.appendChild(lblTexto);
+
+        var btnNombres = document.createElement('button');
+        btnNombres.type = 'button';
+        btnNombres.className = 'uas-btn-nom';
+        btnNombres.textContent = 'Ver nombres';
+        btnNombres.title = 'Cambia el campo a una vista de sólo lectura con la misma fórmula y la descripción de cada concepto referenciado (@ y #). Volvés a editar apretando otra vez: es sólo una vista, no modifica la fórmula.';
+        btnNombres.setAttribute('aria-pressed', 'false');
+        btnNombres.style.display = 'none';
+        lbl.appendChild(btnNombres);
 
         var editor = document.createElement('div');
         editor.className = 'uas-editor';
@@ -598,13 +709,32 @@ var UASEditorFormula = (function () {
         barra.appendChild(info);
         barra.appendChild(diag);
 
+        // Va DENTRO de .uas-editor, no debajo: así hereda la caja del campo —mismo alto, mismo
+        // borde, mismo scroll— sin necesidad de que el control crezca. Debajo no entraba: el add-in
+        // tiene alto fijo (RequestedHeight = 500) y entre los dos editores ya se van unos 416 px.
+        var nombres = document.createElement('div');
+        nombres.className = 'uas-nombres';
+        nombres.setAttribute('aria-live', 'polite');
+        nombres.style.display = 'none';
+        editor.appendChild(nombres);
+
         campo.appendChild(lbl);
         campo.appendChild(editor);
         campo.appendChild(barra);
         raiz.appendChild(campo);
 
-        var ed = { id: def.id, campo: campo, editor: editor, lienzo: lienzo, hl: hl, ta: ta, info: info, diag: diag, toks: [], ultimoEnviado: null, timer: null };
+        var ed = { id: def.id, campo: campo, editor: editor, lienzo: lienzo, hl: hl, ta: ta, info: info, diag: diag, btnNombres: btnNombres, nombres: nombres, verNombres: false, toks: [], ultimoEnviado: null, timer: null };
         editores[def.id] = ed;
+
+        // mousedown y no click para el preventDefault: sin esto el botón le roba el foco al textarea,
+        // y al volver el cursor queda al principio de la fórmula.
+        btnNombres.addEventListener('mousedown', function (e) { e.preventDefault(); });
+        btnNombres.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            alternarNombres(ed);
+        });
+
         conectar(ed);
         // Primer render aunque esté vacío: deja creada la marca del caret, que es de donde sale la
         // posición del popup. Sin esto, Ctrl+Espacio en un editor recién abierto no sabría dónde
@@ -801,10 +931,76 @@ var UASEditorFormula = (function () {
         }
     }
 
-    // ── API pública (la usa el envoltorio global que llama AL) ────────────────
+    // ── Vigilancia del DOM ────────────────────────────────────────────────────
+    //
+    // El módulo vive en el window del iframe, que sobrevive a que BC vacíe el contenedor del add-in.
+    // Cuando eso pasa, 'raiz' sigue apuntando a un árbol de nodos que ya no está en la página: los
+    // editores existen, SetValores les escribe sin fallar, el diagnóstico se pinta —y el usuario ve
+    // un rectángulo en blanco. Nada da error porque, técnicamente, nada falló. Es el modo en que el
+    // control queda 'colgado en la pestaña'.
+    //
+    // Un chequeo cada dos segundos —una llamada a contains(), nada más— alcanza para detectarlo y
+    // rearmarse. El tope de reconstrucciones está para que, si BC estuviera destruyendo el control
+    // en un ciclo, esto no se convierta en un motor de reintentos infinitos comiéndose la pestaña.
+    function estaVivo() {
+        return !!(raiz && document.body && document.body.contains(raiz));
+    }
 
-    return {
-        init: function (contenedor) {
+    function vigilar() {
+        if (vigilante) return;
+        vigilante = window.setInterval(function () {
+            var c;
+            if (estaVivo()) return;
+
+            c = document.getElementById('controlAddIn') || contenedorRef;
+            // Si el contenedor tampoco está en la página, BC se llevó el add-in entero y no hay nada
+            // que reparar: reconstruir contra un nodo huérfano dejaría todo igual de invisible.
+            if (!c || !document.body || !document.body.contains(c)) return;
+
+            if (++reconstrucciones > MAX_RECONSTRUCCIONES) {
+                window.clearInterval(vigilante);
+                vigilante = null;
+                c.textContent = 'El editor de fórmulas se reinició demasiadas veces y dejó de intentarlo.' +
+                    ' Recargá la página con Ctrl+F5 y, mientras tanto, usá "Ver texto plano".';
+                return;
+            }
+
+            try {
+                c.innerHTML = '';
+                construir(c);
+            } catch (e) {
+                return;
+            }
+
+            // Avisarle a AL que el control está listo OTRA VEZ: la reconstrucción trae los editores
+            // vacíos, y el catálogo y la fórmula solo puede reenviarlos el servidor. Del lado de AL
+            // el trigger es idempotente, justamente para poder llamarlo así.
+            if (window.Microsoft && window.Microsoft.Dynamics && window.Microsoft.Dynamics.NAV)
+                window.Microsoft.Dynamics.NAV.InvokeExtensibilityMethod('ControlAddInReady', []);
+        }, 2000);
+    }
+
+    function alFocoVentana() {
+        aplicarTema();
+    }
+
+    function alBlurVentana() {
+        // Red de seguridad para que las acciones de la cinta (Evaluar, Aplicar y Cerrar) nunca
+        // trabajen con texto viejo: clickear fuera del iframe dispara el blur del textarea, pero si
+        // por algún camino no llegara, el blur de la ventana igual fuerza el envío pendiente.
+        for (var k in editores)
+            if (editores.hasOwnProperty(k)) emitir(editores[k], true);
+    }
+
+    function construir(contenedor) {
+            // Se puede llamar más de una vez sobre el mismo iframe —eso es lo que hace el vigilante—
+            // así que primero se descarta el estado anterior. Sin esto, cada reconstrucción dejaría
+            // otro par de listeners en window apuntando a editores muertos.
+            window.removeEventListener('focus', alFocoVentana);
+            window.removeEventListener('blur', alBlurVentana);
+            editores = {};
+            pop = { abierto: false, ed: null, items: [], sel: 0, rango: null };
+
             raiz = document.createElement('div');
             raiz.className = 'uas-root';
             contenedor.appendChild(raiz);
@@ -826,15 +1022,18 @@ var UASEditorFormula = (function () {
             observarTemaDelHost();
             // Volver a la pestaña o cambiar el tamaño puede venir después de un cambio de tema que el
             // observer no vio (por ejemplo si el iframe es de otro origen y el usuario recargó).
-            window.addEventListener('focus', aplicarTema);
+            window.addEventListener('focus', alFocoVentana);
+            window.addEventListener('blur', alBlurVentana);
+    }
 
-            // Red de seguridad para que las acciones de la cinta (Evaluar, Aplicar y Cerrar) nunca
-            // trabajen con texto viejo: clickear fuera del iframe dispara el blur del textarea, pero
-            // si por algún camino no llegara, el blur de la ventana igual fuerza el envío pendiente.
-            window.addEventListener('blur', function () {
-                for (var k in editores)
-                    if (editores.hasOwnProperty(k)) emitir(editores[k], true);
-            });
+    // ── API pública (la usa el envoltorio global que llama AL) ────────────────
+
+    return {
+        init: function (contenedor) {
+            contenedorRef = contenedor;
+            reconstrucciones = 0;
+            construir(contenedor);
+            vigilar();
         },
 
         setCatalogo: function (json) {
@@ -881,6 +1080,17 @@ var UASEditorFormula = (function () {
                 // (por ejemplo al recrearse el add-in tras un CurrPage.Update) mientras se tipea.
                 if (document.activeElement === ed.ta && ed.ta.value !== '') continue;
                 if (ed.ta.value === vals[k]) continue;
+                // Y tampoco se pisa cuando lo que llega es LA MISMA FÓRMULA escrita distinto.
+                //
+                // Es el caso que aparece en cada guardado desde que el texto se guarda formateado: el
+                // Modify refresca la ficha, OnAfterGetRecord reenvía los valores, y lo que vuelve es
+                // el mismo texto pero con saltos y sangría. Reemplazarlo le mueve el cursor al usuario
+                // y le come lo que haya tipeado desde el último envío — o sea, parece que el editor
+                // "no guarda": en realidad guardó, y le devolvió el texto reacomodado encima.
+                //
+                // El chequeo de foco de arriba no alcanza: el refresco del propio guardado puede
+                // sacarle el foco al iframe, y entonces la guarda no se activa justo cuando hace falta.
+                if (ed.ta.value !== '' && mismaFormula(ed.ta.value, vals[k])) continue;
                 ed.ta.value = vals[k];
                 ed.ultimoEnviado = vals[k];
                 render(ed);
@@ -900,6 +1110,10 @@ var UASEditorFormula = (function () {
         }
     };
 })();
+
+// Explícito, en vez de confiar en que un `var` de nivel superior termine siendo propiedad de
+// window: startup.js lo busca ahí para saber si el módulo ya se cargó antes de inicializarlo.
+window.UASEditorFormula = UASEditorFormula;
 
 // Puntos de entrada que invoca AL (los nombres deben coincidir con los procedure del controladdin).
 function SetCatalogo(catalogoJson) { UASEditorFormula.setCatalogo(catalogoJson); }

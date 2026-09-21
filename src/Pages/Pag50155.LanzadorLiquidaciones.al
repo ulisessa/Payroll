@@ -29,13 +29,6 @@ page 50155 "Lanzador Liquidaciones"
                     TableRelation = "Tipo Liquidación".Código;
                     ToolTip = 'Devengados: fijos mensuales durante la marea. Cierre Marea: liquidación completa al regreso.';
                 }
-                field(FTipoProyecto; FTipoProyecto)
-                {
-                    Caption = 'Tipo Proyecto';
-                    ApplicationArea = All;
-                    OptionCaption = 'Todos,Productivo,Improductivo';
-                    ToolTip = 'Filtra los proyectos incluidos en el proceso. Dejar en Todos para ambos tipos.';
-                }
             }
             group(GrpInfo)
             {
@@ -84,12 +77,13 @@ page 50155 "Lanzador Liquidaciones"
                         Error(ErrSinPeriodo);
                     if not Confirm(MsgConfirmarCrear, true, Format(FTipoLiq), FCodPeriodo) then
                         exit;
-                    Creadas := ProcLiq.CrearPorPeriodo(FCodPeriodo, FTipoLiq, FTipoProyecto);
+                    Creadas := ProcLiq.CrearPorPeriodo(FCodPeriodo, FTipoLiq);
                     // El tipo con "Incluye Francos Puerto" también cubre a los empleados en Francos (en
                     // puerto, sin proyecto).
                     if FTipoLiq = TipoLiqRec.CodigoFrancosPuerto() then
                         Creadas += ProcLiq.CrearRegularEmpleadosEnFrancos(FCodPeriodo);
                     FUltimoResultado := StrSubstNo(MsgCreadas, Creadas);
+                    ProcLiq.AvisarOmitidos();
                     CurrPage.Update(false);
                 end;
             }
@@ -133,7 +127,6 @@ page 50155 "Lanzador Liquidaciones"
     var
         FCodPeriodo: Code[10];
         FTipoLiq: Code[20];
-        FTipoProyecto: Option Todos,Productivo,Improductivo;
         FDescPeriodo: Text;
         FUltimoResultado: Text;
         ErrSinPeriodo: Label 'Debe seleccionar un período antes de continuar.';

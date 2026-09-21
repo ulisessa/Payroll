@@ -105,7 +105,9 @@ report 50041 "Recibo de Sueldo"
                 column(LinImporteDescuento; LinImporteDescuento) { }
                 column(LinImporteContrib; LinImporteContrib) { }
                 column(LinCantidad; LinLiq.Cantidad) { }
-                column(LinUnidadCantidad; LinLiq."Unidad Cantidad") { }
+                // Concordada con la cantidad: "9 DIAS" y no "9 DIA". El recibo es lo que lee el
+                // empleado, así que es donde más se nota.
+                column(LinUnidadCantidad; LinLiq.UnidadParaMostrar()) { }
                 column(LinBaseCalculo; LinLiq."Base Cálculo") { }
                 column(LinImporteHaberRem; LinImporteHaberRem) { }
                 column(LinImporteHaberNoRem; LinImporteHaberNoRem) { }

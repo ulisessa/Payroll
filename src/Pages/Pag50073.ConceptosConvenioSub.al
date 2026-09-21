@@ -84,18 +84,38 @@ page 50073 "Conceptos Convenio Sub"
     var
         CCTVig: Record "Concepto CCT Vigente";
         Resultado: Text;
+        Excluidos: Text;
         Vistos: List of [Code[20]];
     begin
         CCTVig.SetRange("Cód. Concepto", CodConcepto);
-        if not CCTVig.FindSet() then
-            exit(TodosTxt);
-        repeat
-            if not Vistos.Contains(CCTVig."Cód. Convenio") then begin
-                Vistos.Add(CCTVig."Cód. Convenio");
-                if Resultado <> '' then Resultado += ', ';
-                Resultado += CCTVig."Cód. Convenio";
-            end;
-        until CCTVig.Next() = 0;
+        CCTVig.SetRange(Excluye, false);
+        if CCTVig.FindSet() then
+            repeat
+                if not Vistos.Contains(CCTVig."Cód. Convenio") then begin
+                    Vistos.Add(CCTVig."Cód. Convenio");
+                    if Resultado <> '' then Resultado += ', ';
+                    Resultado += CCTVig."Cód. Convenio";
+                end;
+            until CCTVig.Next() = 0;
+
+        // Las exclusiones se muestran aparte y no como un convenio más de la lista: significan lo
+        // contrario. Sin esto, un concepto "a todos menos ESP" se leía como "solo ESP", que es
+        // exactamente al revés de lo que hace el motor.
+        Clear(Vistos);
+        CCTVig.SetRange(Excluye, true);
+        if CCTVig.FindSet() then
+            repeat
+                if not Vistos.Contains(CCTVig."Cód. Convenio") then begin
+                    Vistos.Add(CCTVig."Cód. Convenio");
+                    if Excluidos <> '' then Excluidos += ', ';
+                    Excluidos += CCTVig."Cód. Convenio";
+                end;
+            until CCTVig.Next() = 0;
+
+        if Resultado = '' then
+            Resultado := TodosTxt;
+        if Excluidos <> '' then
+            Resultado += StrSubstNo(ExceptoTxt, Excluidos);
         exit(Resultado);
     end;
 
@@ -107,6 +127,9 @@ page 50073 "Conceptos Convenio Sub"
     begin
         if FConveniosSel = '' then exit(false);
         foreach Convenio in FConveniosSel.Split('|') do begin
+            // Solo inclusiones: esta herramienta administra a qué convenios se ASIGNA el concepto.
+            // Las exclusiones se cargan de a una en la subpágina de la ficha, donde se ve qué son.
+            CCTVig.SetRange(Excluye, false);
             CCTVig.SetRange("Cód. Concepto", CodConcepto);
             CCTVig.SetRange("Cód. Convenio", CopyStr(Convenio, 1, 20));
             if CCTVig.IsEmpty() then exit(false);
@@ -119,4 +142,5 @@ page 50073 "Conceptos Convenio Sub"
         FConvenios: Text;
         FEstilo: Text;
         TodosTxt: Label '(todos)';
+        ExceptoTxt: Label ' — excepto %1', Comment = '%1=lista de convenios excluidos';
 }

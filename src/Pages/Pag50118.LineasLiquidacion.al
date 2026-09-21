@@ -33,6 +33,13 @@ page 50118 "Líneas Liquidación"
                     ApplicationArea = All;
                     StyleExpr = FilaStyle;
                 }
+                field(DetalleAtributo; DetalleAtributo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Detalle';
+                    Editable = false;
+                    ToolTip = 'El valor del atributo que explica esta línea, a la fecha de la liquidación. Sale vacío en los conceptos que no declaran ninguno.';
+                }
                 field("Tipo Concepto"; Rec."Tipo Concepto")
                 {
                     ApplicationArea = All;
@@ -43,7 +50,19 @@ page 50118 "Líneas Liquidación"
                     ApplicationArea = All;
                     DecimalPlaces = 0 : 4;
                 }
-                field("Unidad Cantidad"; Rec."Unidad Cantidad") { ApplicationArea = All; }
+                field(UnidadMostrada; UnidadMostrada)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Unidad';
+                    Editable = false;
+                    ToolTip = 'La unidad concordada con la cantidad. Se guarda en singular, como está configurada en el concepto; el plural se arma al mostrarla.';
+                }
+                field("Unidad Cantidad"; Rec."Unidad Cantidad")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Unidad (configurada)';
+                    Visible = false;
+                }
                 field("Base Cálculo"; Rec."Base Cálculo") { ApplicationArea = All; }
                 field(Importe; Rec.Importe)
                 {
@@ -168,6 +187,20 @@ page 50118 "Líneas Liquidación"
                     ApplyFilters();
                 end;
             }
+            action(VerDetalleCalculo)
+            {
+                ApplicationArea = All;
+                Caption = 'Detalle del cálculo';
+                Image = Calculate;
+                ToolTip = 'Muestra el paso a paso de la fórmula: cada término con su signo, su valor y el total corriente. Reconstruye el cálculo con la fórmula y los valores GUARDADOS, no con los de hoy.';
+                trigger OnAction()
+                var
+                    DetPage: Page "Detalle Cálculo Línea";
+                begin
+                    DetPage.CargarDesdeLinea(Rec);
+                    DetPage.RunModal();
+                end;
+            }
             action(VerVariables)
             {
                 ApplicationArea = All;
@@ -245,6 +278,8 @@ page 50118 "Líneas Liquidación"
 
     trigger OnAfterGetRecord()
     begin
+        UnidadMostrada := Rec.UnidadParaMostrar();
+        DetalleAtributo := ResolverDetalleAtributo();
         case Rec."Tipo Concepto" of
             Rec."Tipo Concepto"::"Haber Remunerativo":
                 TipoStyle := 'Favorable';
@@ -327,7 +362,46 @@ page 50118 "Líneas Liquidación"
         CurrPage.Update(false);
     end;
 
+    /// <summary>
+    /// La descripción del atributo que el concepto de esta línea declara como su detalle.
+    /// </summary>
+    /// <remarks>
+    /// Se resuelve A LA FECHA DE LA LÍNEA, no a la de hoy: una liquidación de enero abierta en
+    /// septiembre tiene que seguir diciendo el gremio de enero. Por eso no alcanza con mirar la ficha
+    /// del empleado, que muestra el actual.
+    ///
+    /// La fecha sale de la línea; si viene en blanco —liquidaciones viejas de antes de que el campo
+    /// existiera— se cae a la de la cabecera, que es la misma aproximación que usa la ficha.
+    /// </remarks>
+    local procedure ResolverDetalleAtributo(): Text
     var
+        Concepto: Record "Concepto Liquidación";
+        Liq: Record "Liquidación";
+        AtributosUI: Codeunit "Atributos Entidad UI";
+        FechaRef: Date;
+    begin
+        if (Rec."Cód. Concepto" = '') or (Rec."No. Empleado" = '') then
+            exit('');
+        if not Concepto.Get(Rec."Cód. Concepto", Rec."Vigencia Concepto") then
+            exit('');
+        if Concepto."Cód. Tipo Atributo Detalle" = '' then
+            exit('');
+
+        FechaRef := Rec."Fecha Liquidación";
+        if FechaRef = 0D then
+            if Liq.Get(Rec."No. Liquidación") then
+                FechaRef := Liq.FechaReferenciaAprox();
+        if FechaRef = 0D then
+            exit('');
+
+        exit(AtributosUI.DescripcionVigente(
+            Concepto."Cód. Tipo Atributo Detalle", "Tipo Entidad Estado"::Empleado,
+            Rec."No. Empleado", FechaRef));
+    end;
+
+    var
+        DetalleAtributo: Text;
+        UnidadMostrada: Text[20];
         TipoStyle: Text;
         FilaStyle: Text;
         EsAcumulador: Boolean;

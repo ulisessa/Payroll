@@ -19,18 +19,6 @@ table 60009 "Personal Proyecto"
             NotBlank = true;
             DataClassification = CustomerContent;
             TableRelation = Employee."No.";
-
-            trigger OnValidate()
-            var
-                Emp: Record Employee;
-            begin
-                if Emp.Get("No. Empleado") then begin
-                    if "Cód. Convenio" = '' then
-                        "Cód. Convenio" := Emp."Cód. Convenio";
-                    if "Cód. Categoría" = '' then
-                        "Cód. Categoría" := Emp."Cód. Categoría";
-                end;
-            end;
         }
         field(2; "No. Proyecto"; Code[20])
         {
@@ -55,23 +43,6 @@ table 60009 "Personal Proyecto"
                 end;
             end;
         }
-        field(3; "Cód. Convenio"; Code[20])
-        {
-            Caption = 'Cód. Convenio';
-            DataClassification = CustomerContent;
-            TableRelation = "Convenio Colectivo".Código;
-
-            trigger OnValidate()
-            begin
-                "Cód. Categoría" := '';
-            end;
-        }
-        field(4; "Cód. Categoría"; Code[20])
-        {
-            Caption = 'Cód. Categoría';
-            DataClassification = CustomerContent;
-            TableRelation = "Categoría CCT".Código WHERE("Cód. Convenio" = FIELD("Cód. Convenio"));
-        }
         field(5; "Fecha Alta Asignación"; Date)
         {
             Caption = 'Fecha Alta Asignación';
@@ -85,16 +56,14 @@ table 60009 "Personal Proyecto"
             // Informational assignment end. In the effective-dated state model the arrival transition
             // (embarcado → francos/órdenes) is created by the Cierre Marea automation, not stored here.
         }
-        field(7; "Rol en Proyecto"; Text[50])
-        {
-            Caption = 'Rol en Proyecto';
-            DataClassification = CustomerContent;
-        }
-        field(8; Buque; Code[10])
+        field(8; Buque; Code[20])
         {
             Caption = 'Buque';
             DataClassification = CustomerContent;
             Editable = false;
+            // Code[20] y no Code[10]: se copia desde Job."Global Dimension 1 Code", que es Code[20].
+            // Con el largo anterior, un código de más de diez caracteres se truncaba en silencio al
+            // copiarse y quedaban dos identidades del mismo buque sin que nada lo delatara.
         }
         field(9; Marea; Code[10])
         {
@@ -128,14 +97,18 @@ table 60009 "Personal Proyecto"
         key(K3; Buque, Marea)
         {
         }
+        // "La última asignación del empleado antes de tal fecha", que es como se resuelve su convenio
+        // y categoría de origen. La clave primaria ordena por proyecto, así que sin ésta había que
+        // traer todo el historial del empleado y recorrerlo para quedarse con la más reciente.
+        key(K4; "No. Empleado", "Fecha Alta Asignación")
+        {
+        }
     }
 
     trigger OnInsert()
     var
         EstadoMgt: Codeunit "Gestión Estado Empleado";
     begin
-        TestField("Cód. Convenio");
-        TestField("Cód. Categoría");
         EstadoMgt.SincronizarEstadoDesdeProyecto(Rec);
     end;
 
@@ -144,6 +117,13 @@ table 60009 "Personal Proyecto"
         EstadoMgt: Codeunit "Gestión Estado Empleado";
     begin
         EstadoMgt.SincronizarEstadoDesdeProyecto(Rec);
+        // Recién al COMPLETAR la fecha de baja —no en cada modificación— se encadena lo que sigue:
+        // el estado siguiente al día posterior y el alta en el proyecto que lo tenga como
+        // predeterminado. Si esa cadena no se puede armar, el error revierte también el cierre de
+        // esta asignación: es preferible que la fecha de baja no se guarde a que se guarde dejando
+        // al empleado sin estado desde el día siguiente.
+        if (xRec."Fecha Baja" = 0D) and ("Fecha Baja" <> 0D) then
+            EstadoMgt.EncadenarSiguienteAsignacion(Rec);
     end;
 
     trigger OnDelete()
@@ -152,4 +132,29 @@ table 60009 "Personal Proyecto"
     begin
         EstadoMgt.EliminarEstadoDeProyecto("No. Empleado", "No. Proyecto");
     end;
+
+    // SIN VALIDACIÓN DE LA BAJA CONTRA LA FECHA DE ARRIBO DEL PROYECTO, y vale la pena dejar escrito
+    // por qué, porque parece que tendría que haberla.
+    //
+    // La regla suena evidente —nadie sigue asignado a una marea después de que la marea terminó— y
+    // se escribió así en un primer momento: Error si "Fecha Baja" > Job."Ending Date". Los datos la
+    // desmintieron. La ventana del Job cubre SÓLO la navegación, y hay estados de marea que caen
+    // legítimamente afuera:
+    //
+    //   · PL (puerto llegada) — 1.587 casos, TODOS entre uno y tres días DESPUÉS del arribo.
+    //     Ninguno más lejos. Es el día de puerto de la llegada, y es parte de la marea.
+    //   · PS (puerto salida)  — 9.221 de 10.004 hasta tres días ANTES de la zarpada: el tripulante
+    //     sube a preparar el barco, o espera un día de más para relevar a alguien que sigue a bordo.
+    //
+    // Como la asignación se deriva del primero y el último estado del empleado en ese proyecto, su
+    // baja cae en el PL y queda después del arribo. Validarla contra "Ending Date" rechazaría dato
+    // correcto, y encima recién al editar la fila, mucho después de haberla escrito.
+    //
+    // El límite real no es la fecha de arribo sino la PRÓXIMA ZARPADA DEL BUQUE: ahí sí, si un
+    // estado de esta marea empieza cuando el barco ya salió de nuevo, está apuntando a una marea que
+    // ya fue reemplazada. Esa validación es la que tiene sentido escribir, y necesita la marea
+    // siguiente del mismo buque — un dato que esta tabla no tiene a mano.
+    //
+    // Lo que sí quedó cubierto de este problema: los GP/DQ/PI que colgaban de la marea equivocada se
+    // separan con "Transcurre en Marea" (Tab60003), que es donde estaba la causa de fondo.
 }

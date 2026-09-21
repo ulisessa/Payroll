@@ -241,7 +241,82 @@ codeunit 50021 "Test Evaluador Fórmula"
         AssertEq(0, Eval('   '), 'fórmula con espacios → 0');
     end;
 
+    // ── CASE ──────────────────────────────────────────────────────────────────
+
+    [Test]
+    procedure CasePrimeraVerdadera()
+    begin
+        AssertEq(10, Eval('CASE(1, 10, 1, 20, 99)'), 'gana la primera condición verdadera, no la última');
+        AssertEq(20, Eval('CASE(0, 10, 1, 20, 99)'), 'saltea la falsa y toma la siguiente');
+    end;
+
+    [Test]
+    procedure CaseDefault()
+    begin
+        // Cantidad IMPAR de argumentos: el suelto del final es el default.
+        AssertEq(99, Eval('CASE(0, 10, 0, 20, 99)'), 'ninguna verdadera → default');
+    end;
+
+    [Test]
+    procedure CaseSinDefault()
+    begin
+        // Cantidad PAR: no hay default y el resultado es 0.
+        AssertEq(0, Eval('CASE(0, 10, 0, 20)'), 'ninguna verdadera y sin default → 0');
+    end;
+
+    [Test]
+    procedure CaseEscalaCompleta()
+    begin
+        // La forma para la que existe: una escala por tramos, plana en vez de tres IF anidados.
+        AssertEq(3, Eval('CASE(25 >= 20, 3, 25 >= 10, 2, 25 >= 5, 1, 0)'), 'escala: tramo más alto');
+        AssertEq(1, Eval('CASE(7 >= 20, 3, 7 >= 10, 2, 7 >= 5, 1, 0)'), 'escala: tramo intermedio');
+        AssertEq(0, Eval('CASE(2 >= 20, 3, 2 >= 10, 2, 2 >= 5, 1, 0)'), 'escala: cae al default');
+    end;
+
+    [Test]
+    procedure CaseAnidado()
+    begin
+        AssertEq(7, Eval('CASE(0, 1, 1, CASE(1, 7, 8), 9)'), 'CASE dentro de CASE');
+    end;
+
+    [Test]
+    procedure CaseLazyEvitaDivCero()
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Result: Decimal;
+        OK: Boolean;
+    begin
+        // Lo mismo que garantiza el IF: las ramas que no se eligen no se ejecutan, ni siquiera para
+        // saltearlas. Sin esto, una rama peligrosa haría fallar el cálculo aunque nunca se use.
+        Evaluador.Init(Ctx, WorkDate());
+        OK := Evaluador.TryEvalFormula('CASE(1, 42, 1, 5 / 0, 5 / 0)', Result);
+        if not OK then
+            Error('CASE lazy: las ramas posteriores NO deberían evaluarse. Error: %1', GetLastErrorText());
+        AssertEq(42, Result, 'CASE lazy con ramas posteriores peligrosas');
+
+        OK := Evaluador.TryEvalFormula('CASE(0, 5 / 0, 1, 42, 5 / 0)', Result);
+        if not OK then
+            Error('CASE lazy: el valor de una condición falsa NO debería evaluarse. Error: %1', GetLastErrorText());
+        AssertEq(42, Result, 'CASE lazy con el valor de la condición falsa peligroso');
+    end;
+
+    [Test]
+    procedure CaseUnSoloArgumentoFalla()
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Result: Decimal;
+    begin
+        // CASE(x) es un x con paréntesis de más: no hay ninguna condición, así que es un error de
+        // escritura y no un default suelto.
+        Evaluador.Init(Ctx, WorkDate());
+        if Evaluador.TryEvalFormula('CASE(5)', Result) then
+            Error('CASE con un solo argumento debería fallar, devolvió %1.', Result);
+    end;
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
 
     local procedure Eval(Formula: Text): Decimal
     var

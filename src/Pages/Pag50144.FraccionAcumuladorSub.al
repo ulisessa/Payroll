@@ -21,10 +21,10 @@ page 50144 "Fracción Acumulador Sub"
                     Editable = false;
                     Width = 7;
                     // Marca las filas que el motor aplicaría para ESTA versión del concepto: por cada
-                    // acumulador, la de mayor Vigencia Desde que no supere la vigencia del concepto
+                    // acumulador, la de mayor Vigencia Desde que no supere la fecha de evaluación
                     // (misma regla que BuildFractionCache en Cod50014). Las demás son historia o
                     // configuración futura.
-                    ToolTip = 'Tildado = es la fila que el motor usaría para este acumulador en esta vigencia del concepto. Sin tildar = quedó desplazada por una posterior, o todavía no entró en vigor.';
+                    ToolTip = 'Tildado = es la fila que el motor usaría para este acumulador. Si la versión del concepto sigue abierta se evalúa a la fecha de trabajo; si está cerrada, a su último día. Sin tildar = quedó desplazada por una posterior, o todavía no entró en vigor.';
                 }
                 field("Vigencia Desde"; Rec."Vigencia Desde")
                 {
@@ -61,7 +61,7 @@ page 50144 "Fracción Acumulador Sub"
     }
 
     /// <summary>
-    /// Concepto y fecha contra la que se evalúa qué filas están vigentes.
+    /// Concepto e INTERVALO de la versión contra la que se evalúa qué filas están vigentes.
     /// </summary>
     /// <remarks>
     /// La ficha ya no filtra la subpágina por la vigencia del concepto: la distribución tiene su
@@ -69,11 +69,37 @@ page 50144 "Fracción Acumulador Sub"
     /// mostraba vacío justo después de crear una vigencia nueva — mientras el motor seguía aplicando
     /// la distribución anterior. Ahora se listan todas y se marca cuál rige.
     /// </remarks>
-    procedure SetContexto(CodConcepto: Code[20]; FechaVigencia: Date)
+    procedure SetContexto(CodConcepto: Code[20]; VigenciaDesde: Date; VigenciaHasta: Date)
     begin
         FCodConcepto := CodConcepto;
-        FFechaRef := FechaVigencia;
+        FFechaRef := FechaEvaluacion(VigenciaDesde, VigenciaHasta);
+        // El default de una fila nueva sigue siendo el inicio de la versión, no la fecha de
+        // evaluación: al declarar la distribución de una vigencia recién creada, lo que se quiere es
+        // que arranque con ella.
+        FFechaVersion := VigenciaDesde;
         CurrPage.Update(false);
+    end;
+
+    /// <summary>
+    /// La fecha que representa a esta versión del concepto para resolver la distribución.
+    /// </summary>
+    /// <remarks>
+    /// Evaluar contra el INICIO de la versión era una foto del pasado: una distribución cargada
+    /// después salía "no vigente" aunque el concepto siguiera abierto y el motor la estuviera
+    /// aplicando en cada liquidación. Las dos líneas de tiempo son independientes justamente para
+    /// eso — cambiar la distribución en 2026 no obliga a versionar el concepto.
+    ///
+    ///  · Versión abierta → la fecha de trabajo: lo que el motor usaría al liquidar hoy.
+    ///  · Versión cerrada → su último día, que es lo último que esa versión llegó a aplicar.
+    ///  · Versión que todavía no empezó → su inicio; antes de esa fecha no hay nada que mostrar.
+    /// </remarks>
+    local procedure FechaEvaluacion(VigenciaDesde: Date; VigenciaHasta: Date): Date
+    begin
+        if VigenciaHasta <> 0D then
+            exit(VigenciaHasta);
+        if VigenciaDesde > WorkDate() then
+            exit(VigenciaDesde);
+        exit(WorkDate());
     end;
 
     trigger OnNewRecord(BelowxRec: Boolean)
@@ -81,7 +107,7 @@ page 50144 "Fracción Acumulador Sub"
         // Antes la venía completando el SubPageLink; sin él hay que ponerla, o la fila nueva queda
         // con fecha vacía y no entra en ninguna resolución del motor.
         if Rec."Vigencia Desde" = 0D then
-            Rec."Vigencia Desde" := FFechaRef;
+            Rec."Vigencia Desde" := FFechaVersion;
     end;
 
     trigger OnAfterGetRecord()
@@ -123,6 +149,7 @@ page 50144 "Fracción Acumulador Sub"
         AccumDesc: Text[100];
         FCodConcepto: Code[20];
         FFechaRef: Date;
+        FFechaVersion: Date;
         Vigente: Boolean;
         FilaStyle: Text[20];
 }

@@ -49,11 +49,13 @@ codeunit 50017 "Gestión Estado Empleado"
             // Skip when nothing state-relevant changed, so editing an unrelated assignment field
             // (e.g. Rol) doesn't touch the state and trip its liquidation guard.
             if (Estado."Cód. Estado" = CodEstado) and
-               (Estado."Fecha Inicio" = PersProy."Fecha Alta Asignación")
+               (Estado."Fecha Inicio" = PersProy."Fecha Alta Asignación") and
+               (Estado."Fecha Fin" = PersProy."Fecha Baja")
             then
                 exit;
             Estado."Cód. Estado" := CodEstado;
             Estado."Fecha Inicio" := PersProy."Fecha Alta Asignación";
+            Estado."Fecha Fin" := PersProy."Fecha Baja";
             Estado.Modify(true);
         end else begin
             Estado.Init();
@@ -62,8 +64,82 @@ codeunit 50017 "Gestión Estado Empleado"
             Estado."No. Proyecto" := PersProy."No. Proyecto";
             Estado."Cód. Estado" := CodEstado;
             Estado."Fecha Inicio" := PersProy."Fecha Alta Asignación";
+            // La baja de la asignación es el fin del estado. Antes solo viajaba la fecha de alta y
+            // el estado quedaba abierto: se cerraba recién cuando algo posterior lo empujaba, o no
+            // se cerraba nunca. En blanco sigue significando abierto, que es lo correcto mientras la
+            // asignación no tenga fecha de baja.
+            Estado."Fecha Fin" := PersProy."Fecha Baja";
             Estado.Insert(true);
         end;
+    end;
+
+    /// <summary>
+    /// Al cerrar una asignación, encadena la siguiente: estado que sigue, proyecto que le
+    /// corresponde y alta del empleado ahí al día siguiente.
+    /// </summary>
+    /// <remarks>
+    /// El caso real: un tripulante termina la navegación el 30/06. Su estado de navegación se cierra
+    /// ese día, el 01/07 tiene que empezar Francos, y para que Francos exista en el historial el
+    /// empleado tiene que estar asignado a un proyecto cuyo estado predeterminado sea Francos. Los
+    /// tres pasos son uno solo: cerrar sin abrir lo siguiente deja al empleado sin estado desde el
+    /// 01/07, y el motor no liquida a alguien sin estado.
+    ///
+    /// La cadena la declara "Estado Siguiente" en la ficha del estado, que es donde ya vivía para la
+    /// transición de vacaciones. En blanco significa terminal: el estado no encadena y no se hace
+    /// nada, que es lo correcto para una baja definitiva.
+    ///
+    /// El estado nuevo NO se escribe acá: se crea la asignación y el alta dispara la sincronización
+    /// de siempre, que es la que traduce asignación → estado. Un solo lugar que sepa hacer eso.
+    /// </remarks>
+    procedure EncadenarSiguienteAsignacion(PersProy: Record "Personal Proyecto")
+    var
+        JobActual: Record Job;
+        JobSiguiente: Record Job;
+        CodEstadoActual: Record "Cód. Estado Empleado";
+        PersSiguiente: Record "Personal Proyecto";
+        FechaAlta: Date;
+        Cuantos: Integer;
+    begin
+        if PersProy."Fecha Baja" = 0D then
+            exit;
+        if not JobActual.Get(PersProy."No. Proyecto") then
+            exit;
+        if JobActual."Estado Liq. Personal Predet." = '' then
+            exit;
+        if not CodEstadoActual.Get(JobActual."Estado Liq. Personal Predet.") then
+            exit;
+        if CodEstadoActual."Estado Siguiente" = '' then
+            exit;
+
+        // El proyecto de destino es el que declara ese estado como predeterminado. Sin proyecto no
+        // hay a dónde asignar y el estado siguiente no se podría crear: se corta la operación entera
+        // en vez de dejar la asignación cerrada y al empleado sin continuidad.
+        JobSiguiente.SetRange("Estado Liq. Personal Predet.", CodEstadoActual."Estado Siguiente");
+        Cuantos := JobSiguiente.Count();
+        if Cuantos = 0 then
+            Error(ErrSinProyectoParaEstado, CodEstadoActual."Estado Siguiente", CodEstadoActual.Código);
+        if Cuantos > 1 then
+            Error(ErrVariosProyectosParaEstado, Cuantos, CodEstadoActual."Estado Siguiente");
+        JobSiguiente.FindFirst();
+
+        FechaAlta := PersProy."Fecha Baja" + 1;
+
+        if PersSiguiente.Get(PersProy."No. Empleado", JobSiguiente."No.") then begin
+            // Ya estaba asignado a ese proyecto —vuelve a francos, por ejemplo—: se corre el alta al
+            // día siguiente del cierre y la sincronización mueve el estado con ella.
+            if PersSiguiente."Fecha Alta Asignación" = FechaAlta then
+                exit;
+            PersSiguiente."Fecha Alta Asignación" := FechaAlta;
+            PersSiguiente."Fecha Baja" := 0D;
+            PersSiguiente.Modify(true);
+            exit;
+        end;
+
+        PersSiguiente.Init();
+        PersSiguiente."No. Empleado" := PersProy."No. Empleado";
+        PersSiguiente."No. Proyecto" := JobSiguiente."No.";
+        PersSiguiente."Fecha Alta Asignación" := FechaAlta;
+        PersSiguiente.Insert(true);
     end;
 
     // Removes the Estado Empleado linked to a Personal Proyecto assignment (on assignment delete).
@@ -85,6 +161,56 @@ codeunit 50017 "Gestión Estado Empleado"
         SetEstadoEntidad("Tipo Entidad Estado"::Empleado, EmployeeNo, StateCode, StartDate);
     end;
 
+    /// <summary>
+    /// Al cerrar una marea, pone la fecha de baja en las asignaciones abiertas de ese proyecto.
+    /// Devuelve cuántas cerró.
+    /// </summary>
+    /// <remarks>
+    /// Cargar la fecha de arribo ES cerrar la marea, y hasta ahora eso no arrastraba nada: las
+    /// asignaciones quedaban abiertas y, con ellas, los estados de navegación. El tripulante seguía
+    /// "navegando" en un buque que ya estaba en puerto, y el control de días liquidados lo mostraba
+    /// pidiendo liquidación de un mes entero de navegación que nunca ocurrió.
+    ///
+    /// No cierra los estados por su cuenta: pone la baja en la asignación y deja que el OnModify de
+    /// Personal Proyecto haga lo suyo —cerrar el estado y encadenar el siguiente—, que es el camino
+    /// que ya existía y el único que sabe qué viene después de navegar. Si esa cadena no se puede
+    /// armar, el error revierte también el cierre de la marea: es preferible que la fecha de arribo
+    /// no se guarde a que se guarde dejando a la tripulación sin estado desde el día siguiente.
+    ///
+    /// Junta las claves antes de escribir: el bucle no puede recorrer un filtro por "Fecha Baja" en
+    /// blanco y a la vez completar ese campo, porque el primer registro que se cierra se sale del
+    /// conjunto y el recorrido corta ahí.
+    /// </remarks>
+    procedure CerrarAsignacionesDeProyecto(NoProyecto: Code[20]; FechaCierre: Date) Cerradas: Integer
+    var
+        PersProy: Record "Personal Proyecto";
+        Empleados: List of [Code[20]];
+        EmpNo: Code[20];
+    begin
+        if (NoProyecto = '') or (FechaCierre = 0D) then
+            exit(0);
+
+        PersProy.SetRange("No. Proyecto", NoProyecto);
+        PersProy.SetRange("Fecha Baja", 0D);
+        PersProy.SetLoadFields("No. Empleado");
+        if PersProy.FindSet() then
+            repeat
+                Empleados.Add(PersProy."No. Empleado");
+            until PersProy.Next() = 0;
+
+        foreach EmpNo in Empleados do
+            if PersProy.Get(EmpNo, NoProyecto) then begin
+                // Una asignación que arrancó DESPUÉS del arribo no es de esta marea cerrándose: es
+                // alguien que ya fue reasignado. Cerrarla con una baja anterior a su alta dejaría un
+                // rango invertido.
+                if PersProy."Fecha Alta Asignación" <= FechaCierre then begin
+                    PersProy.Validate("Fecha Baja", FechaCierre);
+                    PersProy.Modify(true);
+                    Cerradas += 1;
+                end;
+            end;
+    end;
+
     // Effective-dated insert: a state is active from StartDate until the next state's Fecha Inicio.
     // Inserting is enough — the previous state's coverage shrinks automatically (its effective end is
     // derived, not stored). Only guards against overwriting a period already covered by a non-reverted
@@ -101,10 +227,17 @@ codeunit 50017 "Gestión Estado Empleado"
         if TipoEntidad = TipoEntidad::Empleado then
             ValidarNoHayLiquidacionesBloqueantes(EntidadNo, StartDate, 0D);
 
-        // Manual state (No. Proyecto blank) already starting on this exact date → replace it.
+        // Ya hay un estado que arranca ESE MISMO DÍA → se reemplaza, no se agrega otro.
+        //
+        // El filtro NO incluye "No. Proyecto" a propósito. La clave única es (entidad, empleado,
+        // proyecto, fecha), así que un estado creado por la asignación a un proyecto y otro creado
+        // desde acá —que nace sin proyecto— pueden convivir el mismo día sin chocar. Y convivían: el
+        // historial mostraba dos filas idénticas, salvo por un campo que la grilla ni siquiera
+        // mostraba, y GetEstado elegía una de las dos sin criterio.
+        //
+        // Dos estados que empiezan el mismo día se contradicen, sin importar de dónde vino cada uno.
         EstadoEmp.SetRange("Tipo Entidad", TipoEntidad);
         EstadoEmp.SetRange("No. Empleado", EntidadNo);
-        EstadoEmp.SetRange("No. Proyecto", '');
         EstadoEmp.SetRange("Fecha Inicio", StartDate);
         if EstadoEmp.FindFirst() then begin
             if EstadoEmp."Cód. Estado" <> StateCode then begin
@@ -185,12 +318,17 @@ codeunit 50017 "Gestión Estado Empleado"
         if EstadoEmp."Tipo Entidad" <> EstadoEmp."Tipo Entidad"::Empleado then exit;
         if EstadoEmp."No. Proyecto" <> '' then exit;  // already linked to a project → nothing to resolve
         if not CodEstNuevo.Get(EstadoEmp."Cód. Estado") then exit;
-        if CodEstNuevo."Devenga Francos" then exit;   // new state is active → not a transition to inactive
+        // "Transcurre en Marea" y no "Devenga Francos": la pregunta acá es si el estado SIGUE a bordo,
+        // no si se trabaja. Con la bandera vieja, guardia en puerto, dique y pilotaje —que devengan
+        // francos sin estar embarcados— nunca bajaban al proyecto de nómina y quedaban colgados de la
+        // marea que acababa de terminar. En la migración eso dejó 12.324 guardias sobre el proyecto
+        // anterior, una de ellas 3.904 días después del arribo.
+        if CodEstNuevo."Transcurre en Marea" then exit;
 
-        // The state just before must be active (accrues francos) for this to be an active→inactive change.
+        // El estado anterior tiene que haber estado EN MAREA para que esto sea una salida de la marea.
         if not GetEstadoEntidad(EstadoEmp."Tipo Entidad"::Empleado, EstadoEmp."No. Empleado", EstadoEmp."Fecha Inicio" - 1, EstadoPrev) then exit;
         if not CodEstPrev.Get(EstadoPrev."Cód. Estado") then exit;
-        if not CodEstPrev."Devenga Francos" then exit;
+        if not CodEstPrev."Transcurre en Marea" then exit;
 
         // Marea project = the previous (active) state's project, or the employee's active assignment.
         NoProyMarea := EstadoPrev."No. Proyecto";
@@ -206,16 +344,18 @@ codeunit 50017 "Gestión Estado Empleado"
                 NoProyInact := HRSetup."Proyecto Nómina";
         if NoProyInact = '' then exit;
 
-        // Assign the employee to the inactivity project (convenio/categoría from the marea assignment).
+        // Assign the employee to the inactivity project so he keeps having a state.
+        //
+        // Antes esto además exigía que la asignación a la marea trajera convenio y categoría, y las
+        // copiaba. El par ya no vive en la asignación —sale de los atributos del empleado, con su
+        // historial— así que no hay nada que copiar. Se conserva el requisito de que la asignación a
+        // la marea EXISTA, que es lo que dice "este empleado viene de navegar"; lo que se cae es una
+        // condición que hoy sólo podría fallar por un dato vestigial.
         if not PersInact.Get(EstadoEmp."No. Empleado", NoProyInact) then
-            if PersMarea.Get(EstadoEmp."No. Empleado", NoProyMarea) and
-               (PersMarea."Cód. Convenio" <> '') and (PersMarea."Cód. Categoría" <> '')
-            then begin
+            if PersMarea.Get(EstadoEmp."No. Empleado", NoProyMarea) then begin
                 PersInact.Init();
                 PersInact."No. Empleado" := EstadoEmp."No. Empleado";
                 PersInact."No. Proyecto" := NoProyInact;
-                PersInact."Cód. Convenio" := PersMarea."Cód. Convenio";
-                PersInact."Cód. Categoría" := PersMarea."Cód. Categoría";
                 PersInact."Fecha Alta Asignación" := EstadoEmp."Fecha Inicio";
                 PersInact.Insert(true);
             end;
@@ -389,15 +529,27 @@ codeunit 50017 "Gestión Estado Empleado"
     end;
 
     // Batch: apply a vessel state (with employee cascade) to a set of vessels (Global Dim. 1 values).
-    procedure SetEstadoEnLoteBuques(var DimValue: Record "Dimension Value"; StateCode: Code[20]; StartDate: Date): Integer
+    // Recibe entidades y ya no valores de dimensión: la entidad es el maestro operativo, y así el
+    // lote solo alcanza a lo que está clasificado. Un valor de dimensión sin entidad no es un buque
+    // ni una planta todavía, y darle un estado no significaría nada.
+    //
+    // Las claves se juntan primero: SetEstadoBuque escribe estados y propaga a la tripulación, y no
+    // conviene que un recorrido abierto dependa de lo que eso deje tocado.
+    procedure SetEstadoEnLoteEntidades(var Entidad: Record "Entidad Liq."; StateCode: Code[20]; StartDate: Date): Integer
     var
+        Codigos: List of [Code[20]];
+        Codigo: Code[20];
         Contador: Integer;
     begin
-        if not DimValue.FindSet() then exit(0);
+        if not Entidad.FindSet() then exit(0);
         repeat
-            SetEstadoBuque(DimValue.Code, StateCode, StartDate);
+            Codigos.Add(Entidad.Código);
+        until Entidad.Next() = 0;
+
+        foreach Codigo in Codigos do begin
+            SetEstadoBuque(Codigo, StateCode, StartDate);
             Contador += 1;
-        until DimValue.Next() = 0;
+        end;
         exit(Contador);
     end;
 
@@ -467,7 +619,7 @@ codeunit 50017 "Gestión Estado Empleado"
     end;
 
     // Fractional seniority (whole completed years + fraction of the current year, rounded to
-    // 0.1) — used by the ANIOS_ANTIGUEDAD system variable. CalcAntiguedadAlFecha above keeps
+    // 0.1) — used by the AÑOS_ANTIGUEDAD system variable. CalcAntiguedadAlFecha above keeps
     // whole completed years only, on purpose: Art. 164/150 LCT vacation-day brackets need the
     // legally exact completed-year count, not an approximation, so that logic is untouched.
     // This variant is for formulas that want a smoother, prorated antiquity credit instead.
@@ -502,46 +654,56 @@ codeunit 50017 "Gestión Estado Empleado"
         exit(AnosCompletos + Round(DiasTranscurridos / DiasCiclo, 0.1, '<'));
     end;
 
+    /// <summary>Años completos de antigüedad al 30 de junio que rige para FechaRef.</summary>
+    /// <remarks>
+    /// El corte del Art. 32 del CCT: la antigüedad que se paga durante todo el año es la que el
+    /// tripulante tenía al 30 de junio, no la de hoy. De julio en adelante rige el 30/06 de ese
+    /// mismo año; de enero a junio, el del año anterior.
+    ///
+    /// Vive acá y no adentro del contexto de cálculo porque no la usa solo el motor: la consultan
+    /// también las vistas de antigüedad, y el día que discrepen —una redondeando y la otra
+    /// truncando, por ejemplo— la pantalla diría una cosa y el recibo otra sin que nadie lo note.
+    /// </remarks>
+    procedure CalcAntiguedadAl30Junio(EmployeeNo: Code[20]; FechaRef: Date): Decimal
+    var
+        Anio: Integer;
+    begin
+        if FechaRef = 0D then
+            exit(0);
+        Anio := Date2DMY(FechaRef, 3);
+        if Date2DMY(FechaRef, 2) < 7 then
+            Anio -= 1;
+        exit(CalcAntiguedadAlFecha(EmployeeNo, DMY2Date(30, 6, Anio)));
+    end;
+
     // Sum of all employment periods (Alta → Baja) + Antigüedad Reconocida, in calendar days.
+
     // Shared by CalcAntiguedadAlFecha and CalcAntiguedadFraccionAlFecha. Intermediate states
     // (Vacaciones, Enfermedad, Suspensión) are inside a period and included automatically;
     // only Baja states close a period.
     local procedure CalcDiasAntiguedad(EmployeeNo: Code[20]; FechaRef: Date): Integer
     var
         Emp: Record Employee;
-        EstadoEmp: Record "Estado Empleado";
-        CodEst: Record "Cód. Estado Empleado";
-        FechaInicioEmpleo: Date;
+        Fase: Record "Fase Alta Empleado";
         TotalDias: Integer;
         DiasReconocidos: Integer;
-        InEmpleo: Boolean;
     begin
         if not Emp.Get(EmployeeNo) then exit(0);
 
-        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
-        EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
-        EstadoEmp.SetRange("No. Empleado", EmployeeNo);
-        EstadoEmp.SetFilter("Fecha Inicio", '<=%1', FechaRef);
-        if EstadoEmp.FindSet() then
-            repeat
-                if CodEst.Get(EstadoEmp."Cód. Estado") then
-                    case CodEst."Tipo Estado" of
-                        CodEst."Tipo Estado"::Alta:
-                            begin
-                                InEmpleo := true;
-                                FechaInicioEmpleo := EstadoEmp."Fecha Inicio";
-                            end;
-                        CodEst."Tipo Estado"::Baja:
-                            if InEmpleo then begin
-                                TotalDias += EstadoEmp."Fecha Inicio" - FechaInicioEmpleo;
-                                InEmpleo := false;
-                            end;
-                    end;
-            until EstadoEmp.Next() = 0;
+        // LOS TRAMOS SALEN DE "Fase Alta Empleado", no de recorrer el historial de estados.
+        //
+        // Antes esto abría una fase en cada estado de tipo Alta y la cerraba en cada Baja. Funcionaba
+        // mientras altas y bajas vivieran en el historial, pero las obligaba a ocupar un día que el
+        // estado operativo también necesitaba: el día que alguien ingresa y embarca, las dos cosas
+        // son ciertas y sólo una entraba. Ahora son ejes separados y el tramo ya está escrito.
+        //
+        // Lo que NO cambia es el criterio: los estados intermedios —vacaciones, enfermedad,
+        // suspensión— están adentro del tramo y cuentan igual. Sólo la baja lo corta.
+        TotalDias := Fase.CalcDiasHasta(EmployeeNo, FechaRef);
 
-        if InEmpleo then
-            TotalDias += FechaRef - FechaInicioEmpleo;
-
+        // Red de seguridad para el empleado que todavía no tiene fase cargada: la ficha de BC trae
+        // su fecha de ingreso y es mejor que devolver cero. No reemplaza a la fase —no sabe de
+        // bajas ni de reingresos— pero evita que alguien liquide con antigüedad cero sin enterarse.
         if (TotalDias = 0) and (Emp."Employment Date" <> 0D) then
             TotalDias := FechaRef - Emp."Employment Date";
 
@@ -623,5 +785,9 @@ codeunit 50017 "Gestión Estado Empleado"
         ErrSinEstado: Label 'El empleado %1 no tiene un estado definido para la fecha %2.';
         ErrAmbitoBuque: Label 'El estado %1 no aplica a buques (su Ámbito debe ser Buque o Ambos).';
         ErrLiquidacionesBloqueantes: Label 'Existe una liquidación no revertida para el período %1 (Liq. %2, estado: %3). Revertí la liquidación antes de modificar el historial de estados.';
+        AvisoAltaSinBaja: Label 'Esta fase quedó sin baja y hay un alta posterior. El cálculo de antigüedad pisa la fecha de inicio con la del alta siguiente, así que este tramo entero no cuenta.';
+        AvisoBajaSinAlta: Label 'Baja sin un alta previa que cerrar. El cálculo de antigüedad la ignora.';
         QstReemplazarEstadoActual: Label 'El estado %1 que comienza el %2 será reemplazado por %3. ¿Confirmás el reemplazo?';
+        ErrSinProyectoParaEstado: Label 'No hay ningún proyecto con "%1" como Estado Liq. Personal Predet., que es el estado que sigue a %2. Sin ese proyecto el empleado quedaría sin estado desde el día siguiente al cierre, así que no se guarda la fecha de baja. Cargá el proyecto de %1 y volvé a intentar.', Comment = '%1=estado siguiente, %2=estado actual';
+        ErrVariosProyectosParaEstado: Label 'Hay %1 proyectos con "%2" como Estado Liq. Personal Predet. y no hay forma de saber a cuál asignar al empleado. Dejá uno solo con ese estado predeterminado, o asignalo a mano.', Comment = '%1=cantidad, %2=estado siguiente';
 }

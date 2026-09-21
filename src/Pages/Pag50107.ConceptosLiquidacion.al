@@ -32,7 +32,9 @@ page 50107 "Conceptos Liquidación"
                 field("Aplica A"; Rec."Aplica A") { ApplicationArea = All; }
                 field("Tipos Liq. Aplicables"; Rec."Tipos Liq. Aplicables") { ApplicationArea = All; }
                 field("Orden Cálculo"; Rec."Orden Cálculo") { ApplicationArea = All; }
-                field(Activo; Rec.Activo) { ApplicationArea = All; }
+                // "Activo" ya no se muestra: dejó de tener efecto en el cálculo y verlo en No sobre
+                // un concepto que igual se liquida es peor que no verlo. La baja va por "Vigencia
+                // Hasta"; las versiones que quedaron en false se revisan desde su propia página.
                 field(Fórmula; Rec.Fórmula) { ApplicationArea = All; }
                 field(Condición; Rec.Condición) { ApplicationArea = All; Visible = false; }
                 field("Es Acumulador"; Rec."Es Acumulador") { ApplicationArea = All; Visible = false; }
@@ -175,7 +177,54 @@ page 50107 "Conceptos Liquidación"
                     CurrPage.Update(false);
                 end;
             }
+            action(FormatearFormulas)
+            {
+                ApplicationArea = All;
+                Caption = 'Formatear todas las fórmulas';
+                Image = Splitlines;
+                ToolTip = 'Reescribe todas las fórmulas y condiciones en su forma canónica: sangría y saltos de línea donde no entran en el ancho. No cambia lo que ninguna calcula. Se corre una sola vez, después de actualizar la extensión; de ahí en adelante cada fórmula se guarda ya formateada.';
+
+                trigger OnAction()
+                var
+                    Concepto: Record "Concepto Liquidación";
+                    Formateador: Codeunit "Formateador Fórmula Liq.";
+                    HistorialMgt: Codeunit "Historial Fórmulas Liq.";
+                    FormulaAnterior: Text;
+                    CondicionAnterior: Text;
+                    NuevaFormula: Text;
+                    NuevaCondicion: Text;
+                    Cant: Integer;
+                begin
+                    if not Confirm(QstFormatear) then
+                        exit;
+
+                    Concepto.SetLoadFields(Fórmula, Condición);
+                    if Concepto.FindSet() then
+                        repeat
+                            NuevaFormula := Formateador.Formatear(Concepto.Fórmula);
+                            NuevaCondicion := Formateador.Formatear(Concepto.Condición);
+                            if (NuevaFormula <> Concepto.Fórmula) or (NuevaCondicion <> Concepto.Condición) then begin
+                                FormulaAnterior := Concepto.Fórmula;
+                                CondicionAnterior := Concepto.Condición;
+                                Concepto.Fórmula := CopyStr(NuevaFormula, 1, MaxStrLen(Concepto.Fórmula));
+                                Concepto.Condición := CopyStr(NuevaCondicion, 1, MaxStrLen(Concepto.Condición));
+                                // Modify(false) y registro aparte: por OnModify esto quedaría como
+                                // una Modificación por concepto —doscientas entradas diciendo que la
+                                // fórmula cambió, cuando ninguna cambió—. Pero sin rastro tampoco
+                                // puede quedar: es una reescritura masiva de un objeto auditado. Va
+                                // con tipo Formato, que se distingue de un cambio de verdad.
+                                Concepto.Modify(false);
+                                HistorialMgt.RegistrarFormato(Concepto, FormulaAnterior, CondicionAnterior);
+                                Cant += 1;
+                            end;
+                        until Concepto.Next() = 0;
+
+                    Message(MsgFormateadas, Cant);
+                    CurrPage.Update(false);
+                end;
+            }
             action(ActivarImprimeEnRecibo)
+
             {
                 ApplicationArea = All;
                 Caption = 'Activar "Imprime en Recibo" en todos';
@@ -200,6 +249,10 @@ page 50107 "Conceptos Liquidación"
             }
         }
     }
+
+    var
+        QstFormatear: Label '¿Reescribir todas las fórmulas en su forma canónica?\No cambia lo que calculan: solo cambian los espacios y los saltos de línea. Conviene hacerlo una sola vez.';
+        MsgFormateadas: Label '%1 fórmula(s) reescritas.', Comment = '%1 = cantidad de conceptos';
 
     trigger OnAfterGetRecord()
     begin

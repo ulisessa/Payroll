@@ -22,6 +22,40 @@ pageextension 50356 "Empleado Pesca List Ext." extends "Employee List"
                     RunPageLink = "No. Empleado" = FIELD("No.");
                     ToolTip = 'Ver todas las liquidaciones del empleado seleccionado.';
                 }
+                action(ListVerAtributos)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Atributos';
+                    Image = Dimensions;
+                    RunObject = Page "Atributos de Entidad";
+                    RunPageLink = "Tipo Entidad" = const(Empleado), "Cód. Entidad" = field("No.");
+                    ToolTip = 'Atributos del empleado seleccionado con sus vigencias: convenio, categoría y los que se hayan definido.';
+                }
+                action(ListVerNovedades)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Novedades';
+                    Image = Journal;
+                    RunObject = Page "Novedades Liquidación";
+                    RunPageLink = "No. Empleado" = field("No.");
+                    ToolTip = 'Novedades cargadas para el empleado seleccionado, con su estado: cuáles ya entraron en una liquidación, cuáles siguen pendientes y cuáles el motor descartó con un motivo.';
+                }
+                action(ListVerFrancos)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Francos';
+                    Image = Absence;
+                    ToolTip = 'Saldo de francos del empleado seleccionado, abierto por la categoría en que se ganó cada lote. Los francos no son fungibles: se pagan al valor de la categoría en que se devengaron, no a la del encuadre actual.';
+
+                    trigger OnAction()
+                    var
+                        Francos: Page "Francos por Tripulante";
+                    begin
+                        Rec.TestField("No.");
+                        Francos.SetFiltroEmpleado(Rec."No.");
+                        Francos.Run();
+                    end;
+                }
                 action(ListVerEstados)
                 {
                     ApplicationArea = All;
@@ -116,6 +150,22 @@ pageextension 50356 "Empleado Pesca List Ext." extends "Employee List"
                     Message(MsgEstadoLote, Cantidad, CodEstado, Fecha);
                     CurrPage.Update(false);
                 end;
+            }
+        }
+    }
+
+    views
+    {
+        addlast
+        {
+            view(PendientesCompletarSinc)
+            {
+                Caption = 'Pendientes de completar (Sinc.)';
+                Filters = where("Cód. Convenio" = filter(''));
+                // Los empleados que llegan de NAV traen legajo, nombre, documento y fecha de ingreso,
+                // pero no convenio ni categoría: eso se define acá. Mientras el convenio esté en
+                // blanco el motor no los liquida, así que esta vista es la lista de trabajo de quien
+                // tiene que completarlos, y no hay que acordarse de filtrar a mano.
             }
         }
     }

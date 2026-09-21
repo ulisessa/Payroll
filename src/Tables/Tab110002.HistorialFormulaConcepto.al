@@ -44,6 +44,17 @@ table 110002 "Historial Fórmula Concepto"
         {
             Caption = 'Fecha Hora';
             DataClassification = CustomerContent;
+            // Cuándo EMPEZÓ la sesión de edición. No se toca después: es la referencia contra la
+            // que se mide la ventana de agrupación, y además el orden de la lista. Si avanzara con
+            // cada tecleo, la ventana no se cerraría nunca y la entrada saltaría al tope de la
+            // pantalla mientras se escribe. Lo último editado va en "Última Edición".
+        }
+        field(23; "Última Edición"; DateTime)
+        {
+            Caption = 'Última Edición';
+            DataClassification = CustomerContent;
+            // Cuándo se guardó por última vez dentro de la misma sesión. Igual a "Fecha Hora" si la
+            // sesión tuvo un solo guardado.
         }
         field(21; Usuario; Code[50])
         {

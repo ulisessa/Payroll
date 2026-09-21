@@ -117,7 +117,11 @@ table 60000 "Estado Empleado"
         TestField("No. Empleado");
         TestField("Fecha Inicio");
         TestField("Cód. Estado");
+        ValidarNoEsAltaNiBaja();
+        ValidarDentroDeFaseDeAlta();
+        ValidarDentroDelProyecto();
         ValidarOrdenFechas();
+        ValidarUnEstadoPorFecha();
         ValidarNoHayLiquidacionesBloqueantes("Fecha Inicio", FechaFinEfectiva());
         // Materializes the follow-up state (e.g. Vacaciones → return) regardless of entry path.
         EstadoMgt.AplicarAutoTransicion(Rec);
@@ -136,7 +140,11 @@ table 60000 "Estado Empleado"
         FechaMax: Date;
         FinAnterior: Date;
     begin
+        ValidarNoEsAltaNiBaja();
+        ValidarDentroDeFaseDeAlta();
+        ValidarDentroDelProyecto();
         ValidarOrdenFechas();
+        ValidarUnEstadoPorFecha();
         FechaMin := xRec."Fecha Inicio";
         if "Fecha Inicio" < FechaMin then FechaMin := "Fecha Inicio";
 
@@ -229,6 +237,19 @@ table 60000 "Estado Empleado"
             if NuevoInicio >= Subsiguiente."Fecha Inicio" then
                 Error(ErrEmpujeInvalido, "Fecha Fin", Siguiente."Cód. Estado", Subsiguiente."Fecha Inicio");
 
+        // Y tampoco se puede empujar el inicio más allá del fin DEL PROPIO siguiente. El guard de
+        // arriba mira al sub-siguiente y deja pasar este otro caso, que es el que dejó tres filas
+        // con Fecha Inicio 1/7 y Fecha Fin 30/6: alguien cerró un estado el 30/6, el siguiente se
+        // corrió al 1/7, y ese siguiente ya terminaba el 30/6.
+        //
+        // Se corta en vez de arreglar solo porque el estado empujado se quedó sin días, y qué hacer
+        // con él —borrarlo, correrle también el fin, o mover otra cosa— es una decisión de nómina.
+        // Modify() sin validación no vuelve a pasar por ValidarOrdenFechas, así que si esto no
+        // estuviera, el rango invertido se escribe sin que nada avise.
+        if (Siguiente."Fecha Fin" <> 0D) and (Siguiente."Fecha Fin" < NuevoInicio) then
+            Error(ErrEmpujeSinDias, Siguiente."Cód. Estado", Siguiente."Fecha Inicio",
+                  Siguiente."Fecha Fin", NuevoInicio);
+
         Siguiente."Fecha Inicio" := NuevoInicio;
         Siguiente.Modify();
     end;
@@ -283,6 +304,174 @@ table 60000 "Estado Empleado"
     begin
         if ("Fecha Fin" <> 0D) and ("Fecha Inicio" <> 0D) and ("Fecha Fin" < "Fecha Inicio") then
             Error(ErrFinAntesDeInicio, "Fecha Fin", "Fecha Inicio");
+    end;
+
+    /// <summary>
+    /// Un empleado no puede tener dos estados que arranquen el mismo día.
+    /// </summary>
+    /// <remarks>
+    /// La clave única es (entidad, empleado, PROYECTO, fecha), así que dos estados del mismo día
+    /// entran sin chocar mientras vengan de proyectos distintos —o uno con proyecto y otro sin—. Y
+    /// entraban: hay dos generadores, la sincronización desde la asignación al proyecto crea el
+    /// estado CON número de proyecto y SetEstadoEntidad lo crea sin, y ninguno miraba al otro.
+    ///
+    /// El resultado no es una fila de más: es un historial contradictorio. GetEstado hace FindLast
+    /// sobre la fecha y elige uno de los dos sin criterio, así que el motor podía estar liquidando
+    /// con Franco a alguien que ese día estaba navegando. Y la contigüidad tampoco se puede sostener:
+    /// SincronizarContiguidad no puede cerrar al anterior contra un estado que arranca el mismo día
+    /// sin generar un intervalo invertido, así que los dejaba pisados.
+    ///
+    /// Con esta validación puesta, un solo estado por fecha alcanza para que NO PUEDA haber
+    /// solapamientos: la contigüidad se encarga del resto —al insertar uno en el medio, el anterior
+    /// se cierra contra su inicio; al correr una fecha de fin, el siguiente se empuja—.
+    /// </remarks>
+
+    /// <summary>
+    /// El historial de estados no admite altas ni bajas: ésas viven en "Fase Alta Empleado".
+    /// </summary>
+    /// <remarks>
+    /// POR QUÉ SE SEPARARON. Son dos ejes ortogonales —cuándo la persona pertenece a la empresa, y
+    /// qué estaba haciendo cada día— y esta tabla admite UN estado por empleado por fecha. Metidos
+    /// juntos, compiten por el mismo día: el día que alguien ingresa y embarca, las dos cosas son
+    /// ciertas y sólo una entra. En la migración de enero de 2026 eso fueron 153 filas, y no por
+    /// datos sucios: por el modelo. Meta4 lo tiene separado desde siempre, en dos tablas.
+    ///
+    /// La validación es activa y no un comentario porque el error es cómodo de cometer: los códigos
+    /// de alta y baja siguen existiendo en el catálogo —son los motivos de la fase— y se eligen del
+    /// mismo desplegable que los operativos. Sin esto, alguien vuelve a cargar un ALT acá dentro de
+    /// seis meses y la antigüedad de esa persona deja de salir de donde tiene que salir.
+    /// </remarks>
+    /// <summary>
+    /// Un estado operativo tiene que caer adentro de una fase de alta del empleado.
+    /// </summary>
+    /// <remarks>
+    /// REEMPLAZA A ValidarSecuenciaDespuesDeBaja, que quedó sin efecto al separar las tablas: miraba
+    /// que no hubiera estados después de una baja, y ya no hay bajas en este historial. La misma
+    /// protección, ahora expresada donde vive el dato.
+    ///
+    /// Cubre dos cosas que antes eran una sola:
+    ///   · El empleado sin ninguna fase. Hoy eso no da error en ninguna liquidación: da antigüedad
+    ///     cero, y los conceptos que dependen de ella salen en cero o no salen. Es el modo de falla
+    ///     más caro de todos porque es invisible.
+    ///   · El estado fuera de sus fases — antes del ingreso, o después de la baja. Alguien no puede
+    ///     estar navegando un día en que no pertenece a la empresa.
+    ///
+    /// NO CREA LA FASE SOLA, y es deliberado. La fecha de alta es un hecho contractual: deducirla
+    /// del primer día que tenemos registro de que la persona trabajó acierta casi siempre y falla en
+    /// silencio el resto de las veces —quien ingresa un lunes y embarca el jueves pierde tres días
+    /// de antigüedad, para siempre y sin que nadie lo note—. El error dice qué falta; cargarlo son
+    /// dos campos en "Fases de Alta".
+    /// </remarks>
+    local procedure ValidarDentroDeFaseDeAlta()
+    var
+        Fase: Record "Fase Alta Empleado";
+    begin
+        // Sólo aplica a personas. Los estados de buque no tienen relación laboral.
+        if "Tipo Entidad" <> "Tipo Entidad"::Empleado then
+            exit;
+        if ("No. Empleado" = '') or ("Fecha Inicio" = 0D) then
+            exit;
+
+        Fase.SetRange("No. Empleado", "No. Empleado");
+        if Fase.IsEmpty() then
+            Error(ErrSinFaseDeAlta, "No. Empleado", "Fecha Inicio");
+
+        // La fase abierta llega hasta el infinito; la cerrada, hasta su baja inclusive.
+        Fase.SetFilter("Fecha Alta", '<=%1', "Fecha Inicio");
+        Fase.SetFilter("Fecha Baja", '%1|>=%2', 0D, "Fecha Inicio");
+        if Fase.IsEmpty() then
+            Error(ErrFueraDeFase, "Fecha Inicio", "No. Empleado");
+    end;
+
+    /// <summary>
+    /// Un estado que transcurre a bordo no puede empezar después de que el buque llegó a puerto.
+    /// </summary>
+    /// <remarks>
+    /// DE DÓNDE SALE. El 17/7/2026 alguien corrió el flujo de asignar tripulación con el WorkDate
+    /// adelantado y quedaron 29 estados NV en PP-119-000308 —una marea que había vuelto el 3/6—
+    /// fechados el 13/10/2026. El daño no se quedó ahí: el historial es contiguo, así que insertar
+    /// un estado el 13/10 cerró el 12/10 lo que cada uno tuviera abierto. A veintidós les cerró la
+    /// navegación de la marea siguiente; a uno, la licencia por enfermedad; a otro, la asignación de
+    /// nómina abierta desde 2001. Dos meses después la migración derivó "Personal Proyecto" del
+    /// MIN/MAX de esos estados y lo horneó en las asignaciones, y de ahí salió como "el legajo 00794
+    /// tiene mal la fecha de baja". Tres tablas y dos meses para un error de un día al cargar.
+    ///
+    /// POR QUÉ ESTRICTO, SIN MARGEN. Sobre 58.947 estados NV con proyecto cerrado, los que empiezan
+    /// después del arribo son 63, y son TODOS anomalías: los 29 de arriba más un puñado de proyectos
+    /// viejos con Ending Date basura. Cero casos entre uno y tres días, o sea que no hay una práctica
+    /// legítima de estirar la navegación un día por el amarre. Con una zona gris habría que elegir un
+    /// umbral arbitrario; sin ella, la regla es la regla.
+    ///
+    /// POR QUÉ SÓLO LOS DE A BORDO. Sin filtrar por "Transcurre en Marea" esto rompería cientos de
+    /// estados legítimos: los francos y las guardias que arrancan justo al día siguiente del arribo y
+    /// que la migración dejó colgados del proyecto de la marea en vez del de nómina. Ésos son un
+    /// problema de a qué proyecto pertenecen, no de fecha, y se arreglan moviéndolos —no prohibiéndolos.
+    ///
+    /// Un proyecto sin Ending Date no restringe nada: la marea sigue en curso, o es un PN- de nómina,
+    /// que por definición no termina.
+    /// </remarks>
+    local procedure ValidarDentroDelProyecto()
+    var
+        Job: Record Job;
+        CodEst: Record "Cód. Estado Empleado";
+    begin
+        if ("No. Proyecto" = '') or ("Fecha Inicio" = 0D) or ("Cód. Estado" = '') then
+            exit;
+        if not CodEst.Get("Cód. Estado") then
+            exit;
+        if not CodEst."Transcurre en Marea" then
+            exit;
+        if not Job.Get("No. Proyecto") then
+            exit;
+        if Job."Ending Date" = 0D then
+            exit;
+
+        if "Fecha Inicio" > Job."Ending Date" then
+            Error(ErrEstadoDespuesDelArribo,
+                  "Cód. Estado", "Fecha Inicio", "No. Proyecto", Job."Ending Date");
+    end;
+
+    local procedure ValidarNoEsAltaNiBaja()
+    var
+        CodEst: Record "Cód. Estado Empleado";
+    begin
+        if "Cód. Estado" = '' then
+            exit;
+        if not CodEst.Get("Cód. Estado") then
+            exit;
+
+        case CodEst."Tipo Estado" of
+            CodEst."Tipo Estado"::Alta:
+                Error(ErrAltaEnHistorial, "Cód. Estado");
+            CodEst."Tipo Estado"::Baja:
+                Error(ErrBajaEnHistorial, "Cód. Estado");
+        end;
+    end;
+
+    local procedure ValidarUnEstadoPorFecha()
+    var
+        Otro: Record "Estado Empleado";
+        Descripcion: Text;
+    begin
+        if ("Fecha Inicio" = 0D) or ("No. Empleado" = '') then
+            exit;
+
+        Otro.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        Otro.SetRange("Tipo Entidad", "Tipo Entidad");
+        Otro.SetRange("No. Empleado", "No. Empleado");
+        Otro.SetRange("Fecha Inicio", "Fecha Inicio");
+        // En OnInsert el autoincremental todavía no está asignado, así que este filtro no excluye
+        // nada y está bien: el registro propio tampoco está escrito todavía.
+        Otro.SetFilter("No. Mov.", '<>%1', "No. Mov.");
+        if not Otro.FindFirst() then
+            exit;
+
+        Descripcion := Otro."Cód. Estado";
+        if Otro."No. Proyecto" <> '' then
+            Descripcion += ' (' + Otro."No. Proyecto" + ')'
+        else
+            Descripcion += TxtSinProyecto;
+        Error(ErrEstadoMismaFecha, "No. Empleado", "Fecha Inicio", Descripcion, "Cód. Estado");
     end;
 
     // Propuesta de fin para un estado de Vacaciones: los días que le corresponden por LCT. Queda
@@ -341,5 +530,13 @@ table 60000 "Estado Empleado"
     var
         ErrLiquidacionesBloqueantes: Label 'Existe una liquidación no revertida para el período %1 (Liq. %2, estado: %3). Revertí la liquidación antes de modificar el historial de estados.';
         ErrFinAntesDeInicio: Label 'La Fecha Fin (%1) no puede ser anterior a la Fecha Inicio (%2).';
+        ErrSinFaseDeAlta: Label 'El legajo %1 no tiene ninguna fase de alta, así que no puede tener un estado el %2: no pertenece a la empresa en ninguna fecha. Cargá el alta en "Fases de Alta" y volvé. No se crea sola a propósito — la fecha de ingreso es un dato contractual, no algo que se pueda deducir del primer día que aparece trabajando.', Comment = '%1 = legajo; %2 = fecha del estado';
+        ErrFueraDeFase: Label 'El %1 cae fuera de las fases de alta del legajo %2: es anterior a su ingreso, o posterior a su baja. Si la fecha del estado está bien, lo que falta corregir es la fase.', Comment = '%1 = fecha del estado; %2 = legajo';
+        ErrAltaEnHistorial: Label 'El código %1 es un alta, y las altas ya no van en el historial de estados: se cargan en "Fases de Alta". Este historial guarda qué hacía la persona cada día; la fase guarda desde cuándo pertenece a la empresa. Separadas, las dos pueden ocupar el mismo día.', Comment = '%1 = código de estado';
+        ErrBajaEnHistorial: Label 'El código %1 es una baja, y las bajas ya no van en el historial de estados: se cierra la fase en "Fases de Alta", donde además va el motivo.', Comment = '%1 = código de estado';
+        ErrEstadoMismaFecha: Label '%1 ya tiene un estado que arranca el %2: %3. No se puede agregar %4 el mismo día.\\Un empleado tiene un solo estado por vez. Corregí la fecha, o cerrá el estado que ya está antes de abrir el nuevo.', Comment = '%1=empleado, %2=fecha, %3=estado existente y su proyecto, %4=estado nuevo';
+        TxtSinProyecto: Label ' (cargado a mano)';
+        ErrEstadoDespuesDelArribo: Label 'El estado %1 no puede empezar el %2: el proyecto %3 llegó a puerto el %4.\\Un estado que transcurre a bordo termina cuando termina la marea. Si la persona siguió en el buque después del arribo, eso va contra el proyecto de nómina, no contra la marea. Y si la fecha está bien, lo que falta corregir es la fecha de arribo del proyecto.', Comment = '%1=código de estado; %2=fecha de inicio; %3=proyecto; %4=fin del proyecto';
+        ErrEmpujeSinDias: Label 'Con esa fecha de fin, el estado siguiente (%1, del %2 al %3) tendría que empezar el %4 y se quedaría sin ningún día.\Decidí primero qué pasa con ese estado: borralo, corré también su fecha de fin, o elegí otra fecha de cierre para éste.', Comment = '%1=estado siguiente; %2=su inicio; %3=su fin; %4=el inicio que tendría';
         ErrEmpujeInvalido: Label 'Con Fecha Fin %1 el estado siguiente (%2) tendría que empezar después del estado que ya existe al %3. Ajustá primero ese estado.';
 }

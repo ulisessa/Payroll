@@ -23,6 +23,14 @@ page 110004 "Historial Fórmulas Concepto"
                 {
                     ApplicationArea = All;
                     Width = 16;
+                    ToolTip = 'Cuándo empezó esta sesión de edición. Los guardados sucesivos del mismo usuario sobre la misma fórmula, dentro de una ventana de minutos, se agrupan en esta entrada; el último queda en "Última Edición".';
+                }
+                field("Última Edición"; Rec."Última Edición")
+                {
+                    ApplicationArea = All;
+                    Width = 16;
+                    Visible = false;
+                    ToolTip = 'Último guardado de esta sesión de edición. Igual a Fecha Hora si hubo uno solo.';
                 }
                 field(Usuario; Rec.Usuario)
                 {
@@ -136,6 +144,10 @@ page 110004 "Historial Fórmulas Concepto"
                 FilaStyle := 'Unfavorable';
             Rec."Tipo Cambio"::Alta:
                 FilaStyle := 'Favorable';
+            // Un reformateo no cambió ningún número: se muestra apagado para que no compita con los
+            // cambios de verdad, que son lo que uno viene a buscar a esta pantalla.
+            Rec."Tipo Cambio"::Formato:
+                FilaStyle := 'Subordinate';
             else
                 FilaStyle := 'Ambiguous';
         end;

@@ -11,5 +11,5 @@ enum 50302 "Función Agregado Liq."
     value(4; "LOOKUP") { Caption = 'Búsqueda directa'; }
     value(5; "DIAS_OVERLAP") { Caption = 'Días solapados'; }
     value(6; "DURACION_INICIO") { Caption = 'Duración desde inicio'; }
-    value(7; "DURACION_ANIO") { Caption = 'Duración en el año'; }
+    value(7; "DURACION_AÑO") { Caption = 'Duración en el año'; }
 }

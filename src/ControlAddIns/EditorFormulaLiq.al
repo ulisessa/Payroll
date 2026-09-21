@@ -15,8 +15,11 @@ controladdin "Editor Fórmula Liq."
     StartupScript = 'src/ControlAddIns/EditorFormula/startup.js';
     StyleSheets = 'src/ControlAddIns/EditorFormula/editorFormula.css';
 
-    RequestedHeight = 380;
-    MinimumHeight = 260;
+    // Los dos cuadros más sus etiquetas, la barra de diagnóstico y la de ayuda. Si el control queda
+    // más bajo que su contenido, el sobrante no se puede alcanzar: el body del add-in tiene
+    // overflow hidden para que el popup del autocompletado no genere una segunda barra de scroll.
+    RequestedHeight = 500;
+    MinimumHeight = 400;
     RequestedWidth = 900;
     MinimumWidth = 300;
     HorizontalStretch = true;

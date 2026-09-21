@@ -17,6 +17,13 @@ page 110009 "Valores Atributo Sub"
         {
             repeater(Lines)
             {
+                field("Cód. Valor Padre"; Rec."Cód. Valor Padre")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cuelga de';
+                    Visible = TienePadre;
+                    ToolTip = 'Valor del atributo del que depende éste. Solo se ofrece cuando el tipo declara un "Depende de": ahí cada valor tiene que decir de cuál cuelga, y es lo que permite repetir el mismo código bajo dos padres distintos.';
+                }
                 field(Código; Rec.Código) { ApplicationArea = All; }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field("Valor Numérico"; Rec."Valor Numérico")
@@ -27,4 +34,32 @@ page 110009 "Valores Atributo Sub"
             }
         }
     }
+
+    trigger OnOpenPage()
+    begin
+        ActualizarTienePadre();
+    end;
+
+    trigger OnAfterGetCurrRecord()
+    begin
+        ActualizarTienePadre();
+    end;
+
+    // La columna solo aparece para los atributos encadenados. En una lista plana sería una columna
+    // vacía que invita a completarla y después rebota con un error.
+    local procedure ActualizarTienePadre()
+    var
+        TipoAtr: Record "Tipo Atributo Liq.";
+        CodTipo: Code[20];
+    begin
+        CodTipo := CopyStr(Rec.GetFilter("Cód. Tipo Atributo"), 1, MaxStrLen(CodTipo));
+        if CodTipo = '' then
+            CodTipo := Rec."Cód. Tipo Atributo";
+        TienePadre := false;
+        if TipoAtr.Get(CodTipo) then
+            TienePadre := TipoAtr."Cód. Tipo Atributo Padre" <> '';
+    end;
+
+    var
+        TienePadre: Boolean;
 }

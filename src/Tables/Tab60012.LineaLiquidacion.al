@@ -1,5 +1,6 @@
 namespace UAS.Payroll;
 
+using Microsoft.Foundation.UOM;
 using Microsoft.HumanResources.Employee;
 using Microsoft.Projects.Project.Job;
 
@@ -254,5 +255,58 @@ table 60012 "Línea Liquidación"
         Det.SetRange("No. Liquidación", "No. Liquidación");
         Det.SetRange("No. Línea", "No. Línea");
         Det.DeleteAll();
+    end;
+
+    /// <summary>
+    /// La unidad concordada con la cantidad: "1 DIA", "9 DIAS", "35.676 KN".
+    /// </summary>
+    /// <remarks>
+    /// Es presentación, no dato: la unidad se guarda como está configurada en el concepto —siempre en
+    /// singular— y el plural se arma al mostrarla. Guardar el plural en la línea obligaría a
+    /// reescribirla cada vez que cambia la cantidad, y dejaría el dato dependiendo de un número.
+    ///
+    /// El plural sale de "Plural (recibo)" en la unidad de medida cuando está cargado; si no, se
+    /// deriva. Las reglas de derivación, en orden: una cantidad de 1 (o de -1) no pluraliza; una
+    /// unidad SIN VOCALES es un símbolo de medida y es invariable —KN, KB, TN, KG no llevan ese—; el
+    /// resto sigue el español: termina en vocal, se le agrega S; termina en consonante, ES. Así
+    /// DIA→DIAS, HORA→HORAS, AÑO→AÑOS, MES→MESES, y KN se queda como está.
+    ///
+    /// La derivación se mantiene y NO se reemplazó por el campo: si el plural fuera obligatorio,
+    /// cada unidad nueva empezaría mostrándose vacía en el recibo hasta que alguien se acuerde de
+    /// cargarlo. El campo es la excepción, no el mecanismo.
+    /// </remarks>
+    procedure UnidadParaMostrar(): Text[20]
+    var
+        UdM: Record "Unit of Measure";
+        Unidad: Text[20];
+        Ultima: Text[1];
+    begin
+        Unidad := "Unidad Cantidad";
+        if Unidad = '' then
+            exit('');
+        if Abs(Cantidad) = 1 then
+            exit(Unidad);
+
+        if UdM.Get("Unidad Cantidad") then
+            if UdM."Plural Liq." <> '' then
+                exit(UdM."Plural Liq.");
+
+        if not TieneVocal(Unidad) then
+            exit(Unidad);
+
+        Ultima := CopyStr(Unidad, StrLen(Unidad), 1);
+        if TieneVocal(Ultima) then
+            exit(Unidad + 'S');
+        exit(Unidad + 'ES');
+    end;
+
+    local procedure TieneVocal(Texto: Text): Boolean
+    var
+        i: Integer;
+    begin
+        for i := 1 to StrLen(Texto) do
+            if UpperCase(CopyStr(Texto, i, 1)) in ['A', 'E', 'I', 'O', 'U', 'Á', 'É', 'Í', 'Ó', 'Ú'] then
+                exit(true);
+        exit(false);
     end;
 }

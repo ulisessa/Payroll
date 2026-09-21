@@ -3,13 +3,16 @@ namespace UAS.Payroll;
 using Microsoft.Finance.Dimension;
 using Microsoft.Finance.GeneralLedger.Setup;
 
+// Los valores de la dimensión global 1 — buques, plantas, administraciones — y su entidad asociada.
+//
+// Esta página es el PUENTE de alta y nada más: desde acá se crea la entidad, que hereda el código
+// del valor de dimensión. Todo lo operativo —estados, atributos, plantillas— vive en la lista de
+// Entidades, porque una entidad clasificada es lo que hace que esas acciones signifiquen algo.
+// Un valor de dimensión sin entidad todavía no es un buque ni una planta.
 page 50191 "Buques"
 {
-    // Vessels are Global Dimension 1 values (there is no vessel master). This page lists them and lets
-    // the liquidador set an operational state for one or many vessels at once; the state cascades to the
-    // employees assigned to each vessel's active projects.
     PageType = List;
-    Caption = 'Buques';
+    Caption = 'Valores de Dimensión y Entidades';
     SourceTable = "Dimension Value";
     UsageCategory = Lists;
     ApplicationArea = All;
@@ -24,18 +27,25 @@ page 50191 "Buques"
                 field(Code; Rec.Code)
                 {
                     ApplicationArea = All;
-                    Caption = 'Buque';
+                    Caption = 'Código';
+
+                    trigger OnDrillDown()
+                    begin
+                        AbrirEntidadAsociada();
+                    end;
                 }
                 field(Name; Rec.Name)
                 {
                     ApplicationArea = All;
                     Caption = 'Nombre';
                 }
-                field("Estado Actual"; EstadoActualMostrado)
+                field(EntidadTxt; EntidadTxt)
                 {
                     ApplicationArea = All;
-                    Caption = 'Estado Actual';
+                    Caption = 'Entidad';
                     Editable = false;
+                    StyleExpr = EntidadStyle;
+                    ToolTip = 'Clase de la entidad asociada. Si dice "sin entidad", todavía no fue creada: usá la acción Entidad.';
                 }
             }
         }
@@ -45,52 +55,31 @@ page 50191 "Buques"
     {
         area(Processing)
         {
-            action(EstablecerEstadoLote)
+            action(AbrirEntidad)
             {
                 ApplicationArea = All;
-                Caption = 'Establecer estado';
-                Image = Change;
+                Caption = 'Entidad';
+                Image = Card;
                 Promoted = true;
                 PromotedCategory = Process;
                 PromotedIsBig = true;
-                ToolTip = 'Asigna un estado a los buques seleccionados en una fecha, y lo propaga a los empleados asignados a los proyectos activos de cada buque.';
+                ToolTip = 'Abre la entidad asociada a este valor de dimensión. Si todavía no existe, ofrece crearla — es la única vía de alta, para que el código de la entidad sea siempre el del valor de dimensión.';
 
                 trigger OnAction()
-                var
-                    DimValueSel: Record "Dimension Value";
-                    EstadoMgt: Codeunit "Gestión Estado Empleado";
-                    Dlg: Page "Estado en Lote Dialog";
-                    CodEstado: Code[20];
-                    Fecha: Date;
-                    Cantidad: Integer;
                 begin
-                    CurrPage.SetSelectionFilter(DimValueSel);
-                    if DimValueSel.IsEmpty() then exit;
-
-                    Dlg.Init(WorkDate(), true);
-                    if Dlg.RunModal() <> Action::OK then exit;
-                    Dlg.GetResultado(CodEstado, Fecha);
-                    if (CodEstado = '') or (Fecha = 0D) then exit;
-
-                    Cantidad := EstadoMgt.SetEstadoEnLoteBuques(DimValueSel, CodEstado, Fecha);
-                    Message(MsgAplicado, Cantidad, CodEstado, Fecha);
-                    CurrPage.Update(false);
+                    AbrirEntidadAsociada();
                 end;
             }
-            action(VerHistorial)
+        }
+        area(Navigation)
+        {
+            action(VerEntidades)
             {
                 ApplicationArea = All;
-                Caption = 'Ver historial';
-                Image = History;
-                ToolTip = 'Muestra el historial de estados del buque seleccionado.';
-
-                trigger OnAction()
-                var
-                    HistPage: Page "Estados de Buque";
-                begin
-                    HistPage.SetBuque(Rec.Code);
-                    HistPage.Run();
-                end;
+                Caption = 'Todas las entidades';
+                Image = List;
+                ToolTip = 'Abre la lista de entidades, donde están los estados, los atributos y las plantillas.';
+                RunObject = Page Entidades;
             }
         }
     }
@@ -109,16 +98,29 @@ page 50191 "Buques"
 
     trigger OnAfterGetRecord()
     var
-        EstadoEmp: Record "Estado Empleado";
-        EstadoMgt: Codeunit "Gestión Estado Empleado";
+        Entidad: Record "Entidad Liq.";
     begin
-        if EstadoMgt.GetEstadoEntidad(EstadoEmp."Tipo Entidad"::Buque, Rec.Code, WorkDate(), EstadoEmp) then
-            EstadoActualMostrado := EstadoEmp."Cód. Estado"
-        else
-            EstadoActualMostrado := '';
+        if Entidad.Get(Rec.Code) then begin
+            EntidadTxt := Entidad."Cód. Clase";
+            EntidadStyle := 'Favorable';
+        end else begin
+            EntidadTxt := TxtSinEntidad;
+            EntidadStyle := 'Subordinate';
+        end;
+    end;
+
+    local procedure AbrirEntidadAsociada()
+    var
+        Entidad: Record "Entidad Liq.";
+        Gestion: Codeunit "Gestión Entidades Liq.";
+    begin
+        if Gestion.ObtenerOCrear(Rec.Code, CopyStr(Rec.Name, 1, 100), Entidad) then
+            Page.Run(Page::"Ficha Entidad", Entidad);
+        CurrPage.Update(false);
     end;
 
     var
-        EstadoActualMostrado: Code[20];
-        MsgAplicado: Label '%1 buque(s) actualizados al estado ''%2'' desde %3 (con propagación a empleados).';
+        EntidadTxt: Text;
+        EntidadStyle: Text;
+        TxtSinEntidad: Label 'Sin entidad';
 }

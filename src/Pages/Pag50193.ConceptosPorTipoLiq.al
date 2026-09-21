@@ -16,25 +16,32 @@ page 50193 "Conceptos por Tipo Liq."
     {
         area(Content)
         {
-            field(FMostrar; FMostrar)
+            group(Filtro)
+            {
+                Caption = 'Vista';
+
+                field(FMostrar; FMostrar)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mostrar';
+                    ToolTip = 'Disponibles: no aplican a todos los tipos tildados. Asignados: aplican a todos. Todos: sin filtrar (los asignados quedan resaltados).';
+                    trigger OnValidate() begin RecomputarLista(); end;
+                }
+            }
+            // El panel de tipos va en el Contenido y NO en area(FactBoxes). El cliente web dibuja las
+            // FactBox de solo lectura, y ahí las tildes se veían pero no se podían marcar por más que
+            // la parte declarara Editable = true — con lo cual la herramienta entera no servía, porque
+            // sin ningún tipo tildado Asignar corta con error. Va antes de la lista porque es el
+            // primer paso: se eligen los tipos y recién después se filtra y se actúa sobre conceptos.
+            part(TiposSel; "Tipo Liq. Selección Sub")
             {
                 ApplicationArea = All;
-                Caption = 'Mostrar';
-                ToolTip = 'Disponibles: no aplican a todos los tipos tildados. Asignados: aplican a todos. Todos: sin filtrar (los asignados quedan resaltados).';
-                trigger OnValidate() begin RecomputarLista(); end;
+                Caption = 'Tipos de Liquidación (tildar)';
             }
             part(Lista; "Conceptos Tipo Liq. Sub")
             {
                 ApplicationArea = All;
                 Caption = 'Conceptos';
-            }
-        }
-        area(FactBoxes)
-        {
-            part(TiposSel; "Tipo Liq. Selección Sub")
-            {
-                ApplicationArea = All;
-                Caption = 'Tipos de Liquidación (tildar)';
             }
         }
     }

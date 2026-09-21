@@ -30,7 +30,7 @@ page 50154 "Parámetros Vigentes"
                 {
                     ApplicationArea = All;
                     Editable = not Rec."En Uso";
-                    ToolTip = 'Empleado al que aplica este valor. Solo se usa si el parámetro tiene Sufijo Empleado.';
+                    ToolTip = 'Empleado al que aplica este valor. Vacío = el valor no es una excepción por empleado.';
                 }
                 field("Cód. Convenio"; Rec."Cód. Convenio")
                 {
@@ -42,7 +42,7 @@ page 50154 "Parámetros Vigentes"
                 {
                     ApplicationArea = All;
                     Editable = not Rec."En Uso";
-                    ToolTip = 'Categoría a la que aplica este valor. Solo se usa si el parámetro tiene Sufijo Convenio/Categoría.';
+                    ToolTip = 'Categoría a la que aplica este valor. Se carga junto con el convenio.';
                 }
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
                 field(Valor; Rec.Valor)

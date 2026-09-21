@@ -40,6 +40,7 @@
             "authentication": "Windows",
             "tenant": "default",
             "breakOnNext": "WebClient",
+            "sessionId": 38,
             "breakOnError": "All",
             "breakOnRecordWrite": "All"
         },
@@ -54,14 +55,14 @@
             "startupObjectId": 50199
         },
         {
-            "name": "AL: Generated Snapshot request",
+            "name": "AL: Attach session",
             "request": "snapshotInitialize",
             "type": "al",
             "server": "http://localhost",
             "serverInstance": "BC252",
             "authentication": "Windows",
             "port": 7049,
-            "sessionId": 1271,
+            "sessionId": 38,
             "breakOnNext": "WebClient",
             "executionContext": "DebugAndProfile"
         }

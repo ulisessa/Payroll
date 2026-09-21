@@ -106,11 +106,12 @@ report 50043 "Crear Liq. para Empleado"
         Liq."Nombre Empleado" := CopyStr(Emp."First Name" + ' ' + Emp."Last Name", 1, MaxStrLen(Liq."Nombre Empleado"));
         Liq."No. Proyecto" := Personal."No. Proyecto";
         Liq."Cód. Período" := FCodPeriodo;
-        Liq."Cód. Convenio" := Personal."Cód. Convenio";
-        Liq."Cód. Categoría" := Personal."Cód. Categoría";
         Liq."Fecha Liquidación" := Periodo."Fecha Hasta";
         Liq."Cód. Tipo Liq." := FTipoLiq;
         Liq.Estado := Liq.Estado::Borrador;
+        // El par de la cabecera es el de los ATRIBUTOS del empleado. Lo de la asignación queda como
+        // respaldo para cuando todavía no tenga atributos cargados.
+        Liq.ResolverParDeAtributos();
         Liq.Insert(true);
         Creadas += 1;
     end;

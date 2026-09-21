@@ -1,6 +1,7 @@
 namespace UAS.Payroll;
 
 using Microsoft.Foundation.UOM;
+using Microsoft.HumanResources.Setup;
 
 table 60007 "Concepto Liquidación"
 {
@@ -51,11 +52,12 @@ table 60007 "Concepto Liquidación"
             trigger OnValidate()
             var
                 Eval: Codeunit "Evaluador Fórmula";
+                Formateador: Codeunit "Formateador Fórmula Liq.";
                 KnownCtx: Dictionary of [Text, Decimal];
                 Dummy: Decimal;
                 ErrTxt: Text;
             begin
-                Rec.Fórmula := NormalizarTexto(Rec.Fórmula);
+                Rec.Fórmula := Formateador.Formatear(Rec.Fórmula);
                 if Rec.Fórmula = '' then
                     exit;
                 // Pass 1: syntax only (lenient)
@@ -67,6 +69,11 @@ table 60007 "Concepto Liquidación"
                 BuildKnownVarsCtx(KnownCtx);
                 Eval.Init(KnownCtx, Today());
                 Eval.SetLenientMode(false);
+                // Modo validación: tolera lo que depende del valor —dividir por una variable, un
+                // tramo inexistente— y a cambio hace que las ramas no elegidas del IF y del CASE se
+                // parseen en vez de saltearse. Sin esto, una variable inexistente escondida en la
+                // rama falsa no la detecta este paso, que existe justamente para eso.
+                Eval.SetModoValidacion(true);
                 if not Eval.TryEvalFormula(Rec.Fórmula, Dummy) then begin
                     ErrTxt := GetLastErrorText();
                     if ErrTxt.Contains('Variable desconocida') then
@@ -81,11 +88,12 @@ table 60007 "Concepto Liquidación"
             trigger OnValidate()
             var
                 Eval: Codeunit "Evaluador Fórmula";
+                Formateador: Codeunit "Formateador Fórmula Liq.";
                 KnownCtx: Dictionary of [Text, Decimal];
                 Dummy: Boolean;
                 ErrTxt: Text;
             begin
-                Rec.Condición := NormalizarTexto(Rec.Condición);
+                Rec.Condición := Formateador.Formatear(Rec.Condición);
                 if Rec.Condición = '' then
                     exit;
                 // Pass 1: syntax only (lenient)
@@ -97,6 +105,11 @@ table 60007 "Concepto Liquidación"
                 BuildKnownVarsCtx(KnownCtx);
                 Eval.Init(KnownCtx, Today());
                 Eval.SetLenientMode(false);
+                // Modo validación: tolera lo que depende del valor —dividir por una variable, un
+                // tramo inexistente— y a cambio hace que las ramas no elegidas del IF y del CASE se
+                // parseen en vez de saltearse. Sin esto, una variable inexistente escondida en la
+                // rama falsa no la detecta este paso, que existe justamente para eso.
+                Eval.SetModoValidacion(true);
                 if not Eval.TryEvalCondicion(Rec.Condición, Dummy) then begin
                     ErrTxt := GetLastErrorText();
                     if ErrTxt.Contains('Variable desconocida') then
@@ -117,9 +130,14 @@ table 60007 "Concepto Liquidación"
         }
         field(11; Activo; Boolean)
         {
-            Caption = 'Activo';
+            Caption = 'Activo (sin efecto)';
             DataClassification = CustomerContent;
             InitValue = true;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Sin efecto en el cálculo: la baja de un concepto se expresa con "Vigencia Hasta". El campo se conserva solo para poder revisar las versiones que quedaron en false (ver la página "Versiones inactivas a revisar").';
+            // Ya no lo lee nadie. Se deja el dato —y no se borra— porque una versión con Activo =
+            // false era, hasta ahora, la forma de "apagar" un concepto: esas filas AHORA CALCULAN, y
+            // hay que revisarlas una por una antes de recalcular.
         }
         field(12; "Vigencia Hasta"; Date)
         {
@@ -172,13 +190,18 @@ table 60007 "Concepto Liquidación"
             // Non-zero = the latest restriction batch's Vigencia Desde; combine with the
             // current Convenio code to determine applicability via "Concepto CCT Vigente".
         }
-        field(16; "Variable Cantidad"; Code[30])
+        field(16; "Variable Cantidad"; Code[100])
         {
             Caption = 'Variable Cantidad';
             DataClassification = CustomerContent;
-            // Name of the context variable that represents the quantity for this concept
-            // (e.g. DIAS_VAC, TONELADAS, PROD_KN_L1). Printed alongside the amount on the payslip.
-            // Leave blank when no quantity applies.
+            // Un nombre de variable o una EXPRESIÓN: PCT_ANTIG_SOMU*100, DIAS_PROYECTO+DIAS_PUERTO.
+            // Lo resuelve ResolverExpresionLinea (Cod50014), que primero prueba el nombre y recién
+            // después evalúa. Por eso el campo es más largo que un nombre.
+
+            trigger OnValidate()
+            begin
+                ValidarExpresionPresentacion("Variable Cantidad", FieldCaption("Variable Cantidad"));
+            end;
         }
         field(17; "Unidad Cantidad"; Code[10])
         {
@@ -186,10 +209,16 @@ table 60007 "Concepto Liquidación"
             DataClassification = CustomerContent;
             TableRelation = "Unit of Measure".Code;
         }
-        field(21; "Variable Base"; Code[30])
+        field(21; "Variable Base"; Code[100])
         {
             Caption = 'Variable Base';
             DataClassification = CustomerContent;
+            // Igual que "Variable Cantidad": nombre o expresión.
+
+            trigger OnValidate()
+            begin
+                ValidarExpresionPresentacion("Variable Base", FieldCaption("Variable Base"));
+            end;
         }
         field(18; "Etiqueta Det. Ganancias"; Text[100])
         {
@@ -209,6 +238,38 @@ table 60007 "Concepto Liquidación"
         {
             Caption = 'Es Devengo';
             DataClassification = CustomerContent;
+        }
+        field(25; "Cód. Tipo Atributo Detalle"; Code[20])
+        {
+            Caption = 'Detalle de atributo';
+            DataClassification = CustomerContent;
+            TableRelation = "Tipo Atributo Liq.".Código;
+            // QUÉ ATRIBUTO EXPLICA ESTA LÍNEA. Cargado, la línea muestra al lado del importe la
+            // descripción del valor que el empleado tenía en ese atributo a la fecha de la
+            // liquidación: la cuota sindical dice de qué gremio sale, el aporte de obra social a
+            // cuál va.
+            //
+            // Va acá y no cableado en la pantalla porque la pregunta "¿por qué este importe y no
+            // otro?" se responde distinto en cada concepto, y quién la responde es un dato del
+            // concepto. Con 8522 y 6030 escritos en la página, agregar el tercero seria tocar AL.
+            //
+            // No interviene en el cálculo. Es una columna que se lee.
+        }
+        field(24; "Par CCT a Usar"; Enum "Par CCT Liq.")
+        {
+            Caption = 'Convenio/Categoría a usar';
+            DataClassification = CustomerContent;
+            // Con qué par se resuelven los parámetros de ESTE concepto. El valor por defecto es el
+            // del empleado, así que un concepto que nadie tocó no cambia de comportamiento.
+            //
+            // Con "el de la asignación", el motor recarga los parámetros con el convenio y la
+            // categoría del proyecto de la liquidación justo para evaluar este concepto, y los
+            // vuelve a dejar como estaban. Es para lo que se paga por el embarque y no por el
+            // encuadre: la producción de una marea, que se liquida con la categoría con la que el
+            // tripulante salió a navegar.
+            //
+            // Sin proyecto en la liquidación, o si el empleado no está asignado a ese proyecto, no
+            // hay par alternativo y el concepto resuelve con el del empleado.
         }
         field(23; "Rol Franco"; Enum "Rol Franco Liq.")
         {
@@ -279,6 +340,14 @@ table 60007 "Concepto Liquidación"
         HistorialMgt: Codeunit "Historial Fórmulas Liq.";
     begin
         ValidarSinUsoAlguno(Código, "Vigencia Desde");
+        // Con la última versión se va el código entero: recién ahí hay que mirar quién lo nombraba y
+        // limpiar lo que quede colgando. Borrar una vigencia intermedia no cambia nada de eso.
+        if EsUltimaVigencia() then begin
+            ValidarNoReferenciadoEnFormulas();
+            ValidarNoReferenciadoPorConfiguracion();
+            BorrarFraccionesHuerfanas();
+            BorrarConveniosHuerfanos();
+        end;
         // La anterior recupera el tramo que deja libre ésta; si no, borrar la última versión mataría
         // el concepto desde la fecha en que ésta arrancaba, sin que nada lo delate.
         ReabrirAnteriorAlBorrar();
@@ -288,8 +357,24 @@ table 60007 "Concepto Liquidación"
 
     // Editar "Vigencia Desde" en la ficha es un rename, porque es parte de la clave primaria. Mover
     // el inicio reordena la cadena de versiones, así que hay que revalidar contra las vecinas nuevas.
+    //
+    // Cambiar el CÓDIGO, en cambio, no se permite. La plataforma arrastra el código nuevo a las diez
+    // tablas que lo referencian por relación, pero hay dos lugares donde no puede llegar:
+    //
+    //   · el TEXTO de las fórmulas —@1052, #1052, o el nombre del acumulador escrito pelado— que es
+    //     texto libre y no lo actualiza nadie. Una fórmula que nombra un concepto inexistente no da
+    //     error: resuelve la variable como CERO y sigue. Es el mismo agujero que dejaron BASE_SS y
+    //     BASE_OS al borrarse, y que costó encontrar porque los importes salían bajos, no rotos;
+    //   · las líneas ya liquidadas, que guardan el código para poder reproducir un cálculo viejo con
+    //     la versión de concepto que se usó en su momento.
+    //
+    // El camino correcto es "Copiar como...", que crea el concepto con el código nuevo llevándose
+    // fraccionamientos y convenios, y después dar de baja el viejo cerrando su vigencia.
     trigger OnRename()
     begin
+        if Código <> xRec.Código then
+            Error(ErrRenombrarCodigo, xRec.Código, Código);
+
         ValidarSinUsoAlguno(xRec.Código, xRec."Vigencia Desde");
         ValidarIntervalo();
         ValidarNoSuperponeConAnterior();
@@ -345,11 +430,11 @@ table 60007 "Concepto Liquidación"
             exit(false);
         if ("Vigencia Hasta" <> 0D) and ("Vigencia Hasta" < FechaRef) then
             exit(false);
-        // "Activo" se evalúa acá, DESPUÉS de haber elegido la versión, y nunca en un SetRange antes
-        // de elegirla: filtrado de entrada, una versión inactiva no daba de baja el concepto sino
-        // que se volvía invisible, y el motor caía a la versión activa anterior y la seguía
-        // ejecutando. Es transitorio — cuando "Activo" se retire queda solo el intervalo.
-        exit(Activo);
+        // Solo el intervalo. "Activo" ya no participa: la baja de un concepto se expresa con
+        // "Vigencia Hasta", que dice DESDE CUÁNDO deja de aplicarse, y un booleano no podía decir
+        // eso — apagaba la versión en todo el tiempo, incluidas las liquidaciones ya calculadas que
+        // la habían usado.
+        exit(true);
     end;
 
     // Deja Rec filtrado a las versiones CANDIDATAS a FechaRef: las que ya arrancaron. El final de
@@ -489,12 +574,201 @@ table 60007 "Concepto Liquidación"
                   LinLiq."No. Liquidación", LinLiq."Fecha Liquidación");
     end;
 
+    /// <summary>
+    /// Si al borrar esta versión el código deja de existir por completo.
+    /// </summary>
+    /// <remarks>
+    /// Un concepto son varias versiones con la misma clave de código. Borrar UNA vigencia no borra el
+    /// concepto, así que la limpieza de fraccionamientos y los controles de referencias sólo tienen
+    /// sentido cuando se va la última: las fracciones tienen su propia línea de tiempo y no se
+    /// corresponden una a una con las vigencias del concepto.
+    /// </remarks>
+    local procedure EsUltimaVigencia(): Boolean
+    var
+        Otra: Record "Concepto Liquidación";
+    begin
+        Otra.SetRange(Código, Código);
+        Otra.SetFilter("Vigencia Desde", '<>%1', "Vigencia Desde");
+        exit(Otra.IsEmpty());
+    end;
+
+    /// <summary>
+    /// Impide borrar un concepto que otra fórmula o condición todavía nombra.
+    /// </summary>
+    /// <remarks>
+    /// Ésta es la mitad cara del problema. Una fórmula que nombra una variable inexistente NO falla:
+    /// el contexto la resuelve como cero y el concepto se calcula igual, con un número menor. Pasó
+    /// con BASE_SS: se borró por obsoleto y la fórmula del acumulador de contribuciones patronales
+    /// —round(MAX(0, BASE_SS - DED_CONT_PATR))— quedó dando cero, sin error y sin nada que lo delate
+    /// hasta que alguien compare un recibo.
+    ///
+    /// Se valida al borrar y no al calcular porque acá se sabe qué se está sacando y se puede nombrar
+    /// quién lo usa. En el cálculo ya es tarde: el valor cero es indistinguible de un cero legítimo.
+    /// </remarks>
+    local procedure ValidarNoReferenciadoEnFormulas()
+    var
+        Otro: Record "Concepto Liquidación";
+    begin
+        Otro.SetFilter(Código, '<>%1', Código);
+        Otro.SetLoadFields(Código, "Vigencia Desde", Fórmula, Condición);
+        if not Otro.FindSet() then
+            exit;
+        repeat
+            if NombraAlCodigo(Otro.Fórmula) or NombraAlCodigo(Otro.Condición) then
+                Error(ErrReferenciadoEnFormula, Código, Otro.Código, Otro."Vigencia Desde");
+        until Otro.Next() = 0;
+    end;
+
+    /// <remarks>
+    /// Compara el código como IDENTIFICADOR completo y no como texto suelto: buscar "BASE_SS" dentro
+    /// de "BASE_SS_TRAB" daría un falso positivo y bloquearía borrados legítimos. Los caracteres que
+    /// cortan un identificador son los mismos que reconoce el evaluador.
+    /// </remarks>
+    local procedure NombraAlCodigo(Texto: Text): Boolean
+    var
+        Pos: Integer;
+        Largo: Integer;
+    begin
+        if (Texto = '') or (Código = '') then
+            exit(false);
+        Texto := UpperCase(Texto);
+        Largo := StrLen(Código);
+        Pos := StrPos(Texto, Código);
+        while Pos > 0 do begin
+            if not EsCaracterDeIdentificador(CopyStr(Texto, Pos - 1, 1)) then
+                if not EsCaracterDeIdentificador(CopyStr(Texto, Pos + Largo, 1)) then
+                    exit(true);
+            Texto := CopyStr(Texto, Pos + Largo);
+            Pos := StrPos(Texto, Código);
+        end;
+        exit(false);
+    end;
+
+    local procedure EsCaracterDeIdentificador(C: Text): Boolean
+    begin
+        if C = '' then
+            exit(false);
+        exit((C >= 'A') and (C <= 'Z') or ((C >= '0') and (C <= '9')) or (C = '_') or
+             (C in ['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ', 'Ü']));
+    end;
+
+    /// <summary>
+    /// Borra los fraccionamientos que quedan huérfanos al desaparecer el concepto.
+    /// </summary>
+    /// <remarks>
+    /// Son dos roles distintos y hay que limpiar los dos: las fracciones por las que este concepto
+    /// APORTA a otros acumuladores, y —si es acumulador— las de todos los conceptos que lo alimentan.
+    /// El segundo caso es el que dejaba basura: borrar BASE_SS dejaba 144 filas apuntando a un
+    /// acumulador inexistente, que seguían apareciendo en las exportaciones y en la subpágina de cada
+    /// concepto como si la configuración siguiera viva.
+    ///
+    /// Se hace después de las validaciones: si alguna fórmula todavía lo nombra, el error corta antes
+    /// y no se borra nada.
+    /// </remarks>
+    local procedure BorrarFraccionesHuerfanas()
+    var
+        Fraccion: Record "Fracción Acumulador";
+    begin
+        Fraccion.SetRange("Cód. Concepto", Código);
+        Fraccion.DeleteAll();
+
+        Fraccion.Reset();
+        Fraccion.SetCurrentKey("Cód. Acumulador", "Vigencia Desde");
+        Fraccion.SetRange("Cód. Acumulador", Código);
+        Fraccion.DeleteAll();
+    end;
+
+    /// <summary>
+    /// Se lleva las restricciones de convenio del concepto que se va.
+    /// </summary>
+    /// <remarks>
+    /// La relación de tabla valida al insertar y al modificar, no al borrar: el concepto desaparece y
+    /// sus filas de "Concepto CCT Vigente" quedan apuntando a un código que ya no existe. Sobrevivían
+    /// calladas hasta que alguien intentaba importar el ConfigPackage, que sí valida la relación y
+    /// rechaza la fila entera.
+    ///
+    /// Es el mismo agujero que dejaba el fraccionamiento antes de la 1.0.0.374, sólo que en la otra
+    /// tabla: el concepto 1052 se borró y quedaron seis filas de convenio, dos de ellas además
+    /// duplicadas entre sí.
+    /// </remarks>
+    local procedure BorrarConveniosHuerfanos()
+    var
+        CCTVig: Record "Concepto CCT Vigente";
+    begin
+        CCTVig.SetRange("Cód. Concepto", Código);
+        CCTVig.DeleteAll();
+    end;
+
+    /// <summary>
+    /// Impide borrar un concepto que alguna configuración nombra por código: variables de sistema,
+    /// novedades sin liquidar, préstamos y los punteros de Config. Recursos Humanos.
+    /// </summary>
+    /// <remarks>
+    /// Acá se BLOQUEA en vez de limpiar, al revés que con las fracciones y los convenios. La
+    /// diferencia es de quién es el dato: una fracción o una restricción de convenio no significan
+    /// nada sin su concepto, pero una variable de sistema, una novedad pendiente o el puntero del
+    /// grossing-up son configuración que alguien cargó a propósito y que hay que reapuntar, no tirar.
+    ///
+    /// Sin esto el daño es el de siempre en este motor: silencioso. Un PERIODO_ACUM sobre un
+    /// acumulador borrado devuelve cero y la fórmula sigue; el puntero de Config. RRHH apuntando a la
+    /// nada apaga el grossing-up sin avisar.
+    /// </remarks>
+    local procedure ValidarNoReferenciadoPorConfiguracion()
+    var
+        VarSis: Record "Variable Sistema Liq.";
+        Novedad: Record "Novedad Liquidación";
+        Prestamo: Record "Préstamo Empleado";
+        HRSetup: Record "Human Resources Setup";
+    begin
+        VarSis.SetRange("Cód. Acumulador", Código);
+        if VarSis.FindFirst() then
+            Error(ErrReferenciadoPorVarSis, Código, VarSis."Nombre Variable");
+
+        Novedad.SetRange("Cód. Concepto", Código);
+        if Novedad.FindFirst() then
+            Error(ErrReferenciadoPorNovedad, Código, Novedad."Cód. Período");
+
+        Prestamo.SetRange("Cód. Concepto Descuento", Código);
+        if Prestamo.FindFirst() then
+            Error(ErrReferenciadoPorPrestamo, Código, Prestamo."No.");
+
+        if HRSetup.Get() then
+            if Código in [HRSetup."Cód. Concepto Neto Garantizado", HRSetup."Cód. Acum. Haberes Gravados"] then
+                Error(ErrReferenciadoPorSetup, Código);
+    end;
+
     local procedure ValidarSinUsoAlguno(CodConcepto: Code[20]; Vig: Date)
     var
         LinLiq: Record "Línea Liquidación";
     begin
         if BuscarUso(LinLiq, CodConcepto, Vig, 0D) then
             Error(ErrVersionEnUso, CodConcepto, Vig, LinLiq."No. Liquidación");
+    end;
+
+    /// <summary>
+    /// Valida la sintaxis de "Variable Cantidad" / "Variable Base" al cargarlas.
+    /// </summary>
+    /// <remarks>
+    /// Los dos campos aceptan un nombre o una expresión, y se resuelven en modo tolerante para que un
+    /// error de tipeo no corte una liquidación entera por un dato de presentación. El precio de esa
+    /// tolerancia es que una expresión mal escrita se convierte en un cero silencioso, así que la
+    /// sintaxis se revisa acá, cuando todavía hay alguien mirando la pantalla.
+    ///
+    /// Solo SINTAXIS: los nombres se validan solos —modo tolerante— porque el campo se carga muchas
+    /// veces antes de que exista la variable o el concepto al que apunta.
+    /// </remarks>
+    local procedure ValidarExpresionPresentacion(Texto: Text; Etiqueta: Text)
+    var
+        Eval: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Dummy: Decimal;
+    begin
+        if Texto.Trim() = '' then
+            exit;
+        Eval.Init(Ctx, Today());
+        Eval.SetLenientMode(true);
+        if not Eval.TryEvalFormula(Texto, Dummy) then
+            Error(ErrExpresionPresentacion, Etiqueta, GetLastErrorText());
     end;
 
     local procedure BuscarUso(var LinLiq: Record "Línea Liquidación"; CodConcepto: Code[20]; Vig: Date; PosteriorA: Date): Boolean
@@ -512,6 +786,8 @@ table 60007 "Concepto Liquidación"
     end;
 
     var
+        ErrRenombrarCodigo: Label 'No se puede cambiar el código de un concepto (%1 → %2).\El código viaja en el texto de las fórmulas —@%1, #%1, o el nombre del acumulador— y ahí ningún renombre llega: las fórmulas que lo nombran pasarían a resolver CERO sin dar error. Además las liquidaciones ya calculadas lo guardan para poder reproducirse.\Usá "Copiar como..." para crear %2 con los mismos fraccionamientos y convenios, corregí las fórmulas que nombran a %1, y recién entonces dá de baja %1 cerrando su vigencia. Si %1 es un concepto recién creado y todavía no lo usa nada, es más simple borrarlo y crearlo con el código definitivo.', Comment = '%1 = código actual, %2 = código nuevo';
+        ErrExpresionPresentacion: Label '%1 no se entiende como nombre de variable ni como expresión: %2', Comment = '%1=nombre del campo, %2=error del evaluador';
         ErrSintaxisFormula: Label 'La fórmula contiene un error de sintaxis: %1';
         ErrSintaxisCondicion: Label 'La condición contiene un error de sintaxis: %1';
         ErrVariableDesconocida: Label 'La fórmula hace referencia a variables que no existen en el sistema: %1';
@@ -521,6 +797,11 @@ table 60007 "Concepto Liquidación"
         ErrAbiertaConSiguiente: Label 'Esta versión no puede quedar con la vigencia abierta: existe una versión posterior que arranca el %1.';
         ErrUsoPosterior: Label 'No se puede cerrar el concepto %1 (versión %2) el %3: la liquidación %4, del %5, usó esta versión después de esa fecha. Cerralo en una fecha posterior o revertí esa liquidación.';
         ErrVersionEnUso: Label 'No se puede borrar ni mover la versión %2 del concepto %1: la usó la liquidación %3. Cerrá su vigencia en lugar de borrarla.';
+        ErrReferenciadoEnFormula: Label 'No se puede borrar el concepto %1: la fórmula o la condición del concepto %2 (versión %3) todavía lo nombra.\\Si se borra igual, esa fórmula no da error: resuelve la variable como cero y el concepto se calcula de menos, sin que nada lo delate. Corregí primero esa fórmula.', Comment = '%1=concepto a borrar, %2=concepto que lo referencia, %3=vigencia';
+        ErrReferenciadoPorVarSis: Label 'No se puede borrar el concepto %1: la variable de sistema %2 lo usa como acumulador.\\Si se borra igual, esa variable devuelve cero en toda formula que la nombre, sin dar error. Reapunta la variable primero.', Comment = '%1=concepto, %2=nombre de variable';
+        ErrReferenciadoPorNovedad: Label 'No se puede borrar el concepto %1: hay novedades sin liquidar que lo usan (periodo %2).\\Al materializarse, esas novedades quedarian apuntando a un concepto inexistente. Borralas o cambiales el concepto.', Comment = '%1=concepto, %2=periodo';
+        ErrReferenciadoPorPrestamo: Label 'No se puede borrar el concepto %1: el prestamo %2 lo tiene como concepto de descuento.\\Sus cuotas pendientes no se podrian aplicar. Cambia el concepto de descuento del prestamo primero.', Comment = '%1=concepto, %2=No. de prestamo';
+        ErrReferenciadoPorSetup: Label 'No se puede borrar el concepto %1: Config. Recursos Humanos lo tiene cargado como Concepto Neto Garantizado o como Acumulador Haberes Gravados.\\Sin el, el grossing-up deja de aplicarse o Haberes Ordinarios Gravados queda en cero, en los dos casos sin avisar. Cambia primero el puntero en la configuracion.', Comment = '%1=concepto';
 
     // Builds a context dictionary with all currently configured variable names set to 1.
     // Used in pass-2 formula validation to detect unknown variable references at save time.
@@ -563,6 +844,7 @@ table 60007 "Concepto Liquidación"
             until Acum.Next() = 0;
 
         if not Ctx.ContainsKey('COD_ZONA') then Ctx.Add('COD_ZONA', 1);
+        if not Ctx.ContainsKey('CANT_INCIDENCIA') then Ctx.Add('CANT_INCIDENCIA', 1);
         if not Ctx.ContainsKey('ES_JUBILADO') then Ctx.Add('ES_JUBILADO', 1);
 
         // Grossing-up variables injected at runtime by MotorLiquidación.InjectGUVariables
@@ -572,17 +854,4 @@ table 60007 "Concepto Liquidación"
         if not Ctx.ContainsKey('COMPLEMENTO_GU') then Ctx.Add('COMPLEMENTO_GU', 1);
     end;
 
-    // Strips newlines and collapses extra spaces so the evaluator (single-line only) can parse the text.
-    local procedure NormalizarTexto(Texto: Text): Text
-    var
-        CR: Char;
-        LF: Char;
-    begin
-        CR := 13;
-        LF := 10;
-        Texto := Texto.Replace('' + CR + LF, ' ').Replace('' + CR, ' ').Replace('' + LF, ' ');
-        while Texto.Contains('  ') do
-            Texto := Texto.Replace('  ', ' ');
-        exit(Texto.Trim());
-    end;
 }
