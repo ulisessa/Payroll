@@ -46,8 +46,18 @@ codeunit 50077 "Gestión Variables Sistema"
         Agregar('VACACIONES_PROP_DIAS', 'Días de vacaciones proporcionales (días de alta en el año / 20)');
         Agregar('DIAS_VAC_PERIODO', 'Días en estado Vacaciones que caen dentro del período');
         Agregar('MESES_PROM_VAC', 'Períodos mensuales a promediar para vacaciones (Art. 34 CCT): entre 0 y 6');
+        Agregar('MESES_PROM_AUS_6', 'Meses con alta dentro del semestre anterior al inicio de la licencia: divisor del promedio');
+        Agregar('MESES_PROM_AUS_12', 'Meses con alta dentro de los 12 meses anteriores al inicio de la licencia: divisor del promedio');
+
+        // DIAS_ESTADO_PERIODO no se siembra con su propio nombre: sin un Cód. Estado devuelve cero y
+        // deja una fila que no dice por qué —el mismo motivo por el que YTD_ACUM queda afuera—. Se
+        // siembran en cambio las dos que el cálculo de ausentismo necesita, cada una con su estado.
+        AgregarPorEstado('DIAS_ENFERMEDAD', 'AU1', 'Días de enfermedad inculpable dentro del período');
+        AgregarPorEstado('DIAS_ACCIDENTE', 'ACC', 'Días de accidente o enfermedad profesional dentro del período');
+        AgregarPorEstado('DIAS_ACC_PREVIOS', 'ACC', 'Días de accidente de la misma licencia ya pagados en períodos anteriores', 'DIAS_ESTADO_PREVIOS');
         Agregar('DEDUC_GANANCIAS', 'Deducciones anuales de Ganancias: cargas de familia más gastos deducibles');
         Agregar('MES_ANUAL', 'Número de mes de la fecha de referencia (1 a 12)');
+        Agregar('TIPO_LIQ', 'Orden del tipo de liquidación de la corrida (CIERRE_MAREA 1, DEVENGADOS 60…)');
 
         exit(FAgregadas);
     end;
@@ -76,6 +86,41 @@ codeunit 50077 "Gestión Variables Sistema"
         // fórmulas escritas contra la documentación de la tabla, y se puede renombrar después sin
         // tocar nada: el motor busca por Cód. Cálculo y expone el Nombre Variable.
         VarSis."Nombre Variable" := CodCalculo;
+        VarSis.Descripción := Desc;
+        VarSis.Activo := true;
+        VarSis.Insert();
+        FAgregadas += 1;
+    end;
+
+    /// <summary>Una variable DIAS_ESTADO_PERIODO atada a un estado concreto.</summary>
+    /// <remarks>
+    /// La idempotencia acá va por Nombre Variable y no por Cód. Cálculo: varias filas comparten el
+    /// mismo cálculo y se distinguen por el estado, así que el control de Agregar —"ya hay una fila
+    /// con este cálculo, no toco nada"— sembraría sólo la primera.
+    ///
+    /// Si el estado no está en el catálogo no se siembra nada. Una variable apuntando a un estado
+    /// inexistente devuelve cero en silencio, que es peor que no tenerla: la fórmula calcula igual
+    /// y paga de menos.
+    /// </remarks>
+    local procedure AgregarPorEstado(NombreVar: Code[30]; CodEstado: Code[20]; Desc: Text[100])
+    begin
+        AgregarPorEstado(NombreVar, CodEstado, Desc, 'DIAS_ESTADO_PERIODO');
+    end;
+
+    local procedure AgregarPorEstado(NombreVar: Code[30]; CodEstado: Code[20]; Desc: Text[100]; CodCalculo: Code[30])
+    var
+        VarSis: Record "Variable Sistema Liq.";
+        CodEst: Record "Cód. Estado Empleado";
+    begin
+        if VarSis.Get(NombreVar) then
+            exit;
+        if not CodEst.Get(CodEstado) then
+            exit;
+
+        VarSis.Init();
+        VarSis."Nombre Variable" := NombreVar;
+        VarSis."Cód. Cálculo" := CodCalculo;
+        VarSis."Cód. Estado" := CodEstado;
         VarSis.Descripción := Desc;
         VarSis.Activo := true;
         VarSis.Insert();

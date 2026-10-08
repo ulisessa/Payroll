@@ -178,6 +178,26 @@ html, body {
 .uas-tk-var-variable,
 .uas-tk-var-otro { color: var(--texto); }
 
+/* El par de paréntesis que manda donde está el cursor. El resaltado va sobre el .uas-hl, que está
+   DEBAJO del textarea y tiene que coincidir carácter por carácter con él: por eso se pinta con
+   fondo y color, nunca con borde, padding ni margin, que correrían el texto respecto de las letras
+   reales y desalinearían todo el resaltado. */
+.uas-tk-par.uas-par-abre,
+.uas-tk-par.uas-par-cierra {
+    color: var(--borde-foco);
+    background: rgba(15, 108, 189, 0.16);
+    font-weight: 700;
+    border-radius: 2px;
+}
+
+/* El de apertura es el que se pide ver, así que se distingue del de cierre. */
+.uas-tk-par.uas-par-abre { background: rgba(15, 108, 189, 0.28); }
+
+.uas-oscuro .uas-tk-par.uas-par-abre,
+.uas-oscuro .uas-tk-par.uas-par-cierra { background: rgba(71, 158, 245, 0.22); }
+
+.uas-oscuro .uas-tk-par.uas-par-abre { background: rgba(71, 158, 245, 0.38); }
+
 .uas-tk-error {
     color: var(--rojo);
     text-decoration: underline wavy var(--rojo);

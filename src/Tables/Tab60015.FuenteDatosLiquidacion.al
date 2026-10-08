@@ -23,6 +23,13 @@ table 60015 "Fuente Datos Liquidación"
             Caption = 'Nombre Variable';
             NotBlank = true;
             DataClassification = CustomerContent;
+
+            trigger OnValidate()
+            var
+                Nombres: Codeunit "Nombres Variables Liq.";
+            begin
+                Nombres.ExigirLibre("Nombre Variable", Database::"Fuente Datos Liquidación", "Nombre Variable");
+            end;
         }
         field(2; Descripción; Text[100])
         {
@@ -160,6 +167,38 @@ table 60015 "Fuente Datos Liquidación"
             begin
                 ValidarCampo("Id. Tabla", "No. Campo Fecha Fin");
             end;
+        }
+        field(19; "No. Campo Clave"; Integer)
+        {
+            Caption = 'Ordenar por Campo';
+            DataClassification = CustomerContent;
+            MinValue = 0;
+
+            // POR QUÉ UN CAMPO Y NO UN NÚMERO DE CLAVE. En AL sólo se puede ordenar por una clave
+            // DECLARADA en la tabla, así que la pregunta real es "¿qué clave uso?". Pero los índices
+            // de clave son posicionales: agregar una clave arriba corre todos los números y la
+            // fuente pasa a ordenar por otra cosa sin que nadie toque la fuente. Acá se declara el
+            // CAMPO y el motor busca una clave que lo contenga.
+            //
+            // En blanco la fuente no fija clave y la base devuelve por clave primaria, que es el
+            // comportamiento de siempre. Ninguna fuente existente lo declara, así que agregarlo no
+            // cambia ningún importe.
+            trigger OnValidate()
+            begin
+                ValidarCampo("Id. Tabla", "No. Campo Clave");
+            end;
+        }
+        field(20; "Orden Descendente"; Boolean)
+        {
+            Caption = 'Orden descendente';
+            DataClassification = CustomerContent;
+            // Invierte el recorrido sobre la clave de arriba. Sin "Ordenar por Campo" no hace nada:
+            // invertir el orden de la clave primaria no significa nada útil y daría la ilusión de
+            // estar ordenando por fecha.
+            //
+            // Cuidado con LOOKUP, que es FindLast: con orden ascendente devuelve el MAYOR y con
+            // descendente el MENOR. Es consistente -siempre es "la última en el orden pedido"- pero
+            // se lee al revés de lo que uno espera.
         }
         field(15; "Mostrar en Recibo"; Boolean)
         {

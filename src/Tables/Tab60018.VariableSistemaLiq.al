@@ -45,6 +45,10 @@ table 60018 "Variable Sistema Liq."
     //                       phase, not months with earnings.
     //   DEDUC_GANANCIAS   — annual deductions: cargas de familia + gastos deducibles (AFIP tables)
     //   MES_ANUAL         — calendar month number of the reference date (1–12)
+    //   TIPO_LIQ          — Orden del tipo de liquidación de la corrida (CIERRE_MAREA 1, DEVENGADOS 60…).
+    //                       Deja que una fórmula distinga el documento: la producción de una marea son
+    //                       los kilos de la marea entera y sólo es comparable en un cierre. Cero es "sin
+    //                       tipo", pero también es el Orden de SALDO_INICIAL.
     //   YTD_ACUM          — YTD sum of lines for concepts that feed "Cód. Acumulador" ("Invertir Signo"=false).
     //   PERIODO_ACUM      — igual que YTD_ACUM pero acotado al período y EXCLUYENDO la liquidación en
     //                       curso. Es lo que hace falta para un tope mensual (SIPA) cuando el empleado
@@ -70,7 +74,7 @@ table 60018 "Variable Sistema Liq."
                 Opciones: Text;
                 Seleccion: Integer;
             begin
-                Opciones := 'AÑOS_ANTIGUEDAD,AÑOS_ANTIG_30JUN,DIAS_HAB,DIAS_FERIADOS,DIAS_FERIADOS_MAREA,DIAS_FERIADOS_GUARDIA,DIAS_HAB_AÑO,DIAS_ALTA_AÑO,DIAS_PROYECTO,DIAS_PUERTO,DIAS_MAREA,DIAS_ENROLAMIENTO,DIAS_FRANCOS_PERIODO,PAGO_FRANCOS_FIFO,FRANCOS_CONSUMIDOS,SALDO_FRANCOS,PCT_ESCALA,VACACIONES_ANUALES,VACACIONES_PROP_DIAS,DIAS_VAC_PERIODO,MESES_PROM_VAC,DEDUC_GANANCIAS,MES_ANUAL,YTD_ACUM,PERIODO_ACUM,PERIODO_CONCEPTO,YTD_LINEAS';
+                Opciones := 'AÑOS_ANTIGUEDAD,AÑOS_ANTIG_30JUN,DIAS_HAB,DIAS_FERIADOS,DIAS_FERIADOS_MAREA,DIAS_FERIADOS_GUARDIA,DIAS_HAB_AÑO,DIAS_ALTA_AÑO,DIAS_PROYECTO,DIAS_PUERTO,DIAS_MAREA,DIAS_ENROLAMIENTO,DIAS_FRANCOS_PERIODO,PAGO_FRANCOS_FIFO,FRANCOS_CONSUMIDOS,SALDO_FRANCOS,PCT_ESCALA,VACACIONES_ANUALES,VACACIONES_PROP_DIAS,DIAS_VAC_PERIODO,MESES_PROM_VAC,DEDUC_GANANCIAS,MES_ANUAL,TIPO_LIQ,YTD_ACUM,PERIODO_ACUM,PERIODO_CONCEPTO,YTD_LINEAS';
                 Seleccion := StrMenu(Opciones, 0, 'Seleccione un código de cálculo');
                 if Seleccion > 0 then
                     Validate("Cód. Cálculo", CopyStr(SelectStr(Seleccion, Opciones), 1, MaxStrLen("Cód. Cálculo")));
@@ -81,6 +85,13 @@ table 60018 "Variable Sistema Liq."
             Caption = 'Nombre Variable';
             NotBlank = true;
             DataClassification = CustomerContent;
+
+            trigger OnValidate()
+            var
+                Nombres: Codeunit "Nombres Variables Liq.";
+            begin
+                Nombres.ExigirLibre("Nombre Variable", Database::"Variable Sistema Liq.", "Nombre Variable");
+            end;
         }
         field(3; Descripción; Text[100])
         {
@@ -137,6 +148,18 @@ table 60018 "Variable Sistema Liq."
             //
             // Sin filtro de vigencia en la relación a propósito: la variable acumula lo YA LIQUIDADO,
             // y un concepto discontinuado el mes pasado igual dejó líneas que hay que sumar.
+        }
+        field(12; "Cód. Estado"; Code[20])
+        {
+            Caption = 'Cód. Estado';
+            DataClassification = CustomerContent;
+            TableRelation = "Cód. Estado Empleado".Código;
+            // Required when Cód. Cálculo = DIAS_ESTADO_PERIODO.
+            //
+            // Es el que permite tener DIAS_ENFERMEDAD y DIAS_ACCIDENTE sin un cálculo por cada uno:
+            // los dos son la misma cuenta sobre un estado distinto. El enum "Tipo Estado Empleado" no
+            // sirve para distinguirlos —enfermedad y accidente son los dos Normal— y agregarle valores
+            // obligaría a tocar el motor cada vez que aparece una licencia nueva.
         }
     }
 

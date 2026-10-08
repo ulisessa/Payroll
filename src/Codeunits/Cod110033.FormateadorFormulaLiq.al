@@ -48,7 +48,21 @@ codeunit 110033 "Formateador Fórmula Liq."
         if Original.Count = 0 then
             exit(Texto);
 
-        Salida := Emitir(Original);
+        // Emitir va envuelto porque este codeunit corre con CADA TECLA del editor de fórmulas, sobre
+        // texto que está a medio escribir. La promesa de arriba —ante cualquier duda, el original— no
+        // se sostiene si una fórmula incompleta puede tirar un error: el usuario ve un cuadro de
+        // diálogo por cada letra que escribe.
+        if not TryEmitir(Original, Salida) then
+            exit(Texto);
+
+        // NO ALCANZA CON QUE EL RESULTADO SEA CORRECTO: TIENE QUE ENTRAR EN EL CAMPO. Los campos que
+        // guardan una fórmula son Text[2048] y el formateador corre dentro del OnValidate, así que
+        // devolver un texto más largo no se trunca —aborta la validación con un error, en un editor
+        // que formatea con cada tecla—. Con CRLF cada salto cuesta un carácter más que antes, así
+        // que el margen se achicó: hoy la más larga queda en 1.085 de 2048 y sobra, pero el día que
+        // una se acerque es preferible dejarla sin formatear a no poder guardarla.
+        if StrLen(Salida) > LargoMaximoCampo() then
+            exit(Texto);
 
         if not Tokenizar(Salida, Verificacion) then
             exit(Texto);
@@ -112,8 +126,15 @@ codeunit 110033 "Formateador Fórmula Liq."
                     begin
                         Ini := Pos;
                         Pos += 1;
-                        while (Pos <= Len) and (Texto[Pos] <> 39) do
+                        while Pos <= Len do begin
+                            if Texto[Pos] = 39 then begin
+                                if (CopyStr(Texto, Pos, 2) = '''''') then
+                                    Pos += 1
+                                else
+                                    break;
+                            end;
                             Pos += 1;
+                        end;
                         if Pos > Len then
                             exit(false); // comilla sin cerrar: no se toca nada
                         Pos += 1;
@@ -142,6 +163,12 @@ codeunit 110033 "Formateador Fórmula Liq."
     end;
 
     // ── Impresor ──────────────────────────────────────────────────────────────
+
+    [TryFunction]
+    local procedure TryEmitir(var Toks: List of [Text]; var Salida: Text)
+    begin
+        Salida := Emitir(Toks);
+    end;
 
     local procedure Emitir(var Toks: List of [Text]): Text
     var
@@ -207,7 +234,15 @@ codeunit 110033 "Formateador Fórmula Liq."
                         Col += 1;
                         if ComasGrupo.Count > 0 then
                             ComasGrupo.Set(ComasGrupo.Count, ComasGrupo.Get(ComasGrupo.Count) + 1);
-                        if (Roto.Count > 0) and (Roto.Get(Roto.Count) = 1) and CortaEnEstaComa(NombreGrupo, ComasGrupo) then
+                        // El Get va en su propio if y no pegado al Count con un and: AL evalúa los
+                        // DOS lados del and, así que con la pila vacía el Get corre igual y tira
+                        // "argumento no válido". Y la pila está vacía cada vez que aparece una coma
+                        // fuera de todo paréntesis, que es lo normal a mitad de escribir una fórmula:
+                        // el editor formatea con cada tecla, así que el error salía sin parar.
+                        GrupoRoto := false;
+                        if Roto.Count > 0 then
+                            GrupoRoto := Roto.Get(Roto.Count) = 1;
+                        if GrupoRoto and CortaEnEstaComa(NombreGrupo, ComasGrupo) then
                             Col := AbrirLinea(Sb, Nivel)
                         else begin
                             Sb.Append(' ');
@@ -310,7 +345,10 @@ codeunit 110033 "Formateador Fórmula Liq."
     /// </remarks>
     local procedure CortaEnEstaComa(var Nombres: List of [Text]; var Comas: List of [Integer]): Boolean
     begin
-        if Nombres.Count = 0 then
+        // Las dos pilas se llenan y se vacían juntas, pero se consultan por separado a propósito:
+        // atar el Get de una al Count de la otra es la clase de suposición que se rompe el día que
+        // alguien toque el orden de los Add.
+        if (Nombres.Count = 0) or (Comas.Count = 0) then
             exit(true);
         if Nombres.Get(Nombres.Count) <> 'CASE' then
             exit(true);
@@ -422,12 +460,29 @@ codeunit 110033 "Formateador Fórmula Liq."
              (C in ['Ñ', 'ñ', 'Á', 'á', 'É', 'é', 'Í', 'í', 'Ó', 'ó', 'Ú', 'ú', 'Ü', 'ü']));
     end;
 
+    /// <summary>El salto de línea canónico: CRLF.</summary>
+    /// <remarks>
+    /// EMITÍA LF SOLO Y NO SE VEÍA. El formateador cortaba las líneas y las indentaba bien, pero el
+    /// control multilínea no rompe con un LF suelto: la fórmula se mostraba de corrido y la sangría
+    /// aparecía como una tira de espacios en el medio. Parecía que el formateador no hacía nada.
+    ///
+    /// Y LA BASE YA ESTABA MEZCLADA: 16 fórmulas guardadas con CRLF contra 48 con LF solo. Dos
+    /// textos que dicen lo mismo con distinto salto NO son iguales, así que el historial registraba
+    /// una entrada con el diff del texto entero cada vez que se volvía a guardar una fórmula sin
+    /// cambiarla —justo lo que la forma canónica existe para evitar—. Al unificar en CRLF hubo que
+    /// migrar las 48 por SQL, sin pasar por el OnValidate, para no generar esas entradas falsas.
+    ///
+    /// El tokenizador cuenta el CR (13) como espacio, así que una fórmula vieja en LF se sigue
+    /// leyendo igual y se reescribe en CRLF la primera vez que se la guarda.
+    /// </remarks>
     local procedure NuevaLinea(): Text
     var
+        CR: Char;
         LF: Char;
     begin
+        CR := 13;
         LF := 10;
-        exit(Format(LF));
+        exit(Format(CR) + Format(LF));
     end;
 
     local procedure AnchoMaximo(): Integer
@@ -438,5 +493,11 @@ codeunit 110033 "Formateador Fórmula Liq."
     local procedure Sangria(): Integer
     begin
         exit(4);
+    end;
+
+    /// <summary>El tamaño de los campos que guardan una fórmula: `Fórmula` y `Condición`, Text[2048].</summary>
+    local procedure LargoMaximoCampo(): Integer
+    begin
+        exit(2048);
     end;
 }

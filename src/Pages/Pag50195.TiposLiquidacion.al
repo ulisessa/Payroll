@@ -17,15 +17,15 @@ page 50195 "Tipos Liquidación"
                 field(Código; Rec.Código) { ApplicationArea = All; }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field(Orden; Rec.Orden) { ApplicationArea = All; }
-                field("Liquida al Arribo"; Rec."Liquida al Arribo")
+                field(Disparador; Rec.Disparador)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Comportamiento Cierre de Marea: liquida a la fecha de arribo (navegación + producción).';
+                    ToolTip = 'Qué hecho hace que este tipo corresponda. Arribo de marea es el Cierre, que liquida a la fecha de arribo. Marea en curso son los Devengados, que acumulan mientras el barco está en el mar. Baja del empleado es la Liquidación Final, que corre todos los meses pero sale sólo para quien se fue. Ninguno corre para todos los que pasen el resto de los filtros.';
                 }
-                field("Sólo Proyectos en Curso"; Rec."Sólo Proyectos en Curso")
+                field(Meses; Rec.Meses)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Marcado, sólo entran los proyectos que al cierre del período todavía no arribaron. Es lo propio de los Devengados, que acumulan mientras la marea está en el mar. No lo marques en la Regular: recorre los proyectos para encontrar a la gente, y dejaría afuera a los que volvieron durante el mes.';
+                    ToolTip = 'En qué meses corre, con sintaxis de filtro: 6|12 para el aguinaldo, 1..6 para un rango. Vacío significa todos los meses. Es el único filtro que no mira al empleado sino al calendario.';
                 }
                 field("Tipo Proyecto"; Rec."Tipo Proyecto")
                 {
@@ -43,6 +43,28 @@ page 50195 "Tipos Liquidación"
                     ToolTip = 'Al crear por período, genera también liquidaciones para empleados en francos en puerto (comportamiento Regular).';
                 }
                 field(Activo; Rec.Activo) { ApplicationArea = All; }
+                field(AplicaA; Rec."Aplica A")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'A qué clase de empleado le corresponde este DOCUMENTO. "Todos" no restringe. Es el mismo eje que el "Aplica a" del concepto, pero decide el recibo entero en vez de una línea: Vacaciones va en Tripulante porque al mensualizado no se le emite un recibo aparte, cobra el haber de vacaciones y el descuento de días en su recibo mensual. La clase sale del convenio del empleado.';
+                }
+                field(SoloConceptosDeclarados; Rec."Sólo Conceptos Declarados")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Marcado, este tipo corre ÚNICAMENTE los conceptos que lo nombran en "Aplica a Tipo Liq.". Sin marcar, un concepto que no declara ningún tipo corre en todos — que es lo que hacía que la liquidación de Vacaciones recalculara el recibo entero. Usalo en los tipos que pagan una cosa puntual y asignales sus conceptos desde Conceptos por Tipo de Liquidación.';
+                }
+                field(EntraEnCorridaCompleta; Rec."Entra en Corrida Completa")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Marcalo si este tipo tiene que correr todos los meses cuando se crean o calculan liquidaciones sin elegir tipo. Activo sólo dice que el tipo existe y se puede usar a mano; esto dice que se dispara solo. Los de una sola vez (saldos iniciales) y los que no los dispara ningún hecho del empleado (reliquidación) van sin marcar.';
+                }
+            }
+            part(Estados; "Estados Tipo Liq. Sub")
+            {
+                ApplicationArea = All;
+                Caption = 'Estados que lo justifican';
+                SubPageLink = "Cód. Tipo Liq." = field(Código);
+                UpdatePropagation = Both;
             }
         }
     }

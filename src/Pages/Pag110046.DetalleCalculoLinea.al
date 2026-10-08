@@ -1,146 +1,154 @@
 namespace UAS.Payroll;
 
-/// <summary>
-/// El paso a paso del cálculo de una línea de liquidación: cada término de la
-/// fórmula con su signo, su valor y el total corriente.
-///
-/// Sirve para CUALQUIER concepto, no sólo para ganancias. El orden y el signo
-/// salen de la fórmula, así que no hay nada que configurar: un concepto nuevo
-/// queda explicado el día que se escribe su fórmula.
-/// </summary>
 page 110046 "Detalle Cálculo Línea"
 {
-    Caption = 'Detalle del Cálculo';
-    PageType = List;
-    SourceTable = "Paso Cálculo Línea";
-    SourceTableTemporary = true;
+    Caption = 'Detalle del cálculo';
+    PageType = Card;
     Editable = false;
-    InsertAllowed = false;
-    ModifyAllowed = false;
-    DeleteAllowed = false;
     UsageCategory = None;
-
+    ApplicationArea = All;
     layout
     {
         area(Content)
         {
-            group(Encabezado)
+            group(Resumen)
             {
-                Caption = 'Línea';
-                ShowCaption = false;
-
-                field(ConceptoTxt; ConceptoTxt)
-                {
-                    ApplicationArea = All;
-                    Caption = 'Concepto';
-                    Editable = false;
-                }
-                field(ImporteTxt; ImporteTxt)
-                {
-                    ApplicationArea = All;
-                    Caption = 'Importe de la línea';
-                    Editable = false;
-                }
-                field(FormulaTxt; FormulaTxt)
-                {
-                    ApplicationArea = All;
-                    Caption = 'Fórmula aplicada';
-                    Editable = false;
-                    MultiLine = true;
-                }
+                Caption = 'Resultado de la liquidación';
+                field(Concepto; ConceptoTxt) { Caption = 'Concepto'; }
+                field(Importe; ImporteLinea) { Caption = 'Importe guardado'; DecimalPlaces = 2 : 2; Style = Strong; Visible = not DevengoFranco; }
+                field(DiasDevengados; Linea.Cantidad) { Caption = 'Días de franco devengados'; Visible = DevengoFranco; }
+                field(ConvenioDevengo; Linea."Cód. Convenio") { Caption = 'Convenio de origen'; Visible = DevengoFranco; }
+                field(CategoriaDevengo; Linea."Cód. Categoría") { Caption = 'Categoría de origen'; Visible = DevengoFranco; }
+                field(Estado; EstadoTxt) { Caption = 'Comprobación'; MultiLine = true; StyleExpr = EstadoStyle; }
             }
-
-            repeater(Pasos)
+            group(Formula)
             {
-                // SANGRÍA NATIVA, PERO NO ÁRBOL. El árbol exige que el padre venga antes que sus
-                // hijos, y acá el orden es el del CÁLCULO: el TRAMO va después de la base, que es
-                // donde realmente se resuelve. Se gana fidelidad y se pierde el plegado; con los
-                // subtotales cerrando cada bloque, el plegado deja de hacer falta.
-                IndentationColumn = Rec.Nivel;
-                IndentationControls = Término;
-
-                field(Nivel; Rec.Nivel)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'Profundidad del término: 0 es la suma más externa, y cada nivel más es una suma anidada dentro de una función, como la base que se arma dentro de TRAMO().';
-                    Visible = false;
-                }
-                field(Signo; Rec.Signo)
-                {
-                    ApplicationArea = All;
-                    Caption = '';
-                    ToolTip = 'Si el término suma o resta.';
-                    Style = Strong;
-                }
-                field(Término; Rec.Término)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'El término tal como está escrito en la fórmula.';
-                    StyleExpr = EstiloFila;
-                }
-                field(Descripción; Rec.Descripción)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'Qué es el término, cuando se lo puede identificar como un concepto, un parámetro o una variable de sistema.';
-                    StyleExpr = EstiloFila;
-                }
-                field(Valor; Rec.Valor)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'Cuánto valió el término.';
-                    StyleExpr = EstiloFila;
-                }
-                field(Acumulado; Rec.Acumulado)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'El total corriente: cómo se va armando el resultado término a término.';
-                    StyleExpr = EstiloFila;
-                }
-                field(Detalle; Rec.Detalle)
-                {
-                    ApplicationArea = All;
-                    ToolTip = 'Detalle de auditoría del término. Para TRAMO() dice qué tramo aplicó, de qué vigencia y con qué porcentaje.';
-                }
+                Caption = 'Cómo se aplicó la fórmula';
+                Visible = not CalculoInterno;
+                field(FormulaOriginal; FormulaTxt) { Caption = 'Fórmula utilizada'; MultiLine = true; }
+                field(FormulaValores; ValoresTxt) { Caption = 'La misma fórmula con los valores utilizados'; MultiLine = true; }
+            }
+            group(BaseGanancias)
+            {
+                Caption = '1. Formación de la base imponible';
+                Visible = Ganancias;
+                part(Base; "Pasos Cálculo Sub") { Caption = 'Detalle'; }
+            }
+            group(EscalaGanancias)
+            {
+                Caption = '2. Aplicación de la escala';
+                Visible = Ganancias;
+                part(Escala; "Pasos Cálculo Sub") { Caption = 'Detalle'; }
+            }
+            group(RetencionGanancias)
+            {
+                Caption = '3. Retención de esta liquidación';
+                Visible = Ganancias;
+                part(Retencion; "Pasos Cálculo Sub") { Caption = 'Detalle'; }
+            }
+            group(DatosFormula)
+            {
+                Caption = 'Datos utilizados';
+                Visible = not Ganancias;
+                part(Datos; "Pasos Cálculo Sub") { Caption = 'Detalle'; }
+            }
+            group(PasosFormula)
+            {
+                Caption = 'Desarrollo y resultado';
+                Visible = not Ganancias;
+                part(Pasos; "Pasos Cálculo Sub") { Caption = 'Detalle'; }
             }
         }
     }
-
+    actions
+    {
+        area(Processing)
+        {
+            action(Deducciones)
+            {
+                Caption = 'Desglose de deducciones';
+                Image = List;
+                Visible = Ganancias;
+                trigger OnAction()
+                var
+                    Det: Record "Detalle Ganancias Liq.";
+                begin
+                    Det.SetRange("No. Liquidación", Linea."No. Liquidación");
+                    Det.SetFilter(Tipo, '%1|%2', Det.Tipo::Familiar, Det.Tipo::Gasto);
+                    Page.RunModal(Page::"Deducciones Aplicadas Liq.", Det);
+                end;
+            }
+        }
+    }
     var
+        Linea: Record "Línea Liquidación";
+        Datos: Record "Paso Cálculo Línea" temporary;
+        Pasos: Record "Paso Cálculo Línea" temporary;
+        Base: Record "Paso Cálculo Línea" temporary;
+        Escala: Record "Paso Cálculo Línea" temporary;
+        Retencion: Record "Paso Cálculo Línea" temporary;
         ConceptoTxt: Text;
-        ImporteTxt: Text;
         FormulaTxt: Text;
-        EstiloFila: Text;
+        ValoresTxt: Text;
+        EstadoTxt: Text;
+        EstadoStyle: Text;
+        ImporteLinea: Decimal;
+        Ganancias: Boolean;
+        DevengoFranco: Boolean;
+        CalculoInterno: Boolean;
 
-    trigger OnAfterGetRecord()
-    begin
-        // La fila del total va resaltada, y en rojo si la reconstrucción NO coincide con el
-        // importe guardado. Que se vea de lejos: una explicación que no corresponde al número
-        // que se pagó es peor que no tener explicación.
-        EstiloFila := 'Standard';
-        // El subtotal de un bloque va en itálica: cierra la cadena de adentro y avisa que el
-        // Acumulado de la fila siguiente vuelve a ser el de la cadena de afuera.
-        if Rec."Es Subtotal" then
-            EstiloFila := 'StrongAccent';
-        if Rec."Es Total" then
-            if StrPos(Rec.Descripción, 'NO COINCIDE') > 0 then
-                EstiloFila := 'Unfavorable'
-            else
-                EstiloFila := 'Favorable';
-    end;
-
-    /// <summary>
-    /// Carga la página para una línea. La llama la acción "Detalle del cálculo".
-    /// </summary>
     procedure CargarDesdeLinea(LinLiq: Record "Línea Liquidación")
     var
         Constructor: Codeunit "Detalle Cálculo Línea";
+        Presentacion: Codeunit "Presentación Cálculo Liq.";
+        Concepto: Record "Concepto Liquidación";
+        LineaComprobacion: Record "Línea Liquidación";
     begin
-        ConceptoTxt := LinLiq."Cód. Concepto" + ' · ' + LinLiq."Nombre Impresión";
-        ImporteTxt := Format(LinLiq.Importe);
-        FormulaTxt := LinLiq."Fórmula Aplicada";
-        Constructor.Construir(LinLiq, Rec);
-        Rec.Reset();
-        if Rec.FindFirst() then;
-        CurrPage.Update(false);
+        Clear(FormulaTxt);
+        Clear(ValoresTxt);
+        DevengoFranco := false;
+        Linea := LinLiq;
+        ConceptoTxt := Linea."Cód. Concepto" + ' · ' + Linea."Descripción Concepto";
+        ImporteLinea := Linea.Importe;
+        Ganancias := Presentacion.EsGanancias(Linea);
+        if Concepto.Get(Linea."Cód. Concepto", Linea."Vigencia Concepto") then
+            DevengoFranco := Concepto."Rol Franco" = Concepto."Rol Franco"::Devengo;
+        CalculoInterno := Ganancias or DevengoFranco;
+        if Ganancias then
+            CurrPage.Caption := 'Detalle de Ganancias'
+        else if not CalculoInterno then begin
+            FormulaTxt := Linea."Fórmula Aplicada";
+            ValoresTxt := Linea."Fórmula Evaluada";
+        end;
+        LineaComprobacion := Linea;
+        if DevengoFranco then begin
+            CurrPage.Caption := 'Detalle del devengo de francos';
+            LineaComprobacion.Importe := Linea.Cantidad;
+        end;
+        Constructor.Construir(LineaComprobacion, Pasos);
+        EstadoTxt := 'No comprobado: no hay información suficiente para reconstruir el cálculo.';
+        EstadoStyle := 'Attention';
+        if Pasos.FindLast() then begin
+            EstadoTxt := Pasos.Descripción;
+            if Pasos."Es Total" then
+                if Abs(Pasos.Valor - LineaComprobacion.Importe) <= 0.01 then
+                    EstadoStyle := 'Favorable'
+                else
+                    EstadoStyle := 'Unfavorable';
+        end;
+        if DevengoFranco then
+            EstadoTxt := EstadoTxt.Replace('importe de la línea', 'cantidad de días guardada');
+        Presentacion.CargarDatos(Linea, Datos);
+        if Ganancias then
+            Presentacion.CargarGanancias(Linea, Pasos, Datos, Base, Escala, Retencion);
+        // El aviso ya figura en la cabecera; no presentarlo otra vez como una cuenta de cero.
+        if not Pasos."Es Total" then
+            if not Ganancias then
+                Pasos.DeleteAll();
+        CurrPage.Datos.Page.Cargar(Datos, not CalculoInterno, false);
+        CurrPage.Pasos.Page.Cargar(Pasos, not CalculoInterno, true);
+        CurrPage.Base.Page.Cargar(Base, false, true);
+        CurrPage.Escala.Page.Cargar(Escala, false, false);
+        CurrPage.Retencion.Page.Cargar(Retencion, false, true);
     end;
 }

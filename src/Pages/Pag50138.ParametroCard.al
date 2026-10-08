@@ -34,6 +34,11 @@ page 50138 "Parámetro Card"
                     ApplicationArea = All;
                     ToolTip = 'Fórmula de fecha (ej. -1M, -35D). Si se completa, al calcular una liquidación se avisa cuando el último valor vigente es anterior a esa antigüedad respecto a la fecha de liquidación. Útil para parámetros que la AFIP actualiza periódicamente (MNI, Deducción Especial). Vacío = sin chequeo.';
                 }
+                field("Edad Máxima Familiar"; Rec."Edad Máxima Familiar")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Tope de edad para deducir a un familiar a cargo en Ganancias. Sólo tiene sentido en los tipos de deducción por familiar: HIJO lleva 18 e HIJO_INC no lleva ninguno, porque los incapacitados se deducen sin límite de edad. CERO = sin límite. Si el familiar no tiene fecha de nacimiento cargada, no se aplica.';
+                }
                 field(Notas; Rec.Notas) { ApplicationArea = All; }
             }
 

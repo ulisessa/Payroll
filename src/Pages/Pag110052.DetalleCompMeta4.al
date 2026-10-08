@@ -49,7 +49,27 @@ page 110052 "Detalle Comp. Meta4"
                     StyleExpr = Estilo;
                     ToolTip = 'Sólo Meta4 = el motor no lo liquidó. Sólo BC = lo liquidó de más. Sin equivalencia = hay valor en Meta4 pero no se sabe qué concepto de BC le corresponde.';
                 }
-                field("Cód. Concepto"; Rec."Cód. Concepto") { ApplicationArea = All; Editable = false; StyleExpr = Estilo; }
+                field("Cód. Concepto"; Rec."Cód. Concepto")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    StyleExpr = Estilo;
+                    DrillDown = true;
+                    ToolTip = 'Abre la ficha del concepto, con su fórmula y sus vigencias.';
+
+                    trigger OnDrillDown()
+                    var
+                        Concepto: Record "Concepto Liquidación";
+                    begin
+                        if Rec."Cód. Concepto" = '' then
+                            exit;
+                        // La ÚLTIMA vigencia y no la primera: es la que se está editando cuando uno
+                        // viene a ver por qué un concepto dio distinto.
+                        Concepto.SetRange(Código, Rec."Cód. Concepto");
+                        if Concepto.FindLast() then
+                            Page.Run(Page::"Concepto Liq. Card", Concepto);
+                    end;
+                }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; Editable = false; StyleExpr = Estilo; }
                 field("Importe Meta4"; Rec."Importe Meta4") { ApplicationArea = All; Editable = false; }
                 field("Importe BC"; Rec."Importe BC") { ApplicationArea = All; Editable = false; }
@@ -215,6 +235,13 @@ page 110052 "Detalle Comp. Meta4"
         // produce un error, produce una diferencia inventada.
         LinLiq.SetFilter("Tipo Concepto", '<>%1&<>%2',
             LinLiq."Tipo Concepto"::Informativo, LinLiq."Tipo Concepto"::"Contribución Patronal");
+
+        // Y LA TERCERA, POR EL MISMO MOTIVO: EL DEVENGO. El SAC devengado y sus aportes (4750-4754)
+        // y los francos devengados (1062) no se pagan en el mes: se provisionan. El recibo de Meta4
+        // no los tiene, así que cada uno aparecía como "Sólo BC" y sugería que BC liquida de más.
+        // En el 00949 de enero eran 304.076,67 de SAC más 25.542 de aportes sobre un recibo de
+        // 1.094.676 — un 30% de diferencia inventada.
+        LinLiq.SetRange("Es Devengo", false);
         if LinLiq.FindSet() then
             repeat
                 if LinLiq.Importe <> 0 then
@@ -316,6 +343,11 @@ page 110052 "Detalle Comp. Meta4"
     local procedure Filtrar()
     begin
         Rec.Reset();
+        // Por concepto y ascendente: es el orden en que se lee un recibo. La PK es el número de
+        // línea, o sea el orden en que se fue armando el buffer —primero Meta4, después BC— y deja
+        // el mismo concepto en dos lugares distintos de la lista.
+        Rec.SetCurrentKey("Cód. Concepto");
+        Rec.Ascending(true);
         if not FTodos then
             Rec.SetFilter(Diferencia, '<>%1', 0);
         if Rec.FindFirst() then;

@@ -30,6 +30,13 @@ table 60016 "Parámetro"
             Caption = 'Nombre Variable';
             DataClassification = CustomerContent;
             // Variable name exposed in the formula context. Blank = not auto-loaded.
+
+            trigger OnValidate()
+            var
+                Nombres: Codeunit "Nombres Variables Liq.";
+            begin
+                Nombres.ExigirLibre("Nombre Variable", Database::"Parámetro", Código);
+            end;
         }
         // Las tres banderas de sufijo quedaron sin uso. Declaraban por qué eje se especializaba el
         // parámetro, y de esa declaración dependían tres cosas: qué cascada corría el motor, qué
@@ -41,27 +48,33 @@ table 60016 "Parámetro"
         // defecto, una excepción por convenio y otra por empleado, cosa que las banderas impedían por
         // ser excluyentes entre sí.
         //
-        // Se conservan como obsoletas y no se borran: los datos existentes las tienen cargadas y
-        // eliminar un campo de una extensión publicada exige el paso previo por ObsoleteState.
+        // Pasaron a Removed el 7/10/2026: la publicación anterior ya las llevó como Pending, que es
+        // el paso que BC exige antes de sacar una columna, y ninguna línea de código ni ninguna
+        // página las leía.
+        //
+        // SE DEJA LA DECLARACIÓN, que es la diferencia entre Removed y borrar el campo del archivo.
+        // Borrándolo, los ids 5, 6 y 8 vuelven a estar libres y alguien podría reusarlos para otra
+        // cosa; en un upgrade, BC leería los datos viejos de esa columna como si fueran del campo
+        // nuevo. Declarados como Removed quedan quemados para siempre.
         field(5; "Sufijo CCT"; Boolean)
         {
             Caption = 'Sufijo Convenio/Categoría (obsoleto)';
             DataClassification = CustomerContent;
-            ObsoleteState = Pending;
+            ObsoleteState = Removed;
             ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(6; "Sufijo Empleado"; Boolean)
         {
             Caption = 'Sufijo Empleado (obsoleto)';
             DataClassification = CustomerContent;
-            ObsoleteState = Pending;
+            ObsoleteState = Removed;
             ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(8; "Sufijo Convenio"; Boolean)
         {
             Caption = 'Sufijo Convenio (obsoleto)';
             DataClassification = CustomerContent;
-            ObsoleteState = Pending;
+            ObsoleteState = Removed;
             ObsoleteReason = 'La clave derivada se calcula desde los campos de alcance del valor. Ver Claves Parámetro Liq.';
         }
         field(7; "Antigüedad Máxima Vigencia"; DateFormula)
@@ -73,6 +86,41 @@ table 60016 "Parámetro"
             // Parámetro Vigente es anterior a esa fecha límite, se avisa al calcular que
             // el valor podría estar desactualizado (ej. MNI_ANUAL, DESP_4CAT_ANUAL, que
             // la AFIP actualiza periódicamente).
+
+            trigger OnValidate()
+            var
+                Hoy: Date;
+            begin
+                // La fórmula tiene que retroceder. Una que no lo hace deja la fecha límite en el
+                // presente o en el futuro, y ahí NINGUNA versión puede estar al día: el aviso sale
+                // en cada liquidación y deja de señalar nada. COEF_GUARDIA_PUERTO estaba cargado
+                // '+1M' y dejó 2.532 avisos en enero de 2026 sin que faltara ningún valor.
+                if Format("Antigüedad Máxima Vigencia") = '' then
+                    exit;
+                Hoy := Today();
+                if CalcDate("Antigüedad Máxima Vigencia", Hoy) >= Hoy then
+                    Error(ErrAntiguedadNoRetrocede, Format("Antigüedad Máxima Vigencia"));
+            end;
+        }
+        field(9; "Edad Máxima Familiar"; Integer)
+        {
+            Caption = 'Edad máxima del familiar';
+            DataClassification = CustomerContent;
+            MinValue = 0;
+            // Tope de edad para deducir a un familiar a cargo en Ganancias 4ta. CERO = SIN LÍMITE,
+            // que es el valor por defecto y deja el cálculo exactamente como estaba.
+            //
+            // El artículo dice: "hijos e hijastros menores de 18 años de edad, o incapacitados sin
+            // límite de edad". O sea que el tope NO es del concepto "hijo" sino del TIPO DE
+            // DEDUCCIÓN: HIJO lleva 18 y HIJO_INC no lleva ninguno. Por eso vive acá, en el
+            // parámetro que representa al tipo, y no escrito en el motor: el día que la AFIP cambie
+            // la edad se corrige en la ficha, y un tipo nuevo trae su propia regla.
+            //
+            // CONYUGE también queda en cero: no tiene tope de edad.
+            //
+            // SIN FECHA DE NACIMIENTO NO SE APLICA. Es deliberado: dar de baja una deducción por un
+            // dato que falta sería cobrarle impuesto de más a alguien por un hueco de carga. El
+            // control de "familiares sin fecha de nacimiento" es la contraparte de esta decisión.
         }
     }
 
@@ -169,4 +217,5 @@ table 60016 "Parámetro"
 
     var
         ErrTieneEnUso: Label 'No se puede eliminar el parámetro porque tiene valores que fueron utilizados en liquidaciones registradas.';
+        ErrAntiguedadNoRetrocede: Label 'La antigüedad máxima "%1" no retrocede en el tiempo, así que ninguna versión del parámetro podría estar al día y el aviso saldría en todas las liquidaciones. Usá una fórmula negativa (por ejemplo -1M o -35D), o dejá el campo vacío para no chequear.', Comment = '%1=fórmula de fecha cargada';
 }

@@ -72,20 +72,27 @@ codeunit 50014 "Motor Liquidación"
         exit(false);
     end;
 
+    /// <summary>Calcula una liquidación, fase por fase.</summary>
+    /// <remarks>
+    /// ESTÁ PARTIDO EN FASES PARA PODER PERFILARLO. Antes eran ciento sesenta líneas seguidas, y el
+    /// profiler de AL atribuye las muestras al PROCEDIMIENTO en el que caen: todo lo que estaba
+    /// escrito acá adentro —preparar la cabecera, materializar préstamos y novedades, armar el
+    /// contexto, cerrar— se acumulaba en un único `LiquidarRecord` carísimo del que no se podía
+    /// sacar qué parte costaba. Sólo se distinguía lo que ya era una llamada aparte.
+    ///
+    /// Ahora cada fase es un frame con nombre, así que el árbol del `.alcpuprofile` se lee solo. El
+    /// orden y las llamadas son exactamente los de antes: esto no cambia ningún importe.
+    ///
+    /// Las fases comparten el `CtxBuilder` y el `Evaluador` A PROPÓSITO, y por eso viajan por `var`:
+    /// la validación los inicializa con un contexto de nombres y el cálculo los reinicializa con el
+    /// de valores. Son la misma instancia en las dos pasadas, como siempre lo fueron.
+    /// </remarks>
     procedure LiquidarRecord(var Liq: Record "Liquidación")
     var
-        Periodo: Record "Período Liquidación";
-        Job: Record Job;
-        TipoLiqRec: Record "Tipo Liquidación";
-        EstadoMgt: Codeunit "Gestión Estado Empleado";
         CtxBuilder: Codeunit "Contexto Liquidación";
         Evaluador: Codeunit "Evaluador Fórmula";
-        ParCCT: Codeunit "Convenio Categoría Liq.";
-        ValidationCtx: Dictionary of [Text, Decimal];
         Ctx: Dictionary of [Text, Decimal];
         FechaRef: Date;
-        ConvenioEntidad: Code[20];
-        CategoriaEntidad: Code[20];
     begin
         // CalcularPorPeriodo reutiliza una sola instancia del motor para todo el lote: si una
         // liquidación anterior falló dentro de ConvergerGrossingUp, el flag podría quedar activo
@@ -93,12 +100,34 @@ codeunit 50014 "Motor Liquidación"
         FIteracionGU := false;
         ReiniciarCachesLiquidacion();
 
+        FechaRef := FasePrepararCabecera(Liq);
+        FaseValidarFormulas(Liq, FechaRef, CtxBuilder, Evaluador);
+        FasePrepararDatos(Liq);
+        FaseArmarContexto(Liq, FechaRef, CtxBuilder, Evaluador, Ctx);
+        FaseCorrerConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
+        FaseConverger(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
+        FaseCerrar(Liq, Ctx, CtxBuilder);
+    end;
+
+    /// <summary>Fase 0: precondiciones, fecha de referencia, cobertura y encuadre de la cabecera.</summary>
+    local procedure FasePrepararCabecera(var Liq: Record "Liquidación") FechaRef: Date
+    var
+        Periodo: Record "Período Liquidación";
+        Job: Record Job;
+        TipoLiqRec: Record "Tipo Liquidación";
+        EstadoMgt: Codeunit "Gestión Estado Empleado";
+        CoberturaTramos: Codeunit "Cobertura Tramos Liq.";
+        ParCCT: Codeunit "Convenio Categoría Liq.";
+        ConvenioEntidad: Code[20];
+        CategoriaEntidad: Code[20];
+    begin
         if Liq.Estado = Liq.Estado::Contabilizada then
             Error(ErrEstadoInvalido);
 
         Periodo.Get(Liq."Cód. Período");
         if Periodo.Estado = Periodo.Estado::Cerrado then
             Error(ErrPeriodoCerrado);
+        Periodo.ErrorSiCreado();
 
         // Reference date for the whole calculation. Monthly liquidations settle at period end;
         // a Cierre Marea settles at the voyage arrival date (project Ending Date), so all
@@ -116,6 +145,11 @@ codeunit 50014 "Motor Liquidación"
         // Qué días cubre queda guardado en la cabecera: es lo que permite ver que un mes con dos
         // mareas liquidadas igual tiene días sin liquidar.
         Liq.CalcularCobertura();
+        // Y el reparto fino, en tramos: la cabecera guarda el envolvente, pero quien manda para
+        // contar días son los tramos, que son los que permiten decir "del 1 al 4 y del 26 al 31".
+        // Va ANTES de armar el contexto, porque el contexto los lee para acotar las variables de
+        // período — si se recalcularan después, la liquidación se calcularía con el reparto viejo.
+        CoberturaTramos.Recalcular(Liq);
 
         ValidarOrdenCronologico(Liq, Periodo);
 
@@ -141,9 +175,17 @@ codeunit 50014 "Motor Liquidación"
 
         EstadoMgt.ValidarEstadoExiste(Liq."No. Empleado", FechaRef);
         ValidarAsignacionProyecto(Liq."No. Empleado", Liq."No. Proyecto");
+    end;
 
-        // Phase 1: validate all formulas with a dry-run context (LiqNo = '' prevents DB writes).
-        // Any formula error is reported here before data is touched.
+    /// <summary>Fase 1: valida las fórmulas con un contexto de nombres, antes de tocar un solo dato.</summary>
+    /// <remarks>
+    /// `LiqNo` va vacío a propósito: impide que el contexto escriba en la base. Cualquier error de
+    /// fórmula se reporta acá, con la liquidación todavía intacta.
+    /// </remarks>
+    local procedure FaseValidarFormulas(var Liq: Record "Liquidación"; FechaRef: Date; var CtxBuilder: Codeunit "Contexto Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula")
+    var
+        ValidationCtx: Dictionary of [Text, Decimal];
+    begin
         CtxBuilder.Init(
             Liq."No. Empleado", Liq."No. Proyecto", Liq."Cód. Período",
             FechaRef, Liq."Cód. Convenio", Liq."Cód. Categoría",
@@ -162,19 +204,22 @@ codeunit 50014 "Motor Liquidación"
         Evaluador.SetModoValidacion(true);
         ValidarFormulas(Liq, FechaRef, ValidationCtx, Evaluador);
         Evaluador.SetModoValidacion(false);
+    end;
 
-        // Phase 2: full calculation — only reached if Phase 1 passes.
-        CtxBuilder.Init(
-            Liq."No. Empleado", Liq."No. Proyecto", Liq."Cód. Período",
-            FechaRef, Liq."Cód. Convenio", Liq."Cód. Categoría",
-            Liq."No.", Liq."Cód. Tipo Liq.", Liq."Cobertura Desde");
+    /// <summary>Fase 2: deja la liquidación en blanco y materializa préstamos, novedades e incidencias.</summary>
+    /// <remarks>
+    /// Sólo se llega acá si la validación pasó. Es la primera fase que ESCRIBE: de acá en adelante
+    /// la liquidación anterior ya no existe.
+    /// </remarks>
+    local procedure FasePrepararDatos(var Liq: Record "Liquidación")
+    begin
         // AplicarCuotasEnLiquidacion solo actúa si el estado es Borrador — pero un recálculo
         // por lote (CalcularPorPeriodo) puede llegar acá con una liquidación ya Calculada o
         // Aprobada. Sin esto, las cuotas de préstamo pendientes se saltean en silencio en
         // cualquier recálculo que no pase primero por "Reabrir".
         Liq.Estado := Liq.Estado::Borrador;
         Liq.Modify();
-        DeleteLineas(Liq."No.");
+        DeleteLineas(Liq."No.", false);
         // Reset loan state from any previous calculation run before rebuilding it
         GestionPrestamos.LimpiarParaRecalculo(Liq."No.");
         // Same for novedades, and before the loan pass: leftover incidencias from the previous run
@@ -186,21 +231,58 @@ codeunit 50014 "Motor Liquidación"
         // so a loan-generated incidencia counts as manual: the novedad is skipped instead of doubled.
         GestionNovedades.AplicarEnLiquidacion(Liq);
         CargarIncidencias(Liq."No.");
+    end;
+
+    /// <summary>Fase 3: arma el contexto de valores y deja el evaluador listo.</summary>
+    /// <remarks>
+    /// Es la fase cara del cálculo —resuelve parámetros, fuentes de datos, atributos y acumulados—
+    /// y la que más conviene mirar en el perfil. Va después de materializar préstamos y novedades
+    /// porque las variables de período cuentan lo que esas pasadas acaban de escribir.
+    /// </remarks>
+    local procedure FaseArmarContexto(var Liq: Record "Liquidación"; FechaRef: Date; var CtxBuilder: Codeunit "Contexto Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula"; var Ctx: Dictionary of [Text, Decimal])
+    var
+        CodigosAtributos: Dictionary of [Text, Text];
+    begin
+        CtxBuilder.Init(
+            Liq."No. Empleado", Liq."No. Proyecto", Liq."Cód. Período",
+            FechaRef, Liq."Cód. Convenio", Liq."Cód. Categoría",
+            Liq."No.", Liq."Cód. Tipo Liq.", Liq."Cobertura Desde");
         CtxBuilder.BuildContext(Ctx);
         InjectGUVariables(Ctx);
         InjectZonaDesfavorable(Liq, FechaRef, Ctx);
         Evaluador.Init(Ctx, FechaRef);
+        CtxBuilder.GetCodigosAtributos(CodigosAtributos);
+        Evaluador.SetCodigosAtributos(CodigosAtributos);
+    end;
+
+    /// <summary>Fase 4: resuelve el neto garantizado y corre los conceptos.</summary>
+    local procedure FaseCorrerConceptos(var Liq: Record "Liquidación"; FechaRef: Date; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula")
+    begin
         // Después de Evaluador.Init porque evalúa una fórmula, y antes de RunConceptos porque los
         // conceptos ramifican sobre ES_GROSSING_UP (ej. 3553 y 4743).
         ResolverNetoGarantizado(FechaRef, Ctx, Evaluador);
         Progreso.Paso(TxtPasoConceptos);
         RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
+    end;
+
+    /// <summary>Fase 5: si hay neto garantizado, itera el complemento hasta alcanzarlo.</summary>
+    /// <remarks>
+    /// En el perfil es la fase que delata una liquidación cara: rehace la lista entera de conceptos
+    /// una vez por vuelta, y la convergencia tarda entre cinco y ocho.
+    /// </remarks>
+    local procedure FaseConverger(var Liq: Record "Liquidación"; FechaRef: Date; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula")
+    begin
         // If anidado y no `and`: mismo motivo que EsVersionEnUso — sin cortocircuito garantizado, el
         // Get corre igual. Hoy InjectGUVariables siempre siembra la clave, así que no explota; queda
         // así para que no dependa de eso.
-        if Ctx.ContainsKey('ES_GROSSING_UP') then
-            if Ctx.Get('ES_GROSSING_UP') = 1 then
-            ConvergerGrossingUp(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
+        if Ctx.ContainsKey(VarEsGrossingUp()) then
+            if Ctx.Get(VarEsGrossingUp()) = 1 then
+                ConvergerGrossingUp(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
+    end;
+
+    /// <summary>Fase 6: totales, resumen de variables, estado final y avisos.</summary>
+    local procedure FaseCerrar(var Liq: Record "Liquidación"; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
+    begin
         GuardarHaberesGravados(Liq, Ctx);
         UpdateTotals(Liq);
         SaveResumenVariables(Liq."No.", Ctx, CtxBuilder);
@@ -295,7 +377,7 @@ codeunit 50014 "Motor Liquidación"
     /// </remarks>
     procedure LimpiarLineas(LiqNo: Code[20])
     begin
-        DeleteLineas(LiqNo);
+        DeleteLineas(LiqNo, false);
     end;
 
     local procedure ValidarAsignacionProyecto(EmployeeNo: Code[20]; JobNo: Code[20])
@@ -432,7 +514,17 @@ codeunit 50014 "Motor Liquidación"
             TieneIncidencia := false;
             CantIncidencia := 0;
             if Incid.Get(Liq."No.", Concepto.Código) then begin
-                TieneIncidencia := Incid.Importe <> 0;
+                // Tres lecturas distintas de una misma incidencia:
+                //   importe <> 0                → el importe cargado reemplaza a la fórmula
+                //   importe = 0 y cantidad <> 0 → la fórmula valoriza la cantidad (horas extras)
+                //   importe = 0 y cantidad = 0  → es un CERO EXPLÍCITO: apaga el concepto
+                //
+                // El tercer caso antes era indistinguible de "no hay incidencia", así que una
+                // novedad cargada en cero para forzar que un concepto no pague quedaba marcada como
+                // Aplicada y la fórmula lo calculaba igual, sin un solo aviso. Una novedad con todo
+                // en cero no puede querer decir otra cosa que "este concepto no paga": si lo que se
+                // quiere es que la fórmula corra, no se carga la novedad.
+                TieneIncidencia := (Incid.Importe <> 0) or (Incid.Cantidad = 0);
                 CantIncidencia := Incid.Cantidad;
             end;
 
@@ -539,56 +631,7 @@ codeunit 50014 "Motor Liquidación"
                             Concepto.Código, ImporteConsumoFranco, FFracAccumList, FFracAccumPct, Ctx);
                         Evaluador.UpdateContext(Ctx);
                     end else begin
-                    Clear(LinLiq);
-                    LinLiq."No. Liquidación" := Liq."No.";
-                    LinLiq."No. Empleado" := Liq."No. Empleado";
-                    LinLiq."Cód. Período" := Liq."Cód. Período";
-                    LinLiq."No. Proyecto" := Liq."No. Proyecto";
-                    LinLiq."Cód. Tipo Liq." := Liq."Cód. Tipo Liq.";
-                    // El par CON EL QUE SE CALCULÓ, que en los conceptos marcados no es el de la
-                    // cabecera. La línea es el comprobante de su propio cálculo: si guardara el de
-                    // la cabecera, un importe de producción liquidado con la categoría del embarque
-                    // quedaría documentado con la del encuadre y no habría forma de explicarlo.
-                    LinLiq."Cód. Convenio" := ConvenioEval;
-                    LinLiq."Cód. Categoría" := CategoriaEval;
-                    LinLiq.Estado := LinLiq.Estado::Calculada;
-                    LinLiq."Fecha Liquidación" := Liq."Fecha Liquidación";
-                    LinLiq."Cód. Concepto" := Concepto.Código;
-                    LinLiq."Descripción Concepto" := Concepto.Descripción;
-                    LinLiq."Nombre Impresión" := Concepto."Nombre Impresión";
-                    LinLiq."Tipo Concepto" := Concepto."Tipo Concepto";
-                    LinLiq."Grupo Costo Laboral" := Concepto."Grupo Costo Laboral";
-                    LinLiq."Imprime en Recibo" := Concepto."Imprime en Recibo";
-                    LinLiq."Es Devengo" := Concepto."Es Devengo";
-                    LinLiq.Importe := Importe;
-                    if EsIncidencia and (Incid.Cantidad <> 0) then begin
-                        LinLiq.Cantidad := Incid.Cantidad;
-                        LinLiq."Unidad Cantidad" := Incid."Unidad Cantidad";
-                        LinLiq."Base Cálculo" := Incid."Valor Unitario";
-                    end else if Concepto."Variable Cantidad" <> '' then begin
-                        LinLiq.Cantidad := ResolverExpresionLinea(Concepto."Variable Cantidad", Ctx, FechaRef);
-                        LinLiq."Unidad Cantidad" := Concepto."Unidad Cantidad";
-                    end;
-                    // Franco accrual lot: the formula result is the number of franco DAYS earned. The FIFO
-                    // ledger consumes days, so store it as Cantidad; the lot carries no amount (valued only
-                    // when consumed). Sealed with the liquidation's convenio/categoría/marea (set above).
-                    if Concepto."Rol Franco" = Concepto."Rol Franco"::Devengo then begin
-                        LinLiq.Cantidad := Importe;
-                        LinLiq."Unidad Cantidad" := Concepto."Unidad Cantidad";
-                        LinLiq.Importe := 0;
-                    end;
-                    if not (EsIncidencia and (Incid.Cantidad <> 0)) and (Concepto."Variable Base" <> '') then
-                        LinLiq."Base Cálculo" := ResolverExpresionLinea(Concepto."Variable Base", Ctx, FechaRef);
-                    LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
-                    LinLiq."Fórmula Aplicada" := Concepto.Fórmula;
-                    // BuildFormulaEvaluada es solo presentación y no toca el estado del evaluador
-                    // (TryGetConceptoRefValue lee la memo, no la escribe), así que saltearla en una
-                    // iteración intermedia de GU no cambia ningún importe. Se mantiene ANTES del
-                    // Flush para no alterar el contenido de ConceptLog.
-                    if not FIteracionGU then
-                        LinLiq."Fórmula Evaluada" := BuildFormulaEvaluada(Concepto.Fórmula, Ctx, Evaluador);
-                    LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
-                    LinLiq."Vigencias Distribución" := DescribirDistribucion(Concepto.Código);
+                    PrepararLineaConcepto(LinLiq, Liq, Concepto, Incid, Importe, EsIncidencia, ConvenioEval, CategoriaEval, FechaRef, Ctx, Evaluador);
                     // El Flush corre SIEMPRE: resetea el log y los vars resueltos por concepto.
                     ConceptLog := Evaluador.FlushConceptLog();
                     // Se anota qué acumuladores leyó este concepto ANTES de que aporte a los suyos:
@@ -604,7 +647,7 @@ codeunit 50014 "Motor Liquidación"
                         // ejecución en pleno cálculo por un campo que es de auditoría.
                         LinLiq."Fuente Parámetros" := CopyStr(CtxBuilder.GetParamLog() + '|' + ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
                     end;
-                    LinLiq.Insert(true);
+                    InsertarLineaLiquidacion(LinLiq);
 
                     // Deja el Importe ya calculado de ESTE concepto en Ctx bajo su propio código,
                     // para que #CÓDIGO (referenciado por conceptos posteriores en el Orden Cálculo)
@@ -621,6 +664,7 @@ codeunit 50014 "Motor Liquidación"
                             Clear(DetGan);
                             DetGan."No. Liquidación" := Liq."No.";
                             DetGan.Tipo := DetGan.Tipo::Paso;
+                            DetGan.Código := Concepto.Código;
                             DetGan.Descripción := CopyStr(Concepto."Etiqueta Det. Ganancias", 1, MaxStrLen(DetGan.Descripción));
                             DetGan."Importe Total" := Importe;
                             DetGan.Orden := Concepto."Orden Cálculo";
@@ -664,6 +708,65 @@ codeunit 50014 "Motor Liquidación"
     /// o el par de la asignación coincide con el del empleado, no hay nada que cambiar: se devuelve
     /// el de la cabecera y false.
     /// </remarks>
+    local procedure PrepararLineaConcepto(var LinLiq: Record "Línea Liquidación"; Liq: Record "Liquidación"; Concepto: Record "Concepto Liquidación"; Incid: Record "Incidencia Liquidación" temporary; Importe: Decimal; EsIncidencia: Boolean; ConvenioEval: Code[20]; CategoriaEval: Code[20]; FechaRef: Date; var Ctx: Dictionary of [Text, Decimal]; var Evaluador: Codeunit "Evaluador Fórmula")
+    begin
+        Clear(LinLiq);
+        LinLiq."No. Liquidación" := Liq."No.";
+        LinLiq."No. Empleado" := Liq."No. Empleado";
+        LinLiq."Cód. Período" := Liq."Cód. Período";
+        LinLiq."No. Proyecto" := Liq."No. Proyecto";
+        LinLiq."Cód. Tipo Liq." := Liq."Cód. Tipo Liq.";
+        // El par CON EL QUE SE CALCULÓ, que en los conceptos marcados no es el de la
+        // cabecera. La línea es el comprobante de su propio cálculo: si guardara el de
+        // la cabecera, un importe de producción liquidado con la categoría del embarque
+        // quedaría documentado con la del encuadre y no habría forma de explicarlo.
+        LinLiq."Cód. Convenio" := ConvenioEval;
+        LinLiq."Cód. Categoría" := CategoriaEval;
+        LinLiq.Estado := LinLiq.Estado::Calculada;
+        LinLiq."Fecha Liquidación" := Liq."Fecha Liquidación";
+        LinLiq."Cód. Concepto" := Concepto.Código;
+        LinLiq."Descripción Concepto" := Concepto.Descripción;
+        LinLiq."Nombre Impresión" := Concepto."Nombre Impresión";
+        LinLiq."Tipo Concepto" := Concepto."Tipo Concepto";
+        LinLiq."Grupo Costo Laboral" := Concepto."Grupo Costo Laboral";
+        LinLiq."Imprime en Recibo" := Concepto."Imprime en Recibo";
+        LinLiq."Es Devengo" := Concepto."Es Devengo";
+        LinLiq.Importe := Importe;
+        if EsIncidencia and (Incid.Cantidad <> 0) then begin
+            LinLiq.Cantidad := Incid.Cantidad;
+            LinLiq."Unidad Cantidad" := Incid."Unidad Cantidad";
+            LinLiq."Base Cálculo" := Incid."Valor Unitario";
+        end else if Concepto."Variable Cantidad" <> '' then begin
+            LinLiq.Cantidad := ResolverExpresionLinea(Concepto."Variable Cantidad", Ctx, FechaRef, Evaluador);
+            LinLiq."Unidad Cantidad" := Concepto."Unidad Cantidad";
+        end;
+        // Franco accrual lot: the formula result is the number of franco DAYS earned. The FIFO
+        // ledger consumes days, so store it as Cantidad; the lot carries no amount (valued only
+        // when consumed). Sealed with the liquidation's convenio/categoría/marea (set above).
+        if Concepto."Rol Franco" = Concepto."Rol Franco"::Devengo then begin
+            LinLiq.Cantidad := Importe;
+            LinLiq."Unidad Cantidad" := Concepto."Unidad Cantidad";
+            LinLiq.Importe := 0;
+        end;
+        if not (EsIncidencia and (Incid.Cantidad <> 0)) and (Concepto."Variable Base" <> '') then
+            LinLiq."Base Cálculo" := ResolverExpresionLinea(Concepto."Variable Base", Ctx, FechaRef, Evaluador);
+        LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
+        LinLiq."Fórmula Aplicada" := Concepto.Fórmula;
+        // BuildFormulaEvaluada es solo presentación y no toca el estado del evaluador
+        // (TryGetConceptoRefValue lee la memo, no la escribe), así que saltearla en una
+        // iteración intermedia de GU no cambia ningún importe. Se mantiene ANTES del
+        // Flush para no alterar el contenido de ConceptLog.
+        if not FIteracionGU then
+            LinLiq."Fórmula Evaluada" := BuildFormulaEvaluada(Concepto.Fórmula, Ctx, Evaluador);
+        LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
+        LinLiq."Vigencias Distribución" := DescribirDistribucion(Concepto.Código);
+    end;
+
+    local procedure InsertarLineaLiquidacion(var LinLiq: Record "Línea Liquidación")
+    begin
+        LinLiq.Insert(true);
+    end;
+
     local procedure AplicarParDeConcepto(
         Concepto: Record "Concepto Liquidación";
         Liq: Record "Liquidación";
@@ -751,10 +854,18 @@ codeunit 50014 "Motor Liquidación"
         LinLiq: Record "Línea Liquidación";
         CatCCT: Record "Categoría CCT";
         FrancosMgt: Codeunit "Gestión Francos";
+        TiposCambioFrancos: Dictionary of [Text, Decimal];
         Saldo: Decimal;
         EtiquetaCat: Text;
         Distribucion: Text;
     begin
+        // Esta es OTRA instancia de Gestión Francos, local a este procedimiento: no ve lo que el
+        // contexto le publicó a la suya. Sin esto, el desglose por lote valuaría un precio en divisa
+        // como si fueran pesos —o cortaría, que es lo que hace desde que la conversión es
+        // obligatoria—. Las cotizaciones ya están resueltas; sólo hay que pedírselas.
+        CtxBuilder.GetTiposCambioFrancos(TiposCambioFrancos);
+        FrancosMgt.PublicarTiposCambio(TiposCambioFrancos);
+
         // LA FÓRMULA DE UN CONCEPTO DE CONSUMO DEVUELVE DÍAS, NO PESOS, y esta guarda existe porque
         // confundirlo no daba error: daba el saldo entero.
         //
@@ -812,13 +923,13 @@ codeunit 50014 "Motor Liquidación"
             LinLiq."Fórmula Aplicada" := Concepto.Fórmula;
             LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
             if Concepto."Variable Base" <> '' then
-                LinLiq."Base Cálculo" := ResolverExpresionLinea(Concepto."Variable Base", Ctx, FechaRef);
+                LinLiq."Base Cálculo" := ResolverExpresionLinea(Concepto."Variable Base", Ctx, FechaRef, Evaluador);
             if not FIteracionGU then begin
                 LinLiq."Fórmula Evaluada" := CopyStr(FormulaEvaluada, 1, MaxStrLen(LinLiq."Fórmula Evaluada"));
                 LinLiq."Vigencias Distribución" := CopyStr(Distribucion, 1, MaxStrLen(LinLiq."Vigencias Distribución"));
                 LinLiq."Fuente Parámetros" := CopyStr(CtxBuilder.GetParamLog() + '|' + ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
             end;
-            LinLiq.Insert(true);
+            InsertarLineaLiquidacion(LinLiq);
             if not FIteracionGU then
                 WriteVariableDetail(Liq."No.", LinLiq."No. Línea", ConceptLog, Ctx, Evaluador);
             ImporteTotal += TempSlice.Importe;
@@ -891,7 +1002,7 @@ codeunit 50014 "Motor Liquidación"
                         LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
                         LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
                         LinLiq."Vigencias Distribución" := DescribirDistribucion(Concepto.Código);
-                        LinLiq.Insert(true);
+                        InsertarLineaLiquidacion(LinLiq);
 
                         // Esta línea se escribe DESPUÉS de todo el bucle, así que su aporte llega
                         // tarde por definición, sin importar el Orden Cálculo que diga el concepto.
@@ -945,7 +1056,7 @@ codeunit 50014 "Motor Liquidación"
                 LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
                 LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
                 LinLiq."Fórmula Evaluada" := Format(Valor);
-                LinLiq.Insert(true);
+                InsertarLineaLiquidacion(LinLiq);
             end;
         until Concepto.Next() = 0;
     end;
@@ -1033,11 +1144,42 @@ codeunit 50014 "Motor Liquidación"
         exit(Concepto."Aplica A" = TipoEmpleado);
     end;
 
+    /// <summary>
+    /// ¿Este concepto corre en este tipo de liquidación?
+    /// </summary>
+    /// <remarks>
+    /// LA LISTA DEL CONCEPTO ES BLANCA Y VACÍA SIGNIFICA "TODOS", que está bien para el caso normal
+    /// —un concepto que no declara nada aplica en todas partes— pero NO permite decir lo contrario:
+    /// "en VACACIONES corren SOLAMENTE estos". Para eso habría que ir a los 185 conceptos que hoy no
+    /// declaran tipo y sacarles VACACIONES uno por uno.
+    ///
+    /// Por eso el tipo puede invertir la regla con "Sólo Conceptos Declarados": marcado, corre
+    /// únicamente los conceptos que lo nombran, y el vacío deja de ser un comodín. Cinco asignaciones
+    /// en vez de ciento ochenta y cinco.
+    ///
+    /// LO QUE PASABA SIN ESTO: la liquidación de Vacaciones recalculaba el RECIBO ENTERO. En enero de
+    /// 2026, 133 empleados cobraron dos veces el SAC devengado, la ART, las contribuciones
+    /// patronales, la jubilación, la cuota sindical, el acuerdo del Dto 633/18 y hasta Ganancias —una
+    /// vez en su Regular y otra en su Vacaciones—. En Meta4 una corrida de vacaciones paga UN
+    /// devengo, VACACIONES, y nada más.
+    /// </remarks>
     local procedure ConceptoAplicaATipoLiq(Concepto: Record "Concepto Liquidación"; TipoLiq: Code[20]): Boolean
+    var
+        TipoLiqRec: Record "Tipo Liquidación";
+        Declarado: Boolean;
     begin
+        Declarado := ('|' + Concepto."Tipos Liq. Aplicables" + '|').Contains('|' + TipoLiq + '|');
+        // LOS INFORMATIVOS NO SE RESTRINGEN NUNCA. No pagan: alimentan acumuladores y bases, y son
+        // lo que los conceptos que sí pagan leen después. Bloquearlos dejaría las bases en cero y el
+        // recibo saldría mal por un camino que no tiene nada que ver con lo que se quiso acotar.
+        if Concepto."Tipo Concepto" = Concepto."Tipo Concepto"::Informativo then
+            exit((Concepto."Tipos Liq. Aplicables" = '') or Declarado);
+        if TipoLiqRec.Get(TipoLiq) then
+            if TipoLiqRec."Sólo Conceptos Declarados" then
+                exit(Declarado);
         if Concepto."Tipos Liq. Aplicables" = '' then
             exit(true);
-        exit(('|' + Concepto."Tipos Liq. Aplicables" + '|').Contains('|' + TipoLiq + '|'));
+        exit(Declarado);
     end;
 
     // ── Pre-build caches (called once per liquidation, before the concept loop) ──
@@ -1156,6 +1298,7 @@ codeunit 50014 "Motor Liquidación"
     local procedure ResolverCCTAplicaAConcepto(var Concepto: Record "Concepto Liquidación"; CodConvenio: Code[20]; CodCategoria: Code[20]; FechaRef: Date): Boolean
     var
         CCTVig: Record "Concepto CCT Vigente";
+        Fila: Record "Concepto CCT Vigente";
         VigenciaAplicable: Date;
     begin
         Concepto.CalcFields("Vigencia CCT Más Reciente");
@@ -1185,24 +1328,43 @@ codeunit 50014 "Motor Liquidación"
         if not CCTVig.FindLast() then
             exit(false); // hay restricciones activas y este convenio no está entre ellas
 
-        // La vigencia se guarda ANTES de cualquier Get: un Get fallido deja el registro en blanco,
-        // así que leer CCTVig."Vigencia Desde" para el segundo Get daría 0D y el fallback por
-        // convenio nunca encontraría nada (el concepto quedaba silenciosamente sin aplicar).
-        // Dentro de un mismo convenio sí manda la vigencia más reciente: así una versión nueva
-        // puede restringir a categorías puntuales reemplazando a la anterior.
-        VigenciaAplicable := CCTVig."Vigencia Desde";
-
-        // Coincidencia exacta de convenio+categoría gana; si no existe, una fila de "todo el
-        // convenio" (categoría en blanco) también aplica. Si ninguna existe, no aplica.
+        // DENTRO DEL CONVENIO SE BUSCA HACIA ATRÁS hasta la última vigencia que NOMBRE a esta
+        // categoría. Una vigencia nueva agrega y actualiza; no revoca lo que no menciona.
         //
-        // El Get NO respeta el filtro de Excluye —ignora todos los filtros—, así que se lee la
-        // bandera de la fila encontrada en vez de darla por inclusión. Hoy no puede ser una
-        // exclusión (ExcluidoPorCCT ya miró esas mismas dos claves), pero atarlo al filtro de arriba
-        // es la clase de suposición que se rompe cuando alguien toca el orden de las líneas.
-        if CCTVig.Get(Concepto.Código, VigenciaAplicable, CodConvenio, CodCategoria) then
-            exit(not CCTVig.Excluye);
-        if CCTVig.Get(Concepto.Código, VigenciaAplicable, CodConvenio, '') then
-            exit(not CCTVig.Excluye);
+        // Antes mandaba sólo la más reciente, y eso convertía una omisión en una baja silenciosa: la
+        // vigencia 2026 del 175/75 se cargó enumerando OF01 y OF02 —la lista de categorías de OTRO
+        // convenio—, y con eso los OF04 se quedaron sin sueldo de navegación, sin antigüedad, sin
+        // francos y sin cuota sindical desde el 1/1/2026. No hay línea en cero ni error: el concepto
+        // no se evalúa. Cuatro empleados con el recibo entero vacío y ni un aviso.
+        //
+        // Lo que se resigna es poder restringir por omisión: para sacarle un concepto a una
+        // categoría hay que cargar una fila con "Excluye", que es explícita y se ve. Es el precio
+        // justo — un acuerdo paritario agrega conceptos y cambia importes; quitarle uno a una
+        // categoría es excepcional y merece quedar escrito.
+        //
+        // La vigencia se guarda ANTES de cualquier Get: un Get fallido deja el registro en blanco,
+        // así que leer CCTVig."Vigencia Desde" después daría 0D.
+        repeat
+            VigenciaAplicable := CCTVig."Vigencia Desde";
+
+            // Coincidencia exacta de convenio+categoría gana; si no existe, una fila de "todo el
+            // convenio" (categoría en blanco) también aplica.
+            //
+            // El Get NO respeta el filtro de Excluye —ignora todos los filtros—, así que se lee la
+            // bandera de la fila encontrada en vez de darla por inclusión. Hoy no puede ser una
+            // exclusión (ExcluidoPorCCT ya miró esas mismas dos claves), pero atarlo al filtro de
+            // arriba es la clase de suposición que se rompe cuando alguien toca el orden de las
+            // líneas. Va en una variable aparte para no perder la posición del recorrido.
+            if Fila.Get(Concepto.Código, VigenciaAplicable, CodConvenio, CodCategoria) then
+                exit(not Fila.Excluye);
+            if Fila.Get(Concepto.Código, VigenciaAplicable, CodConvenio, '') then
+                exit(not Fila.Excluye);
+
+            // Esta vigencia no habló de esta categoría: sigue valiendo lo que dijo la anterior.
+            CCTVig.SetFilter("Vigencia Desde", '<%1', VigenciaAplicable);
+        until not CCTVig.FindLast();
+
+        // Ninguna vigencia del convenio nombró nunca a esta categoría.
         exit(false);
     end;
 
@@ -1537,22 +1699,58 @@ codeunit 50014 "Motor Liquidación"
         exit(Result);
     end;
 
-    local procedure DeleteLineas(LiqNo: Code[20])
+    /// <param name="ConservarDeducciones">
+    /// Las filas Familiar y Gasto del Detalle Ganancias las escribe CalcDeduccionesGanancias, que
+    /// corre UNA sola vez —al armar el contexto— y queda memoizada: las cargas de familia y los
+    /// gastos deducibles son valores anuales que no dependen de los importes de la liquidación.
+    /// Un borrado que las incluya las borra PARA SIEMPRE, porque nadie las vuelve a escribir. Eso
+    /// dejaba a toda liquidación con grossing-up sin el desglose de deducciones —justo las que más
+    /// falta hace auditar, porque el complemento absorbe cualquier error de deducción sin que se
+    /// note—. Las filas Paso sí se rehacen en cada pasada de RunConceptos y hay que borrarlas.
+    /// </param>
+    local procedure DeleteLineas(LiqNo: Code[20]; ConservarDeducciones: Boolean)
+    begin
+        // Funciones separadas para que el perfilador atribuya el tiempo a cada tabla.
+        // Se conserva el orden y la transacción del borrado original.
+        BorrarDetalleVariables(LiqNo);
+        BorrarResumenVariables(LiqNo);
+        BorrarDetalleGanancias(LiqNo, ConservarDeducciones);
+        BorrarLineasLiquidacion(LiqNo);
+    end;
+
+    local procedure BorrarDetalleVariables(LiqNo: Code[20])
     var
-        Lin: Record "Línea Liquidación";
         Det: Record "Detalle Variable Línea Liq.";
-        Resumen: Record "Resumen Variable Liq.";
-        DetGan: Record "Detalle Ganancias Liq.";
     begin
         Det.SetRange("No. Liquidación", LiqNo);
         Det.DeleteAll();
+    end;
+
+    local procedure BorrarResumenVariables(LiqNo: Code[20])
+    var
+        Resumen: Record "Resumen Variable Liq.";
+    begin
         Resumen.SetRange("No. Liquidación", LiqNo);
         Resumen.DeleteAll();
+    end;
+
+    local procedure BorrarDetalleGanancias(LiqNo: Code[20]; ConservarDeducciones: Boolean)
+    var
+        DetGan: Record "Detalle Ganancias Liq.";
+    begin
         DetGan.SetRange("No. Liquidación", LiqNo);
+        if ConservarDeducciones then
+            DetGan.SetRange(Tipo, DetGan.Tipo::Paso);
         DetGan.DeleteAll();
+    end;
+
+    local procedure BorrarLineasLiquidacion(LiqNo: Code[20])
+    var
+        Lin: Record "Línea Liquidación";
+    begin
         Lin.SetRange("No. Liquidación", LiqNo);
         // DeleteAll(false) a propósito: el OnDelete de "Línea Liquidación" solo borra los
-        // Detalle Variable de la línea, y el DeleteAll de arriba ya los borró TODOS de una
+        // Detalle Variable de la línea, y BorrarDetalleVariables ya los borró TODOS de una
         // sola vez para esta liquidación. Con DeleteAll(true) se pagaba un DeleteAll extra
         // por línea, y eso se multiplica por cada iteración de Grossing Up.
         // Si algún día el OnDelete hace algo más que borrar detalles, esto tiene que volver
@@ -1578,9 +1776,10 @@ codeunit 50014 "Motor Liquidación"
     /// igual que quedaba antes un nombre inexistente. Lo que sí cambió es que ahora el error se
     /// detecta antes: los dos campos validan su sintaxis al cargarlos.
     /// </remarks>
-    local procedure ResolverExpresionLinea(Texto: Text; var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date): Decimal
+    local procedure ResolverExpresionLinea(Texto: Text; var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date; var Evaluador: Codeunit "Evaluador Fórmula"): Decimal
     var
         Eval: Codeunit "Evaluador Fórmula";
+        Codigos: Dictionary of [Text, Text];
         Valor: Decimal;
     begin
         if Texto = '' then
@@ -1588,32 +1787,38 @@ codeunit 50014 "Motor Liquidación"
         if Ctx.ContainsKey(Texto) then
             exit(Ctx.Get(Texto));
         Eval.Init(Ctx, FechaRef);
+        Evaluador.GetCodigosAtributos(Codigos);
+        Eval.SetCodigosAtributos(Codigos);
         Eval.SetLenientMode(true);
         if not Eval.TryEvalFormula(Texto, Valor) then
             exit(0);
         exit(Valor);
     end;
 
-    local procedure WriteVariableDetail(
+    internal procedure WriteVariableDetail(
         LiqNo: Code[20];
         LineNo: Integer;
         ConceptLog: Text;
         var Ctx: Dictionary of [Text, Decimal];
         var Evaluador: Codeunit "Evaluador Fórmula")
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        DetPersistido: Record "Detalle Variable Línea Liq.";
         Entries: List of [Text];
         Entry: Text;
         VarName: Text;
         CtxKey: Text;
         Valor: Decimal;
         Tramos: Dictionary of [Text, Boolean];
+        CodigosGuardados: Dictionary of [Text, Text];
+        CodigoGuardado: Text;
     begin
         if ConceptLog = '' then exit;
+        Evaluador.GetCodigosAtributos(CodigosGuardados);
         Entries := ConceptLog.Split('|');
         foreach Entry in Entries do begin
             if Entry.StartsWith('TRAMO:') then
-                WriteTramoDetail(LiqNo, LineNo, Entry, Tramos);
+                WriteTramoDetail(LiqNo, LineNo, Entry, Tramos, Det);
             if Entry.StartsWith('VAR:') then begin
                 VarName := CopyStr(Entry, 5);
                 // @CÓDIGO y #CÓDIGO no viven en Ctx bajo su nombre con prefijo — el prefijo solo
@@ -1649,15 +1854,24 @@ codeunit 50014 "Motor Liquidación"
                             Valor := 0;
 
                 if VarName <> '' then begin
-                    Clear(Det);
+                    Det.Init();
                     Det."No. Liquidación" := LiqNo;
                     Det."No. Línea" := LineNo;
                     Det."Nombre Variable" := CopyStr(VarName, 1, MaxStrLen(Det."Nombre Variable"));
                     Det.Valor := Valor;
+                    if CodigosGuardados.Get(VarName, CodigoGuardado) then
+                        Det."Código Atributo" := CopyStr(CodigoGuardado, 1, MaxStrLen(Det."Código Atributo"));
                     if Det.Insert() then;
                 end;
             end;
         end;
+        // Resolver colisiones en memoria conserva la primera variable y los sufijos TRAMO.
+        // No consumir el retorno del Insert SQL permite al runtime agrupar las escrituras.
+        if Det.FindSet() then
+            repeat
+                DetPersistido := Det;
+                DetPersistido.Insert();
+            until Det.Next() = 0;
     end;
 
     /// <summary>
@@ -1674,9 +1888,8 @@ codeunit 50014 "Motor Liquidación"
     /// Insert fallaba en silencio y esa consulta desaparecía. La entrada IDÉNTICA, en cambio, se
     /// saltea: es la misma consulta resuelta dos veces, no dos consultas.
     /// </remarks>
-    local procedure WriteTramoDetail(LiqNo: Code[20]; LineNo: Integer; Entry: Text; var Tramos: Dictionary of [Text, Boolean])
+    local procedure WriteTramoDetail(LiqNo: Code[20]; LineNo: Integer; Entry: Text; var Tramos: Dictionary of [Text, Boolean]; var Det: Record "Detalle Variable Línea Liq." temporary)
     var
-        Det: Record "Detalle Variable Línea Liq.";
         Campos: List of [Text];
         Nombre: Text;
         Valor: Decimal;
@@ -1693,12 +1906,21 @@ codeunit 50014 "Motor Liquidación"
             exit;
 
         Nombre := StrSubstNo(TxtTramoVar, Campos.Get(1));
-        Clear(Det);
+        Det.Init();
         Det."No. Liquidación" := LiqNo;
         Det."No. Línea" := LineNo;
         Det."Nombre Variable" := CopyStr(Nombre, 1, MaxStrLen(Det."Nombre Variable"));
         Det.Valor := Valor;
         Det.Detalle := CopyStr(Campos.Get(3), 1, MaxStrLen(Det.Detalle));
+        if Campos.Count() >= 8 then begin
+            Det."Tabla Tramo" := CopyStr(Campos.Get(1), 1, MaxStrLen(Det."Tabla Tramo"));
+            Det."Snapshot Tramo" :=
+                Evaluate(Det."Base Tramo", Campos.Get(4), 9) and
+                Evaluate(Det."Límite Tramo", Campos.Get(5), 9) and
+                Evaluate(Det."Fijo Tramo", Campos.Get(6), 9) and
+                Evaluate(Det."Porcentaje Tramo", Campos.Get(7), 9) and
+                Evaluate(Det."Vigencia Tramo", Campos.Get(8), 9);
+        end;
         while not Det.Insert() do begin
             Intento += 1;
             if Intento > 9 then
@@ -1719,13 +1941,31 @@ codeunit 50014 "Motor Liquidación"
         Start: Integer;
         Token: Text;
         CachedVal: Decimal;
+        Codigos: Dictionary of [Text, Text];
+        Codigo: Text;
+        Resto: Text;
     begin
+        Evaluador.GetCodigosAtributos(Codigos);
         Formula := Formula.ToUpper().Trim();
         Len := StrLen(Formula);
         Pos := 1;
         while Pos <= Len do begin
             C := Formula[Pos];
-            if IsIdentStartChar(C) then begin
+            if C = 39 then begin
+                Start := Pos;
+                Pos += 1;
+                while Pos <= Len do begin
+                    if Formula[Pos] = 39 then begin
+                        if (CopyStr(Formula, Pos, 2) = '''''') then
+                            Pos += 1
+                        else
+                            break;
+                    end;
+                    Pos += 1;
+                end;
+                Pos += 1;
+                Result += CopyStr(Formula, Start, Pos - Start);
+            end else if IsIdentStartChar(C) then begin
                 Start := Pos;
                 // '@' y '#' no cumplen IsIdentChar (solo IsIdentStartChar) — hay que avanzar Pos
                 // más allá del prefijo ANTES del while de abajo, o su condición falla en la
@@ -1736,7 +1976,14 @@ codeunit 50014 "Motor Liquidación"
                 while (Pos <= Len) and IsIdentChar(Formula[Pos]) do
                     Pos += 1;
                 Token := CopyStr(Formula, Start, Pos - Start);
-                if Token.StartsWith('@') then
+                Resto := CopyStr(Formula, Pos).Trim();
+                if Resto.StartsWith('<>') then
+                    Resto := CopyStr(Resto, 3).Trim()
+                else if Resto.StartsWith('=') then
+                    Resto := CopyStr(Resto, 2).Trim();
+                if Resto.StartsWith('''') and Codigos.Get(Token, Codigo) then
+                    Result += '''' + Codigo.Replace('''', '''''') + ''''
+                else if Token.StartsWith('@') then
                     // @CÓDIGO no vive en Ctx — se resuelve evaluando el concepto referenciado,
                     // igual que hace el motor de fórmulas, para mostrar el valor real en vez
                     // de dejar el texto "@2498" sin expandir. Se reutiliza el valor que el
@@ -1798,7 +2045,7 @@ codeunit 50014 "Motor Liquidación"
         // el evaluador desde antes y acá nunca se agregaron. Hoy el efecto es inocuo —el nombre no
         // está en Ctx, así que cae en el else y se imprime tal cual— pero deja de serlo el día que
         // alguien nombre una variable igual que una función.
-        exit(Token in ['MAX', 'MIN', 'ROUND', 'REDONDEAR', 'PISO', 'TECHO', 'ABS', 'IF', 'CASE', 'DIV', 'TRAMO', 'AND', 'OR', 'NOT']);
+        exit(Token in ['MAX', 'MIN', 'ROUND', 'REDONDEAR', 'PISO', 'TECHO', 'ABS', 'IF', 'IFZERO', 'CASE', 'DIV', 'TRAMO', 'ERROR', 'AND', 'OR', 'NOT']);
     end;
 
     local procedure FormatVarValue(Val: Decimal): Text
@@ -1823,9 +2070,10 @@ codeunit 50014 "Motor Liquidación"
     // Liquidación (Acumuladores Anuales) without requiring per-variable configuration.
     // "Mostrar en Recibo" stays curated: only Fuente Datos / Variable Sistema records
     // explicitly flagged print on the PDF.
-    local procedure SaveResumenVariables(LiqNo: Code[20]; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
+    internal procedure SaveResumenVariables(LiqNo: Code[20]; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
     var
-        Resumen: Record "Resumen Variable Liq.";
+        Resumen: Record "Resumen Variable Liq." temporary;
+        ResumenPersistido: Record "Resumen Variable Liq.";
         ValoresTexto: Dictionary of [Text, Text];
         VarName: Text;
         Valor: Decimal;
@@ -1844,7 +2092,7 @@ codeunit 50014 "Motor Liquidación"
             // ejemplo— y con la condición vieja se perdía del resumen y del recibo justo el valor
             // que interesaba mostrar.
             if ((Valor <> 0) or (Texto <> '')) and not EsConceptoNoAcumulador(VarName) then begin
-                Clear(Resumen);
+                Resumen.Init();
                 Resumen."No. Liquidación" := LiqNo;
                 Resumen."Nombre Variable" := CopyStr(VarName, 1, MaxStrLen(Resumen."Nombre Variable"));
                 Resumen.Valor := Valor;
@@ -1855,6 +2103,13 @@ codeunit 50014 "Motor Liquidación"
                     Resumen.Modify();
             end;
         end;
+        // La clave Code[30] normaliza y trunca nombres: ante colisiones gana el último,
+        // igual que el Insert/Modify original. DeleteLineas ya limpió el resumen anterior.
+        if Resumen.FindSet() then
+            repeat
+                ResumenPersistido := Resumen;
+                ResumenPersistido.Insert();
+            until Resumen.Next() = 0;
     end;
 
     // Los códigos de concepto NO acumulador quedan en Ctx solo para que #CÓDIGO pueda leerlos
@@ -1988,9 +2243,9 @@ codeunit 50014 "Motor Liquidación"
     // se podía encender el grossing-up.
     local procedure InjectGUVariables(var Ctx: Dictionary of [Text, Decimal])
     begin
-        if Ctx.ContainsKey('ES_GROSSING_UP') then Ctx.Set('ES_GROSSING_UP', 0) else Ctx.Add('ES_GROSSING_UP', 0);
-        if Ctx.ContainsKey('NETO_GARANTIZADO') then Ctx.Set('NETO_GARANTIZADO', 0) else Ctx.Add('NETO_GARANTIZADO', 0);
-        if Ctx.ContainsKey('COMPLEMENTO_GU') then Ctx.Set('COMPLEMENTO_GU', 0) else Ctx.Add('COMPLEMENTO_GU', 0);
+        if Ctx.ContainsKey(VarEsGrossingUp()) then Ctx.Set(VarEsGrossingUp(), 0) else Ctx.Add(VarEsGrossingUp(), 0);
+        if Ctx.ContainsKey(VarNetoGarantizado()) then Ctx.Set(VarNetoGarantizado(), 0) else Ctx.Add(VarNetoGarantizado(), 0);
+        if Ctx.ContainsKey(VarComplementoGU()) then Ctx.Set(VarComplementoGU(), 0) else Ctx.Add(VarComplementoGU(), 0);
     end;
 
     /// <summary>
@@ -2041,15 +2296,15 @@ codeunit 50014 "Motor Liquidación"
         if Concepto.Fórmula = '' then
             exit;
 
-        if StrPos(Concepto.Fórmula.ToUpper(), 'COMPLEMENTO_GU') > 0 then
+        if StrPos(Concepto.Fórmula.ToUpper(), VarComplementoGU()) > 0 then
             Error(ErrNetoGarantAutorreferente, Concepto.Código);
 
         NetoObjetivo := Evaluador.EvalFormula(Concepto.Fórmula);
         if NetoObjetivo <= 0 then
             exit;
 
-        Ctx.Set('NETO_GARANTIZADO', NetoObjetivo);
-        Ctx.Set('ES_GROSSING_UP', 1);
+        Ctx.Set(VarNetoGarantizado(), NetoObjetivo);
+        Ctx.Set(VarEsGrossingUp(), 1);
         Evaluador.UpdateContext(Ctx);
     end;
 
@@ -2085,7 +2340,6 @@ codeunit 50014 "Motor Liquidación"
         var CtxBuilder: Codeunit "Contexto Liquidación";
         var Evaluador: Codeunit "Evaluador Fórmula")
     var
-        CurrExchRate: Record "Currency Exchange Rate";
         MonedaGU: Code[10];
         NetoObjetivo: Decimal;
         NetoActual: Decimal;
@@ -2094,52 +2348,109 @@ codeunit 50014 "Motor Liquidación"
         Iter: Integer;
         PasadasSinAuditoria: Integer;
         Convergio: Boolean;
+        MejorComplemento: Decimal;
+        MejorExceso: Decimal;
+        HayMejor: Boolean;
+        ToleranciaExceso: Decimal;
+        NetoPrevio: Decimal;
+        TipoCambio: Decimal;
+        HRSetup: Record "Human Resources Setup";
     begin
         // El objetivo ya viene resuelto por ResolverNetoGarantizado, que evaluó la fórmula del
         // concepto configurado. Acá sólo se convierte de moneda si corresponde: el proporcional de
         // vacaciones del Art. 155 pasó a ser parte de esa fórmula.
-        NetoObjetivo := Ctx.Get('NETO_GARANTIZADO');
-        MonedaGU := CtxBuilder.GetMoneda();
-        if MonedaGU <> '' then
-            NetoObjetivo := CurrExchRate.ExchangeAmtFCYToLCY(
-                FechaRef, MonedaGU, NetoObjetivo,
-                CurrExchRate.ExchangeRate(FechaRef, MonedaGU));
+        //
+        // LA CONVERSIÓN VA POR EL VENDEDOR, igual que las fórmulas. Antes usaba ExchangeAmtFCYToLCY,
+        // que es la conversión estándar de BC y toma "Relational Exch. Rate Amount" —el comprador—.
+        // Un neto garantizado de USD 11.100 salía 15.706.500 en vez de 16.261.500 y arrastraba toda
+        // la liquidación: sueldo, vacaciones, aportes e impuesto. No se ve como error porque el
+        // grossing-up converge igual, sólo que a un neto que no es el pactado.
+        //
+        // Y CON "Convertir Param. por TC" ENCENDIDA NO SE CONVIERTE NADA ACÁ. El parámetro en divisa
+        // —NETO_GU, NETO_GU_MAREA— ya entró al contexto convertido a pesos por su "Cód. Variable TC",
+        // así que la fórmula de NETO_GARANT devuelve el objetivo en pesos y multiplicar de nuevo lo
+        // llevaría al cuadrado del tipo de cambio. La bandera queda de un solo lado: o convierte el
+        // contexto, o convierte el motor, nunca los dos.
+        //
+        // No se borra el camino viejo porque la bandera es una llave de paso: si algo sale mal en
+        // producción se apaga, y entonces esta conversión tiene que volver a correr.
+        NetoObjetivo := Ctx.Get(VarNetoGarantizado());
+        if not HRSetup.Get() then
+            Clear(HRSetup);
+        MonedaGU := '';
+        if not HRSetup."Convertir Param. por TC" then
+            MonedaGU := CtxBuilder.GetMoneda();
+        if MonedaGU <> '' then begin
+            TipoCambio := TipoCambioVendedor(MonedaGU, FechaRef);
+            if TipoCambio = 0 then
+                Error(ErrSinCotizacionGU, Liq."No.", MonedaGU, FechaRef);
+            NetoObjetivo := Round(NetoObjetivo * TipoCambio, 0.01);
+        end;
         // Las iteraciones intermedias se descartan enteras en el DeleteLineas de la vuelta
         // siguiente, así que escribir su auditoría (Fórmula Evaluada, Detalle Variable, Detalle
         // Ganancias, Fuente Parámetros, En Uso) es trabajo puro de descarte. Se suprime durante la
         // convergencia y se escribe una sola vez, al final, sobre el resultado que efectivamente
         // queda. Ningún importe depende de esos datos — ver los guardas de FIteracionGU en
         // RunConceptos.
+        // El escalón con el que se mide todo lo de abajo: el redondeo más grueso que puede aplicar
+        // un concepto. Con PRECISION_REDONDEO en 1 el neto se mueve de a un peso, y dos netos que
+        // difieren en menos que eso son el mismo neto para la liquidación.
+        ToleranciaExceso := 0.01;
+        if Ctx.ContainsKey('PRECISION_REDONDEO') then
+            if Ctx.Get('PRECISION_REDONDEO') > ToleranciaExceso then
+                ToleranciaExceso := Ctx.Get('PRECISION_REDONDEO');
+
         FIteracionGU := true;
-        for Iter := 1 to 20 do begin
+        for Iter := 1 to MaxIteracionesGrossingUp() do begin
             // La señal a la ventana de progreso va acá y no solo al entrar a la liquidación: una de
-            // Grossing Up rehace la lista entera de conceptos hasta 21 veces, y sin nada que se mueva
+            // Grossing Up rehace la lista entera de conceptos hasta el límite de iteraciones, y sin nada que se mueva
             // durante esos segundos el lote parece colgado —y colgado en el nombre anterior, que es
             // el último que la pantalla alcanzó a pintar—.
-            Progreso.Paso(StrSubstNo(TxtPasoGU, Iter));
+            Progreso.Paso(StrSubstNo(TxtPasoGU, Iter, MaxIteracionesGrossingUp()));
             NetoActual := CalcNetoDesdeBD(Liq."No.");
             Delta := NetoObjetivo - NetoActual;
-            if NetoGarantizadoSatisfecho(NetoObjetivo, NetoActual, Ctx.Get('COMPLEMENTO_GU')) then begin
+            if NetoGarantizadoSatisfecho(NetoObjetivo, NetoActual, Ctx.Get(VarComplementoGU())) then begin
                 Convergio := true;
                 break;
             end;
-            NuevoComplemento := Ctx.Get('COMPLEMENTO_GU') + Delta;
+            // Se guarda el iterado que más se acerca al garantizado SIN quedar por debajo. El neto
+            // no es continuo en el complemento: con PRECISION_REDONDEO en 1 hay conceptos que
+            // redondean a peso entero, así que el neto avanza a saltos y el objetivo exacto puede
+            // sencillamente no ser alcanzable. Cuando eso pasa el bucle oscila entre los dos
+            // escalones que rodean al objetivo y agota las vueltas por unos centavos. Ver el
+            // rescate de más abajo: este candidato es el que se termina usando.
+            if NetoActual >= NetoObjetivo then
+                if (not HayMejor) or (NetoActual - NetoObjetivo < MejorExceso) then begin
+                    HayMejor := true;
+                    MejorExceso := NetoActual - NetoObjetivo;
+                    MejorComplemento := Ctx.Get(VarComplementoGU());
+                end;
+            NuevoComplemento := Ctx.Get(VarComplementoGU()) + Delta;
+            // ROMPER EL ESTANCAMIENTO. Cuando falta menos que un escalón, sumar el déficit mueve el
+            // complemento pero no mueve el neto: el redondeo se come el ajuste y la vuelta siguiente
+            // encuentra exactamente el mismo déficit. Así el bucle camina en el lugar y agota las
+            // vueltas sin haber probado nunca un complemento del otro lado del objetivo, que es el
+            // que el rescate necesita. Se empuja un escalón entero para garantizar que el neto
+            // efectivamente salte; si se pasa, el rescate se queda con el salto más chico.
+            if (Iter > 1) and (Delta > 0) and (NetoActual = NetoPrevio) then
+                NuevoComplemento += ToleranciaExceso;
+            NetoPrevio := NetoActual;
             if NuevoComplemento < 0 then NuevoComplemento := 0;
-            Ctx.Set('COMPLEMENTO_GU', NuevoComplemento);
+            Ctx.Set(VarComplementoGU(), NuevoComplemento);
             Evaluador.UpdateContext(Ctx);
             ResetAccumuladores(Ctx);
-            DeleteLineas(Liq."No.");
+            DeleteLineas(Liq."No.", true);
             RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
             PasadasSinAuditoria += 1;
         end;
         FIteracionGU := false;
 
         // SALIR POR AGOTAR LAS VUELTAS NO ES HABER TERMINADO. El chequeo del bucle está arriba, así
-        // que después de la vuelta 20 nunca se vuelve a mirar el neto: hasta acá, una liquidación que
+        // que después de la última vuelta nunca se vuelve a mirar el neto: hasta acá, una liquidación que
         // no convergía se guardaba igual, con un neto que no es el garantizado y sin una sola señal.
         // Es la clase de error que se descubre cuando alguien cobra de menos.
         //
-        // Se recontrola antes de acusar, porque el ajuste de la vuelta 20 pudo haber convergido y el
+        // Se recontrola antes de acusar, porque el ajuste de la última vuelta pudo haber convergido y el
         // bucle no llegó a verlo. Ese CalcNetoDesdeBD extra sólo corre cuando no hubo break.
         //
         // Va ANTES de la pasada final auditada: si esto falla, la liquidación no se guarda, y rehacer
@@ -2147,10 +2458,41 @@ codeunit 50014 "Motor Liquidación"
         if not Convergio then begin
             NetoActual := CalcNetoDesdeBD(Liq."No.");
             Delta := NetoObjetivo - NetoActual;
-            Convergio := NetoGarantizadoSatisfecho(NetoObjetivo, NetoActual, Ctx.Get('COMPLEMENTO_GU'));
+            if NetoActual >= NetoObjetivo then
+                if (not HayMejor) or (NetoActual - NetoObjetivo < MejorExceso) then begin
+                    HayMejor := true;
+                    MejorExceso := NetoActual - NetoObjetivo;
+                    MejorComplemento := Ctx.Get(VarComplementoGU());
+                end;
+            Convergio := NetoGarantizadoSatisfecho(NetoObjetivo, NetoActual, Ctx.Get(VarComplementoGU()));
         end;
+
+        // RESCATE POR ESCALÓN DE REDONDEO. Agotar las vueltas no siempre es un error de
+        // configuración: si NINGÚN complemento produce exactamente el neto garantizado —porque el
+        // neto salta de a un escalón— el bucle no puede converger por más vueltas que le demos, y
+        // frenar ahí dejaba la liquidación sin calcular por dos centavos. Por eso subir el límite
+        // de iteraciones no alcanza: no es que converja lento, es que el punto fijo no existe.
+        //
+        // El garantizado es un PISO, así que el desempate va siempre hacia arriba: se toma el
+        // complemento que dejó el neto inmediatamente por encima del objetivo, nunca uno que lo
+        // deje por debajo —ni siquiera por un centavo: eso sería pagar de menos un neto que está
+        // garantizado—. Y se acepta sólo si el exceso entra en un escalón de redondeo; si sobra
+        // más que eso, el problema no es el redondeo y el Error de abajo sigue vivo para avisarlo.
         if not Convergio then
-            Error(ErrGUNoConverge, Liq."No.", NetoObjetivo, NetoActual, Delta);
+            if HayMejor then
+                if MejorExceso <= ToleranciaExceso then begin
+                    Ctx.Set(VarComplementoGU(), MejorComplemento);
+                    NetoActual := NetoObjetivo + MejorExceso;
+                    Delta := -MejorExceso;
+                    Convergio := true;
+                    // El Ctx ya no es el que dejó la última iteración: la pasada final tiene que
+                    // rehacer las líneas con ESTE complemento y no con aquel.
+                    if PasadasSinAuditoria = 0 then
+                        PasadasSinAuditoria := 1;
+                end;
+
+        if not Convergio then
+            Error(ErrGUNoConverge, Liq."No.", NetoObjetivo, NetoActual, Delta, MaxIteracionesGrossingUp());
 
         // Pasada final: mismo Ctx (COMPLEMENTO_GU ya convergido) y mismo estado de base que la
         // última iteración, así que reconstruye líneas idénticas — esta vez con la auditoría
@@ -2165,16 +2507,122 @@ codeunit 50014 "Motor Liquidación"
             Progreso.Paso(TxtPasoGUFinal);
             Evaluador.UpdateContext(Ctx);
             ResetAccumuladores(Ctx);
-            DeleteLineas(Liq."No.");
+            DeleteLineas(Liq."No.", true);
             RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
         end;
     end;
 
     // El garantizado es un piso: se acepta un neto superior sin complemento.
     // Con complemento positivo se exige convergencia para no conservar un exceso del ajuste.
+    /// <summary>
+    /// La cotización con la que se liquida: el tipo de cambio VENDEDOR a la fecha, en la orientación
+    /// en que se lee ("cuántos pesos vale un dólar").
+    /// </summary>
+    /// <remarks>
+    /// Las dos cotizaciones del día conviven en la misma fila de Currency Exchange Rate: el comprador
+    /// en "Relational Exch. Rate Amount" y el vendedor en "Relational Adjmt Exch Rate Amt" —que es el
+    /// campo de ajuste de BC, acá reutilizado como segunda cotización—. La Fuente de Datos
+    /// TC_VENDEDOR apunta a ese mismo campo, así que el motor y las fórmulas leen lo mismo.
+    ///
+    /// No se usa ExchangeAmtFCYToLCY ni ExchangeRate: ambos resuelven contra el comprador y no hay
+    /// forma de pedirles el otro. El precio de no usarlos es no resolver cadenas de moneda relacional
+    /// —que acá no existen: todas las cotizaciones son contra la moneda local—.
+    /// </remarks>
+    internal procedure TipoCambioVendedor(Moneda: Code[10]; Fecha: Date): Decimal
+    var
+        CurrExchRate: Record "Currency Exchange Rate";
+    begin
+        if Moneda = '' then
+            exit(1);
+        CurrExchRate.SetRange("Currency Code", Moneda);
+        CurrExchRate.SetRange("Starting Date", 0D, Fecha);
+        if not CurrExchRate.FindLast() then
+            exit(0);
+        // El divisor casi siempre es 1, pero es parte de la cotización: "USD 100 = 145.000" se carga
+        // con 100 en el importe de ajuste. Ignorarlo daría la cotización multiplicada por 100.
+        if CurrExchRate."Adjustment Exch. Rate Amount" = 0 then
+            exit(0);
+        exit(CurrExchRate."Relational Adjmt Exch Rate Amt" / CurrExchRate."Adjustment Exch. Rate Amount");
+    end;
+
+    /// <summary>
+    /// Lee de Config. RRHH los tres nombres de variable del grossing-up y sus dos constantes.
+    /// </summary>
+    /// <remarks>
+    /// EN BLANCO SIGNIFICA EL VALOR DE SIEMPRE, y por eso el default se asigna antes de mirar la
+    /// configuración: sin tocar nada, el motor se comporta igual que cuando estos cinco valores
+    /// estaban a fuego. Un cero en los numéricos se trata como blanco — cero iteraciones no
+    /// convergería nunca y tolerancia cero no cerraría jamás, así que no son configuraciones
+    /// válidas sino el campo sin cargar.
+    /// </remarks>
+    local procedure CargarConfigGU()
+    var
+        HRSetup: Record "Human Resources Setup";
+    begin
+        if FGUConfigCargada then
+            exit;
+        FGUConfigCargada := true;
+
+        // Los únicos tres literales que quedan en el motor, y tienen que seguir siendo literales:
+        // son el default, no una lectura. Un buscar-y-reemplazar sobre los nombres los convirtió
+        // una vez en llamadas a los accesores de más abajo, que devolvían vacío porque la bandera
+        // ya estaba en true. No los toques.
+        FGUVarEs := 'ES_GROSSING_UP';
+        FGUVarNeto := 'NETO_GARANTIZADO';
+        FGUVarComp := 'COMPLEMENTO_GU';
+        FGUMaxIter := 20;
+        FGUTolerancia := 1;
+
+        if not HRSetup.Get() then
+            exit;
+        if HRSetup."Cód. Var. Es Grossing-Up" <> '' then
+            FGUVarEs := HRSetup."Cód. Var. Es Grossing-Up";
+        if HRSetup."Cód. Var. Neto Garantizado" <> '' then
+            FGUVarNeto := HRSetup."Cód. Var. Neto Garantizado";
+        if HRSetup."Cód. Var. Complemento GU" <> '' then
+            FGUVarComp := HRSetup."Cód. Var. Complemento GU";
+        if HRSetup."Máx. Iter. Grossing-Up" > 0 then
+            FGUMaxIter := HRSetup."Máx. Iter. Grossing-Up";
+        if HRSetup."Tolerancia Grossing-Up" > 0 then
+            FGUTolerancia := HRSetup."Tolerancia Grossing-Up";
+    end;
+
+    internal procedure VarEsGrossingUp(): Code[60]
+    begin
+        CargarConfigGU();
+        exit(FGUVarEs);
+    end;
+
+    internal procedure VarNetoGarantizado(): Code[60]
+    begin
+        CargarConfigGU();
+        exit(FGUVarNeto);
+    end;
+
+    internal procedure VarComplementoGU(): Code[60]
+    begin
+        CargarConfigGU();
+        exit(FGUVarComp);
+    end;
+
+    internal procedure MaxIteracionesGrossingUp(): Integer
+    begin
+        CargarConfigGU();
+        exit(FGUMaxIter);
+    end;
+
+    internal procedure ToleranciaGrossingUp(): Decimal
+    begin
+        CargarConfigGU();
+        exit(FGUTolerancia);
+    end;
+
     internal procedure NetoGarantizadoSatisfecho(NetoObjetivo: Decimal; NetoActual: Decimal; Complemento: Decimal): Boolean
     begin
-        exit((Abs(NetoObjetivo - NetoActual) <= 0.01) or
+        // Tolerancia absoluta, inclusive, sobre el neto calculado. La segunda condición es el caso
+        // de borde donde no hay nada que ajustar: con el complemento en cero y el neto YA por
+        // encima del objetivo, iterar sólo lo alejaría.
+        exit((Abs(NetoObjetivo - NetoActual) <= ToleranciaGrossingUp()) or
              ((Complemento = 0) and (NetoActual > NetoObjetivo)));
     end;
 
@@ -2182,8 +2630,10 @@ codeunit 50014 "Motor Liquidación"
     local procedure CalcNetoDesdeBD(LiqNo: Code[20]): Decimal
     var
         Lin: Record "Línea Liquidación";
+        HRSetup: Record "Human Resources Setup";
         TotalHaberes: Decimal;
         TotalDesc: Decimal;
+        Excluido: Decimal;
         DevHaberes: Decimal;
         DevDesc: Decimal;
     begin
@@ -2203,7 +2653,22 @@ codeunit 50014 "Motor Liquidación"
         Lin.CalcSums(Importe);
         TotalDesc := Lin.Importe;
 
-        exit(TotalHaberes - TotalDesc);
+        // SE DEVUELVE AL NETO lo que el acumulador configurado junta. Son descuentos que ya se
+        // restaron arriba pero que NO deben pesar en la convergencia: el anticipo de llegada es
+        // plata ya entregada, no algo que se deje de ganar, así que compensarlo con más bruto
+        // termina pagando dos veces. Ver el campo en Config. RRHH.
+        //
+        // La línea del acumulador es de Tipo Concepto 6 --como todas las de acumulador--, así que
+        // no entró en ninguna de las dos sumas de arriba y sumarla acá no duplica nada.
+        if HRSetup.Get() then
+            if HRSetup."Cód. Acum. Excl. Neto GU" <> '' then begin
+                Lin.SetRange("Tipo Concepto");
+                Lin.SetRange("Cód. Concepto", HRSetup."Cód. Acum. Excl. Neto GU");
+                Lin.CalcSums(Importe);
+                Excluido := Lin.Importe;
+            end;
+
+        exit(TotalHaberes - TotalDesc + Excluido);
     end;
 
     // Resets all accumulator concepts in Ctx to 0 before a GU re-run. Also resets every OTHER
@@ -2259,11 +2724,12 @@ codeunit 50014 "Motor Liquidación"
         TxtPasoConceptos: Label 'Calculando conceptos...';
         RegIncidSinLineaTxt: Label 'Se cargó una cantidad de %2 en el concepto %1 pero el concepto no generó línea: no aplica a esta liquidación (convenio, tipo de liquidación o condición) o no tiene fórmula. Esa cantidad NO se pagó.', Comment = '%1=código de concepto, %2=cantidad cargada';
         VarCantIncidenciaTok: Label 'CANT_INCIDENCIA', Locked = true;
-        TxtPasoGU: Label 'Grossing Up: iteración %1 de 20', Comment = '%1=número de iteración';
+        TxtPasoGU: Label 'Grossing Up: iteración %1 de %2', Comment = '%1=número de iteración, %2=límite';
         TxtPasoGUFinal: Label 'Grossing Up: pasada final con auditoría';
         ErrPeriodoCerrado: Label 'El período %1 está cerrado. No se puede reliquidar.';
         ErrConceptoFalló: Label 'Error al calcular el concepto %1: %2';
-        ErrGUNoConverge: Label 'El grossing-up de %1 no convergió en 20 iteraciones: el neto garantizado es %2 y el calculado %3, una diferencia de %4. La liquidación NO se guarda — un neto que no es el garantizado es plata mal pagada, y guardarla sin avisar es peor que no calcularla. Revisá el concepto de neto garantizado y los descuentos que dependen del complemento.', Comment = '%1=No. liquidación, %2=neto objetivo, %3=neto alcanzado, %4=diferencia';
+        ErrGUNoConverge: Label 'El grossing-up de %1 no convergió en %5 iteraciones. Neto garantizado: %2; calculado: %3; diferencia: %4. No se guardó la liquidación. Revisá la fórmula del neto garantizado y los descuentos sobre el complemento.', Comment = '%1=No. liquidación, %2=neto objetivo, %3=neto alcanzado, %4=diferencia, %5=límite';
+        ErrSinCotizacionGU: Label 'El neto garantizado de %1 está en %2 y no hay cotización de %2 al %3.\\Sin cotización el objetivo del grossing-up no se puede pasar a pesos, y calcular con cero pagaría un neto de cero. Cargá la cotización —con el vendedor en el importe de ajuste— y volvé a calcular.', Comment = '%1=No. liquidación, %2=moneda, %3=fecha';
         ErrNetoGarantAutorreferente: Label 'El concepto %1 está configurado como Neto Garantizado del grossing-up, pero su fórmula referencia COMPLEMENTO_GU.\\El objetivo del grossing-up tiene que ser fijo: si depende del complemento, se mueve en cada iteración y el cálculo no cierra nunca.\\Quitá COMPLEMENTO_GU de la fórmula, o elegí otro concepto en Config. Recursos Humanos.', Comment = '%1 = código de concepto';
         ErrFormulasInvalidas: Label 'Las siguientes fórmulas contienen errores. Corrija antes de calcular:\%1';
         ErrSinAsignacionProyecto: Label 'El empleado %1 no está asignado al proyecto %2. Asígnelo en Personal Proyecto antes de liquidar.';
@@ -2273,6 +2739,15 @@ codeunit 50014 "Motor Liquidación"
         // auditoría/presentación, que se descarta en el DeleteLineas de la iteración siguiente.
         // Ver ConvergerGrossingUp para la pasada final que sí lo escribe.
         FIteracionGU: Boolean;
+        // Configuración del grossing-up, leída una vez por corrida. Los accesores la piden a
+        // CargarConfigGU, que es idempotente: el bucle de convergencia toca estos nombres hasta
+        // veinte veces por liquidación y no tiene sentido volver a Config. RRHH cada vez.
+        FGUConfigCargada: Boolean;
+        FGUVarEs: Code[60];
+        FGUVarNeto: Code[60];
+        FGUVarComp: Code[60];
+        FGUMaxIter: Integer;
+        FGUTolerancia: Decimal;
         GestionPrestamos: Codeunit "Gestión Préstamos";
         GestionNovedades: Codeunit "Gestión Novedades Liq.";
         Registro: Codeunit "Registro Procesos Liq.";

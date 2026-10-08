@@ -71,6 +71,26 @@ table 60003 "Cód. Estado Empleado"
             // borrado o modificado"— que se perderían al migrar y que son justamente lo que uno
             // necesita leer cuando duda entre dos códigos parecidos.
         }
+        field(11; "Promedia Ausencia"; Boolean)
+        {
+            Caption = 'Promedia Ausencia';
+            DataClassification = CustomerContent;
+            // ¿El inicio de este estado ANCLA la ventana del promedio? Sí para enfermedad y
+            // accidente, cuyos conceptos se pagan sobre el promedio de los 6 o 12 meses anteriores
+            // a aquel en que empezó la licencia.
+            //
+            // Es una bandera y no una lista de códigos en el motor porque los estados de ausencia
+            // son configuración: hoy son AU1 y ACC, mañana puede haber otro, y agregarlo no debería
+            // pedir una recompilación.
+            //
+            // NO SE PUEDE DEDUCIR DEL "Tipo Estado": ese enum sólo distingue Normal, Alta, Baja,
+            // Vacaciones y Francos, así que enfermedad y accidente caen los dos en Normal junto con
+            // navegación y puerto. Por eso hace falta la bandera propia.
+            //
+            // Quién la lee: FechaInicioAusencia (Cod50016), que resuelve los tokens
+            // {AUS_PROM_HASTA}, {AUS_PROM6_DESDE} y {AUS_PROM12_DESDE}.
+        }
+
         field(10; "Transcurre en Marea"; Boolean)
         {
             Caption = 'Transcurre en Marea';

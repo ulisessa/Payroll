@@ -17,17 +17,18 @@ codeunit 110046 "Test Correcciones Rend. Liq."
     end;
 
     [Test]
-    procedure ConservaToleranciaDeUnCentavo()
+    procedure ToleranciaDeUnPesoYVeinteIteraciones()
     var
         Motor: Codeunit "Motor Liquidación";
     begin
+        Assert(Motor.MaxIteracionesGrossingUp() = 20, 'El límite debe ser veinte iteraciones.');
         Assert(Motor.NetoGarantizadoSatisfecho(100, 100, 10), 'Igualdad exacta.');
-        Assert(Motor.NetoGarantizadoSatisfecho(100, 99.99, 10), 'Un centavo por debajo.');
-        Assert(Motor.NetoGarantizadoSatisfecho(100, 100.01, 10), 'Un centavo por encima.');
-        Assert(not Motor.NetoGarantizadoSatisfecho(100, 99.98, 10), 'Dos centavos por debajo requieren ajuste.');
-        Assert(not Motor.NetoGarantizadoSatisfecho(100, 100.02, 10), 'Dos centavos por encima con complemento requieren ajuste.');
+        Assert(Motor.NetoGarantizadoSatisfecho(100, 99, 10), 'Un peso por debajo se acepta.');
+        Assert(Motor.NetoGarantizadoSatisfecho(100, 101, 10), 'Un peso por encima se acepta.');
+        Assert(not Motor.NetoGarantizadoSatisfecho(100, 98.9999, 10), 'Más de un peso por debajo requiere ajuste.');
+        Assert(not Motor.NetoGarantizadoSatisfecho(100, 101.0001, 10), 'Más de un peso por encima con complemento requiere ajuste.');
+        Assert(Motor.NetoGarantizadoSatisfecho(15706500, 15706499.9736, 1), 'El caso LIQ-00009346 está dentro de la tolerancia.');
     end;
-
     [Test]
     procedure FiltroConApostrofesYOperadores()
     var

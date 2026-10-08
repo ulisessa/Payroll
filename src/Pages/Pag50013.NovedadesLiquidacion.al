@@ -27,8 +27,19 @@ page 50013 "Novedades Liquidación"
                     ApplicationArea = All;
                     Caption = 'Período';
                     ShowMandatory = true;
-                    TableRelation = "Período Liquidación".Código;
+                    // El filtro acompaña al del selector: si se tipea un período cerrado a mano, se
+                    // rechaza acá y no dos pasos después, al agregar la primera fila.
+                    TableRelation = "Período Liquidación".Código where(Estado = filter(<> Cerrado));
                     ToolTip = 'Período sobre el que se cargan las novedades. Se propone el que contiene la fecha de trabajo. Junto con el Concepto son los dos únicos datos obligatorios de una novedad: todo lo demás se puede dejar en blanco y el motor lo resuelve.';
+
+                    // El selector estándar escondería los períodos Creados, y justamente acá se
+                    // precargan novedades en períodos que todavía no se abrieron.
+                    trigger OnLookup(var Text: Text): Boolean
+                    var
+                        Periodo: Record "Período Liquidación";
+                    begin
+                        exit(ElegirPeriodo(Periodo, CodPeriodoFiltro, Text));
+                    end;
 
                     trigger OnValidate()
                     begin
@@ -126,7 +137,7 @@ page 50013 "Novedades Liquidación"
                 field(Importe; Rec.Importe)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Si cargás Cantidad y Valor Unitario se calcula solo; también podés escribirlo directamente. Varias novedades del mismo concepto y empleado se suman en una sola incidencia.';
+                    ToolTip = 'Si cargás Cantidad y Valor Unitario se calcula solo; también podés escribirlo directamente. Varias novedades del mismo concepto y empleado se suman en una sola incidencia. Con importe, reemplaza a la fórmula del concepto; con importe en cero y una cantidad, la fórmula valoriza esa cantidad; con TODO en cero, el concepto no paga y la fórmula ni se evalúa.';
                 }
                 field(Recurrente; Rec.Recurrente)
                 {
@@ -208,13 +219,16 @@ page 50013 "Novedades Liquidación"
                     Periodo: Record "Período Liquidación";
                     Origen: Record "Período Liquidación";
                     CodOrigen: Code[10];
+                    Elegido: Text;
                     Copiadas: Integer;
                 begin
                     VerificarPeriodoElegido();
                     CodOrigen := Periodo.PeriodoAnterior(CodPeriodoFiltro);
                     if CodOrigen <> '' then
                         if Origen.Get(CodOrigen) then;
-                    if Page.RunModal(Page::"Períodos Liquidación", Origen) <> Action::LookupOK then
+                    if not ElegirPeriodo(Origen, CodOrigen, Elegido) then
+                        exit;
+                    if not Origen.Get(CopyStr(Elegido, 1, MaxStrLen(Origen.Código))) then
                         exit;
                     Copiadas := Gestion.CopiarDePeriodo(Origen.Código, CodPeriodoFiltro);
                     Message(MsgCopiadas, Copiadas, Origen.Código, CodPeriodoFiltro);
@@ -366,6 +380,35 @@ page 50013 "Novedades Liquidación"
         Nov.SetRange(Estado);
         Nov.SetFilter("Motivo No Aplicada", '<>%1', '');
         CantNoAplicadas := Nov.Count();
+    end;
+
+    // Selector de período que SÍ muestra los Creados: las novedades se precargan por adelantado, y el
+    // selector estándar de la tabla los esconde.
+    local procedure ElegirPeriodo(var Periodo: Record "Período Liquidación"; CodActual: Code[10]; var Elegido: Text): Boolean
+    var
+        Lista: Page "Períodos Liquidación";
+    begin
+        Periodo.Reset();
+        // LOS CERRADOS NO SE OFRECEN. Una novedad contra un período cerrado la rechaza el OnValidate
+        // de "Cód. Período" (Tab110038), así que mostrarlos en el selector es ofrecer algo que
+        // termina en un error: el que elige se entera recién al intentar agregar la fila.
+        //
+        // Los CREADOS sí se muestran, y por eso está el SetMostrarCreados de abajo: el selector
+        // estándar los esconde y acá se precargan novedades en períodos que todavía no se abrieron.
+        // Al 7/10/2026 hay 5.071 cargadas así —anticipos, horas extras, cuota alimentaria— sobre
+        // los once períodos de 202602 a 202612, o sea que es el uso normal y no una excepción.
+        Periodo.SetFilter(Estado, '<>%1', Periodo.Estado::Cerrado);
+        Lista.SetTableView(Periodo);
+        if CodActual <> '' then
+            if Periodo.Get(CodActual) then;
+        Lista.SetMostrarCreados(true);
+        Lista.LookupMode(true);
+        Lista.SetRecord(Periodo);
+        if Lista.RunModal() <> Action::LookupOK then
+            exit(false);
+        Lista.GetRecord(Periodo);
+        Elegido := Periodo.Código;
+        exit(true);
     end;
 
     local procedure VerificarPeriodoElegido()

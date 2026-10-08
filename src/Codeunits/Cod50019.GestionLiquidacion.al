@@ -195,11 +195,15 @@ codeunit 50019 "Gestión Liquidación"
         ParamVig: Record "Parámetro Vigente";
         CtxBuilder: Codeunit "Contexto Liquidación";
         SigueEnUso: Boolean;
+        EstadoActivo: Dictionary of [Code[20], Boolean];
+        Activa: Boolean;
     begin
         Uso.SetRange("No. Liquidación", Liq."No.");
         if Uso.IsEmpty() then
             exit(false);
 
+        // Una liquidación usa cientos de versiones y las otras se repiten en casi todas: el estado de
+        // cada una se lee UNA vez y no un Get por cada fila de uso de cada versión.
         Uso.FindSet();
         repeat
             SigueEnUso := false;
@@ -209,9 +213,12 @@ codeunit 50019 "Gestión Liquidación"
             UsoOtra.SetFilter("No. Liquidación", '<>%1', Liq."No.");
             if UsoOtra.FindSet() then
                 repeat
-                    if OtraLiq.Get(UsoOtra."No. Liquidación") then
-                        if OtraLiq.Estado in [OtraLiq.Estado::Calculada, OtraLiq.Estado::Aprobada, OtraLiq.Estado::Contabilizada] then
-                            SigueEnUso := true;
+                    if not EstadoActivo.Get(UsoOtra."No. Liquidación", Activa) then begin
+                        Activa := OtraLiq.Get(UsoOtra."No. Liquidación") and
+                            (OtraLiq.Estado in [OtraLiq.Estado::Calculada, OtraLiq.Estado::Aprobada, OtraLiq.Estado::Contabilizada]);
+                        EstadoActivo.Add(UsoOtra."No. Liquidación", Activa);
+                    end;
+                    SigueEnUso := Activa;
                 until (UsoOtra.Next() = 0) or SigueEnUso;
 
             if not SigueEnUso then

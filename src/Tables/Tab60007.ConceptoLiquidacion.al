@@ -279,6 +279,31 @@ table 60007 "Concepto Liquidación"
             // Consumo: this concept pays enjoyed francos (importe = PAGO_FRANCOS_FIFO, valued per lot category).
             // The franco engine identifies ledger lines in Línea Liquidación by this role.
         }
+        // ── Cómo se valúa un lote de francos ─────────────────────────────────────────────────────
+        // Los tres campos de abajo son lo que antes estaba escrito dentro de "Gestión Francos": el
+        // nombre del parámetro, de dónde sale el sufijo de pesquería y por cuánto se divide. Están
+        // acá y no en el motor porque son decisiones del CCT, y el CCT cambia sin que cambie el
+        // código. Vacíos, el concepto se valúa como siempre: parámetro por convenio y categoría.
+        field(26; "Cód. Parámetro Valor"; Code[30])
+        {
+            Caption = 'Parámetro del valor';
+            DataClassification = CustomerContent;
+            ToolTip = 'Parámetro base del que sale el valor unitario. El motor le agrega el convenio y la categoría del lote, y el sufijo del atributo de precio si hay: VALOR_FRANCO_LAN_729/15_MR05. Vacío = el concepto no se valúa por parámetro.';
+        }
+        field(27; "Cód. Tipo Atributo Precio"; Code[20])
+        {
+            Caption = 'Atributo que afina el precio';
+            TableRelation = "Tipo Atributo Liq.";
+            DataClassification = CustomerContent;
+            ToolTip = 'Atributo cuyo valor aporta un sufijo al código del parámetro, tomado de la entidad del lote y a su fecha. Con TIPOACTIVIDAD del buque, el franco se valúa distinto según la pesquería en que se devengó. Vacío = un solo precio por convenio y categoría.';
+        }
+        field(28; "Divisor Valor"; Integer)
+        {
+            Caption = 'Divisor del valor';
+            DataClassification = CustomerContent;
+            MinValue = 0;
+            ToolTip = 'Por cuánto se divide el parámetro para llevarlo a valor por unidad. 30 cuando el parámetro está expresado por mes y el concepto paga por día. Cero o vacío = el parámetro ya está en la unidad del concepto.';
+        }
     }
 
     keys

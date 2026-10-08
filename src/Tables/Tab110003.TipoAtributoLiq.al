@@ -109,6 +109,36 @@ table 110003 "Tipo Atributo Liq."
                 ValidarPadre();
             end;
         }
+        field(13; "Publicar Última Marea"; Boolean)
+        {
+            Caption = 'Publicar también el valor de la última marea';
+            DataClassification = CustomerContent;
+            // SÓLO TIENE SENTIDO EN ATRIBUTOS DE BUQUE. Apagado --como nacen todos-- no pasa nada.
+            // Encendido, el atributo se resuelve DOS veces: contra el buque del proyecto que se
+            // liquida, como siempre, y además contra el buque de la última marea en la que el
+            // empleado estuvo embarcado, que entra al contexto como "<variable>_ULT_MAREA".
+            //
+            // AGREGA, NO REEMPLAZA, y la diferencia es todo el diseño. El buque de la liquidación
+            // es el correcto para el recibo, para los precios y para el coeficiente de pesquería;
+            // el de la última marea sólo decide si los días sin navegar son sueldo a órdenes o
+            // Artículo 48. Reemplazar TIPOACTIVIDAD habría arrastrado COEF_PESQUERIA de 1 a 0,30 y
+            // el importe habría quedado mal por otro lado: 30.376,36 contra los 101.254,53 del
+            // recibo del 02748.
+            //
+            // La diferencia aparece sólo cuando el empleado YA NO está embarcado: en enero de 2026,
+            // para las 180 liquidaciones de marea --cierres y devengados-- las dos formas dan el
+            // MISMO buque, y difieren en 18 de las 324 regulares.
+            //
+            // Por qué hace falta, con el caso que lo destapó: el 02748 cobra órdenes desde 2022 y
+            // está en la nómina del buque 128, un potero, pero su última marea fue en el 117, un
+            // tangonero. Meta4 le paga Artículo 48 Párrafo 11, que DIAS_ART48 sólo concede si
+            // TIPOACTIVIDAD = 'TA'. Con el buque de la nómina da 'PO' y los días caen enteros en
+            // sueldo a órdenes: 151.881,87 contra los 101.254,53 del recibo.
+            //
+            // Va en el Tipo de Atributo y no en el motor para que el radio sea el mínimo. Los
+            // empleados que nunca navegaron quedan sin valor, que es correcto y además inocuo:
+            // ninguno cobra por esta vía.
+        }
         field(11; "Mostrar en Recibo"; Boolean)
         {
             Caption = 'Mostrar en Recibo';
@@ -217,32 +247,14 @@ table 110003 "Tipo Atributo Liq."
     ///
     /// Los parámetros se revisan también por su sufijo _ESFCY, que ocupan igual.
     /// </remarks>
+    // El control vive en "Nombres Variables Liq." y lo llaman las CUATRO tablas que alimentan el
+    // espacio de nombres. Estaba escrito acá, que era la última en sumarse, y por eso un parámetro y
+    // una fuente con el mismo nombre —TC_COMPRADOR— pudieron convivir años sin que nadie los frenara.
     local procedure ValidarNombreLibre()
     var
-        Param: Record "Parámetro";
-        VarSis: Record "Variable Sistema Liq.";
-        Fuente: Record "Fuente Datos Liquidación";
-        OtroTipo: Record "Tipo Atributo Liq.";
+        Nombres: Codeunit "Nombres Variables Liq.";
     begin
-        if "Nombre Variable" = '' then
-            exit;
-
-        Param.SetFilter("Nombre Variable", '%1|%2', "Nombre Variable", DesufijarESFCY("Nombre Variable"));
-        if Param.FindFirst() then
-            Error(ErrNombreTomado, "Nombre Variable", Param.TableCaption(), Param.Código);
-
-        VarSis.SetRange("Nombre Variable", "Nombre Variable");
-        if VarSis.FindFirst() then
-            Error(ErrNombreTomado, "Nombre Variable", VarSis.TableCaption(), VarSis."Nombre Variable");
-
-        Fuente.SetRange("Nombre Variable", "Nombre Variable");
-        if Fuente.FindFirst() then
-            Error(ErrNombreTomado, "Nombre Variable", Fuente.TableCaption(), Fuente."Nombre Variable");
-
-        OtroTipo.SetFilter(Código, '<>%1', Código);
-        OtroTipo.SetRange("Nombre Variable", "Nombre Variable");
-        if OtroTipo.FindFirst() then
-            Error(ErrNombreTomado, "Nombre Variable", OtroTipo.TableCaption(), OtroTipo.Código);
+        Nombres.ExigirLibre("Nombre Variable", Database::"Tipo Atributo Liq.", Código);
     end;
 
     // VAR_ESFCY es el nombre que el contexto deriva del parámetro VAR, así que un atributo llamado

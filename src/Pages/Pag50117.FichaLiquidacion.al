@@ -133,6 +133,12 @@ page 50117 "Ficha Liquidación"
                 SubPageLink = "No. Liquidación" = FIELD("No.");
                 UpdatePropagation = Both;
             }
+            part(Tramos; "Tramos Cobertura Sub")
+            {
+                ApplicationArea = All;
+                Caption = 'Días que cubre';
+                SubPageLink = "No. Liquidación" = FIELD("No.");
+            }
             part(Acumuladores; "Acumuladores Liq. Sub")
             {
                 ApplicationArea = All;
@@ -199,6 +205,11 @@ page 50117 "Ficha Liquidación"
                         Error(ErrCalculoConRegistro, Registro.GetResumen(), RegistroNo);
                     end;
                     CurrPage.Update(false);
+                    // Para UNA liquidación los avisos siguen saliendo como cartel. El informe es
+                    // para los procesos largos —"Crear y calcular", el lanzador, un lote desde la
+                    // lista—, donde hay cientos de registros que mirar juntos; acá son los de un
+                    // solo cálculo que el usuario acaba de pedir y está mirando, y un informe que
+                    // hay que esperar, leer y cerrar es más ceremonia que ayuda.
                     if Motor.GetAdvertencias() <> '' then
                         Message(MsgAdvertenciasParametros, Motor.GetAdvertencias());
                 end;
@@ -351,6 +362,12 @@ page 50117 "Ficha Liquidación"
         end;
     end;
 
+    /// <summary>Abre el informe de avisos de la corrida, si dejó alguno.</summary>
+    /// <remarks>
+    /// Sin avisos no se abre nada: un informe vacío obliga a abrirlo, comprobar que no hay nada y
+    /// cerrarlo. El cartel que esto reemplaza tenía la misma cortesía —sólo salía con texto— y
+    /// perderla sería cambiar un ruido por otro.
+    /// </remarks>
     var
         IsEditable: Boolean;
         EsCalculada: Boolean;

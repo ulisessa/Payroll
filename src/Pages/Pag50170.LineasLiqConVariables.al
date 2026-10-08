@@ -70,6 +70,19 @@ page 50170 "Líneas Liq. con Variables"
     {
         area(Processing)
         {
+            action(VerDetalleCalculo)
+            {
+                ApplicationArea = All;
+                Caption = 'Detalle del cálculo';
+                Image = Calculate;
+                ToolTip = 'Abre la explicación de Ganancias, francos o la fórmula aplicada según el concepto seleccionado.';
+                trigger OnAction()
+                var
+                    Presentacion: Codeunit "Presentación Cálculo Liq.";
+                begin
+                    Presentacion.Abrir(Rec);
+                end;
+            }
             action(ToggleSinCero)
             {
                 ApplicationArea = All;

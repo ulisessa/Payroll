@@ -77,11 +77,11 @@ page 50155 "Lanzador Liquidaciones"
                         Error(ErrSinPeriodo);
                     if not Confirm(MsgConfirmarCrear, true, Format(FTipoLiq), FCodPeriodo) then
                         exit;
+                    // Los empleados sin proyecto ya entran acá: para los tipos agrupados por empleado,
+                    // CrearPorPeriodo recorre proyectos y después estados. Antes hacía falta una
+                    // segunda llamada sólo para los que estaban en Francos en puerto, y esa llamada
+                    // era del lanzador, así que "Crear y calcular" no los alcanzaba.
                     Creadas := ProcLiq.CrearPorPeriodo(FCodPeriodo, FTipoLiq);
-                    // El tipo con "Incluye Francos Puerto" también cubre a los empleados en Francos (en
-                    // puerto, sin proyecto).
-                    if FTipoLiq = TipoLiqRec.CodigoFrancosPuerto() then
-                        Creadas += ProcLiq.CrearRegularEmpleadosEnFrancos(FCodPeriodo);
                     FUltimoResultado := StrSubstNo(MsgCreadas, Creadas);
                     ProcLiq.AvisarOmitidos();
                     CurrPage.Update(false);
@@ -100,6 +100,7 @@ page 50155 "Lanzador Liquidaciones"
                 trigger OnAction()
                 var
                     ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                    Progreso: Codeunit "Progreso Liq.";
                     Calculadas: Integer;
                 begin
                     if FCodPeriodo = '' then
@@ -107,7 +108,8 @@ page 50155 "Lanzador Liquidaciones"
                     if not Confirm(MsgConfirmarCalcular, true, Format(FTipoLiq), FCodPeriodo) then
                         exit;
                     Calculadas := ProcLiq.CalcularPorPeriodo(FCodPeriodo, FTipoLiq);
-                    FUltimoResultado := StrSubstNo(MsgCalculadas, Calculadas);
+                    // El tiempo sale del progreso, que lo congeló al cerrar: el lote ya terminó.
+                    FUltimoResultado := StrSubstNo(MsgCalculadas, Calculadas, Progreso.TranscurridoTexto());
                     CurrPage.Update(false);
                 end;
             }
@@ -133,5 +135,5 @@ page 50155 "Lanzador Liquidaciones"
         MsgConfirmarCrear: Label 'Crear liquidaciones de tipo ''%1'' para el período %2. ¿Continuar?';
         MsgConfirmarCalcular: Label 'Calcular todas las liquidaciones de tipo ''%1'' para el período %2. ¿Continuar?';
         MsgCreadas: Label '%1 liquidación(es) creada(s) en estado Borrador.';
-        MsgCalculadas: Label '%1 liquidación(es) calculada(s).';
+        MsgCalculadas: Label '%1 liquidación(es) calculada(s) en %2.', Comment = '%1=cantidad, %2=duración del lote';
 }

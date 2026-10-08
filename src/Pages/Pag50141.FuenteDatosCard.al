@@ -112,6 +112,7 @@ page 50141 "Fuente Datos Card"
                     trigger OnValidate()
                     begin
                         IsFuncFechas := EsFuncFechas();
+                        IsFuncFilaPorFecha := EsFuncFilaPorFecha();
                         if IsFuncFechas then begin
                             Rec."No. Campo Valor" := 0;
                             NombreCampoValor := '';
@@ -119,10 +120,43 @@ page 50141 "Fuente Datos Card"
                     end;
                 }
             }
+            group(GrpOrden)
+            {
+                Caption = 'Orden de recorrido';
+
+                // En blanco la fuente recorre por clave primaria, que es como se comporto siempre.
+                // Importa cuando la funcion toma UNA fila -LOOKUP, FILA_MAS_*-: ahi el orden decide
+                // cual, y la clave primaria rara vez es la que uno tiene en la cabeza.
+                field("No. Campo Clave"; Rec."No. Campo Clave")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Ordenar por Campo (No.)';
+                    trigger OnValidate()
+                    begin
+                        NombreCampoClave := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Clave");
+                    end;
+
+                    trigger OnLookup(var Text: Text): Boolean
+                    begin
+                        exit(LookupFiltro(Rec."No. Campo Clave", NombreCampoClave, Text));
+                    end;
+                }
+                field(NombreCampoClave; NombreCampoClave)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Nombre Campo';
+                    Editable = false;
+                }
+                field("Orden Descendente"; Rec."Orden Descendente")
+                {
+                    ApplicationArea = All;
+                    Enabled = Rec."No. Campo Clave" <> 0;
+                }
+            }
             group(GrpDiasOverlap)
             {
                 Caption = 'Rango de fechas';
-                Visible = IsFuncFechas;
+                Visible = IsFuncFechas or IsFuncFilaPorFecha;
                 field("No. Campo Fecha Inicio"; Rec."No. Campo Fecha Inicio")
                 {
                     ApplicationArea = All;
@@ -151,6 +185,7 @@ page 50141 "Fuente Datos Card"
                     trigger OnValidate()
                     begin
                         NombreFechaFin := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Fecha Fin");
+        NombreCampoClave := GetFieldName(Rec."Id. Tabla", Rec."No. Campo Clave");
                     end;
 
                     trigger OnLookup(var Text: Text): Boolean
@@ -173,7 +208,7 @@ page 50141 "Fuente Datos Card"
             part(Filtros; "Filtro Fuente Datos Liq. Sub")
             {
                 ApplicationArea = All;
-                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {PERIODO_DESDE}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA}, {ASIG_DESDE}, {ASIG_HASTA}, {MAREA_DESDE}, {MAREA_HASTA})';
+                Caption = 'Filtros (tokens: {EMP_NO}, {JOB_NO}, {PERIODO}, {PERIODO_DESDE}, {AÑO_DESDE}, {FECHA_REF}, {LIQ_NO}, {MONEDA}, {SEM_DESDE}, {SEM_HASTA}, {ASIG_DESDE}, {ASIG_HASTA}, {MAREA_DESDE}, {MAREA_HASTA})';
                 SubPageLink = "Nombre Variable" = FIELD("Nombre Variable");
             }
         }
@@ -211,6 +246,7 @@ page 50141 "Fuente Datos Card"
     trigger OnAfterGetRecord()
     begin
         IsFuncFechas := EsFuncFechas();
+        IsFuncFilaPorFecha := EsFuncFilaPorFecha();
         RefreshNames();
         CurrPage.Filtros.Page.SetIdTabla(Rec."Id. Tabla");
     end;
@@ -218,9 +254,11 @@ page 50141 "Fuente Datos Card"
     var
         NombreTabla: Text[250];
         NombreCampoValor: Text[100];
+        NombreCampoClave: Text[100];
         NombreFechaInicio: Text[100];
         NombreFechaFin: Text[100];
         IsFuncFechas: Boolean;
+        IsFuncFilaPorFecha: Boolean;
         MsgCopiada: Label 'Fuente de datos copiada como ''%1''.';
 
     local procedure RefreshNames()
@@ -277,5 +315,15 @@ page 50141 "Fuente Datos Card"
             Rec."Función Agregado"::"DIAS_OVERLAP",
             Rec."Función Agregado"::"DURACION_INICIO",
             Rec."Función Agregado"::"DURACION_AÑO"]);
+    end;
+
+    // Distinta de EsFuncFechas A PROPOSITO: estas dos necesitan el campo de fecha -es por donde
+    // ordenan- pero TAMBIEN el Campo Valor, que es lo que devuelven. EsFuncFechas no solo esconde
+    // el Campo Valor: lo pone en cero al cambiar la funcion, asi que meterlas ahi las rompia.
+    local procedure EsFuncFilaPorFecha(): Boolean
+    begin
+        exit(Rec."Función Agregado" in [
+            Rec."Función Agregado"::"FILA_MAS_RECIENTE",
+            Rec."Función Agregado"::"FILA_MAS_ANTIGUA"]);
     end;
 }

@@ -204,7 +204,18 @@ page 110024 "Francos por Tripulante"
     local procedure Cargar()
     var
         FrancosMgt: Codeunit "Gestión Francos";
+        CtxBuilder: Codeunit "Contexto Liquidación";
+        TiposCambioFrancos: Dictionary of [Text, Decimal];
     begin
+        // Mismo agujero que en Lotes Franco Consumidos: esta instancia del ledger nace sin
+        // cotizaciones y "Valor Franco" sale en divisa cruda —o corta— en cuanto el precio del
+        // franco está en dólares. Acá el empleado va vacío a propósito: FiltroEmpleado puede ser un
+        // filtro de varios, y las fuentes TC_* no dependen del tripulante, sólo de la moneda y la
+        // fecha de corte.
+        CtxBuilder.TiposCambioFrancosAFecha(
+            '', FechaCorte, FrancosMgt.MonedaDelPrecio(FechaCorte), TiposCambioFrancos);
+        FrancosMgt.PublicarTiposCambio(TiposCambioFrancos);
+
         FrancosMgt.ResumenPorCategoria(FiltroEmpleado, FechaCorte, Rec);
 
         TotalSaldo := 0;

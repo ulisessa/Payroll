@@ -36,7 +36,10 @@ codeunit 50076 "Lotes Liquidación Liq."
         Fallidas: Integer;
         Omitidas: Integer;
     begin
-        if not RecolectarNumeros(Origen, Numeros) then begin
+        // En ORDEN DE CÁLCULO y no en el del alcance: el tope de SIPA, Ganancias y los francos leen
+        // lo que ya está liquidado, así que quién corre primero cambia los importes. Ver
+        // RecolectarNumerosEnOrdenDeCalculo.
+        if not RecolectarNumerosEnOrdenDeCalculo(Origen, Numeros) then begin
             Message(MsgSinSeleccion);
             exit;
         end;
@@ -45,7 +48,7 @@ codeunit 50076 "Lotes Liquidación Liq."
         // Una corrida = una sesión: los registros quedan agrupados y se pueden mirar todos juntos
         // desde cualquiera de ellos.
         Registro.IniciarSesion();
-        Progreso.Abrir(Total);
+        Progreso.AbrirLote(Total);
         foreach Numero in Numeros do begin
             if Liq.Get(Numero) then begin
                 Procesadas += 1;
@@ -69,20 +72,39 @@ codeunit 50076 "Lotes Liquidación Liq."
             Progreso.FinalizarRegistro();
         end;
         Progreso.Cerrar();
-        Registro.CerrarSesion();
 
+        // EL RESUMEN ENTRA AL REGISTRO, NO A UN CARTEL. Antes esto terminaba en dos o tres Message
+        // encadenados que había que cerrar uno por uno y que no dejaban rastro: al aceptarlos, lo
+        // que decían se perdía. Ahora son una entrada más de la sesión, así que el informe los
+        // lleva adentro junto con los avisos de cada liquidación, y después quedan consultables
+        // desde "Registros de proceso".
+        //
+        // VA ANTES DE MostrarAvisosDeLaSesion -para que el informe ya los incluya- y antes de
+        // CerrarSesion, que es la que olvida el Guid.
+        //
+        // El tiempo sale del progreso, que lo congeló al cerrar: acá la ventana ya no está.
         if Omitidas > 0 then
-            Message(MsgOmitidas, Omitidas);
+            Registro.AgregarTexto(
+                "Severidad Registro Liq."::Información, "Categoría Registro Liq."::General,
+                StrSubstNo(MsgOmitidas, Omitidas));
 
         // Una liquidación que falla ya no aborta el lote: queda anotada y el proceso sigue. Antes,
         // un error en la número 50 se llevaba puestas las 49 anteriores.
+        //
+        // EL RESUMEN CON FALLAS VA COMO ADVERTENCIA Y NO COMO INFORMACIÓN, y no es cosmético: el
+        // informe se abre contando advertencias y errores, así que una corrida con fallas lo abre
+        // sola aunque no haya nada más que decir.
         if Fallidas > 0 then
-            Message(MsgCalculadasConFallas, Calculadas, Fallidas)
+            Registro.AgregarTexto(
+                "Severidad Registro Liq."::Advertencia, "Categoría Registro Liq."::General,
+                StrSubstNo(MsgCalculadasConFallas, Calculadas, Fallidas, Progreso.TranscurridoTexto()))
         else
-            if Motor.GetAdvertencias() <> '' then
-                Message(MsgCalculadasConAdvertencias, Calculadas, Motor.GetAdvertencias())
-            else
-                Message(MsgCalculadas, Calculadas);
+            Registro.AgregarTexto(
+                "Severidad Registro Liq."::Información, "Categoría Registro Liq."::General,
+                StrSubstNo(MsgCalculadas, Calculadas, Progreso.TranscurridoTexto()));
+
+        Registro.MostrarAvisosDeLaSesion();
+        Registro.CerrarSesion();
     end;
 
     /// <summary>
@@ -204,6 +226,96 @@ codeunit 50076 "Lotes Liquidación Liq."
     ///    devuelve el registro sin filtros ni marcas: después de la primera vuelta el recorrido se
     ///    escapaba del alcance y seguía por liquidaciones de otros períodos.
     /// </remarks>
+    /// <summary>
+    /// Igual que RecolectarNumeros, pero devuelve los números en el orden en que hay que CALCULARLOS:
+    /// por empleado, dentro del empleado por período, y dentro del período por el Orden del Tipo de
+    /// Liquidación.
+    /// </summary>
+    /// <remarks>
+    /// EL ORDEN NO ES COSMÉTICO, decide importes. Varias cosas del cálculo leen lo que ya está
+    /// liquidado y por lo tanto dependen de quién corrió primero:
+    ///
+    ///  - El TOPE DE SIPA sobre el SAC devengado (4751, 4752, 4753) se agota en el mes: la primera
+    ///    liquidación consume el tope y la segunda no debe volver a aportar. Si la regular corre
+    ///    antes que la de vacaciones, el reparto entre las dos sale distinto del de Meta4 —el total
+    ///    del mes es el mismo, pero el recibo de cada una no—.
+    ///  - GANANCIAS resta YTD_RETENIDO_ANUAL, que es lo retenido en las liquidaciones ANTERIORES.
+    ///  - Los FRANCOS se consumen FIFO contra los lotes que haya en ese momento.
+    ///
+    /// Ordenado así, un lote da lo mismo que calcular cada liquidación a mano en el orden natural.
+    /// Sin esto el alcance salía en orden de "No.", que es el de creación: una liquidación creada
+    /// después podía calcularse antes que la que la precede en el mes.
+    ///
+    /// Se ordena con una clave de texto y no con una SetCurrentKey porque el Orden NO es un campo de
+    /// Liquidación sino de Tipo Liquidación, y no hay forma de pedirle a la base que ordene por un
+    /// campo de otra tabla. El +10000 rellena el Orden a cinco dígitos para que "2" no se ordene
+    /// después de "10"; Tab50578 obliga a que el Orden sea único y en la práctica es de un dígito.
+    /// </remarks>
+    local procedure RecolectarNumerosEnOrdenDeCalculo(var Origen: Record "Liquidación"; var Numeros: List of [Code[20]]): Boolean
+    var
+        TipoLiq: Record "Tipo Liquidación";
+        OrdenPorTipo: Dictionary of [Code[20], Integer];
+        Claves: List of [Text];
+        Clave: Text;
+        Orden: Integer;
+    begin
+        Clear(Numeros);
+        Origen.SetLoadFields("No.", "No. Empleado", "Cód. Período", "Cód. Tipo Liq.");
+        if not Origen.FindSet() then
+            exit(false);
+        repeat
+            // El Orden se cachea por tipo: un lote de cientos comparte unos pocos tipos, y sin esto
+            // sería un Get contra Tipo Liquidación por liquidación.
+            if not OrdenPorTipo.ContainsKey(Origen."Cód. Tipo Liq.") then begin
+                // Una liquidación sin tipo —las viejas, anteriores a la migración— queda con Orden 0
+                // y por lo tanto primero, que es lo más parecido a "no sé, calculala antes".
+                Orden := 0;
+                if TipoLiq.Get(Origen."Cód. Tipo Liq.") then
+                    Orden := TipoLiq.Orden;
+                OrdenPorTipo.Add(Origen."Cód. Tipo Liq.", Orden);
+            end;
+            Claves.Add(
+                Origen."No. Empleado" + '|' + Origen."Cód. Período" + '|' +
+                Format(10000 + OrdenPorTipo.Get(Origen."Cód. Tipo Liq.")) + '|' + Origen."No.");
+        until Origen.Next() = 0;
+
+        OrdenarClaves(Claves);
+        foreach Clave in Claves do
+            Numeros.Add(CopyStr(Clave.Substring(Clave.LastIndexOf('|') + 1), 1, 20));
+        exit(Numeros.Count() > 0);
+    end;
+
+    /// <summary>Ordena una lista de textos de menor a mayor, por inserción.</summary>
+    /// <remarks>
+    /// A mano porque el tipo List de AL NO TIENE Sort(): tiene Add, Get, Set, Contains y poco más.
+    /// Es O(n²), y está bien para lo que ordena —un lote son cientos de liquidaciones, y unos miles
+    /// de comparaciones de texto no se notan al lado de un solo cálculo—. Si algún día un lote fuera
+    /// de decenas de miles, acá es donde hay que agrupar por clave en vez de ordenar fila por fila.
+    ///
+    /// EL WHILE ESTÁ PARTIDO A PROPÓSITO. La forma natural sería
+    /// `while (j >= 1) and (Items.Get(j) > Actual)`, pero AL NO CORTOCIRCUITA: con j = 0 evalúa
+    /// igual el segundo operando y Get(0) revienta por índice fuera de rango. El break adentro es
+    /// lo que hace que la guarda sirva de algo.
+    /// </remarks>
+    local procedure OrdenarClaves(var Items: List of [Text])
+    var
+        i: Integer;
+        j: Integer;
+        Actual: Text;
+    begin
+        for i := 2 to Items.Count() do begin
+            Actual := Items.Get(i);
+            j := i - 1;
+            while j >= 1 do begin
+                if Items.Get(j) <= Actual then
+                    break;
+                Items.Set(j + 1, Items.Get(j));
+                j -= 1;
+            end;
+            Items.Set(j + 1, Actual);
+        end;
+    end;
+
     local procedure RecolectarNumeros(var Origen: Record "Liquidación"; var Numeros: List of [Code[20]]): Boolean
     begin
         Clear(Numeros);
@@ -219,9 +331,8 @@ codeunit 50076 "Lotes Liquidación Liq."
 
     var
         MsgSinSeleccion: Label 'No hay liquidaciones en el alcance seleccionado.';
-        MsgCalculadas: Label '%1 liquidación(es) calculada(s).';
-        MsgCalculadasConFallas: Label '%1 liquidación(es) calculada(s), %2 con error.\\Las que fallaron quedaron sin calcular; el motivo de cada una está en Registros de Proceso.';
-        MsgCalculadasConAdvertencias: Label '%1 liquidación(es) calculada(s).\\Atención — parámetros posiblemente desactualizados:\%2';
+        MsgCalculadas: Label '%1 liquidación(es) calculada(s).\\Tiempo total: %2.', Comment = '%1=cantidad, %2=duración del lote';
+        MsgCalculadasConFallas: Label '%1 liquidación(es) calculada(s), %2 con error.\\Las que fallaron quedaron sin calcular; el motivo de cada una está en Registros de Proceso.\\Tiempo total: %3.', Comment = '%1=calculadas, %2=fallidas, %3=duración del lote';
         MsgOmitidas: Label '%1 liquidación(es) del alcance quedaron sin calcular porque no están en Borrador. Las que ya están calculadas o aprobadas no se rehacen solas: reabrilas si querés recalcularlas.';
         MsgSinSeleccionReabrir: Label 'No hay liquidaciones en el alcance seleccionado.';
         MsgReabiertas: Label '%1 liquidación(es) reabierta(s) sobre %2 del alcance. El resto no estaba en estado Calculada.';

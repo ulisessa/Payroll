@@ -413,6 +413,16 @@ page 50139 "Asistente Fórmula Liq."
                             InsertText('IF(');
                         end;
                     }
+                    action(InsIFZERO)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'IFZERO( , )';
+                        ToolTip = 'El valor si no es cero; si es cero, la alternativa. IFZERO(valor, alternativa). Para parámetros que pueden no estar cargados para un par convenio/categoría: sin vigencia resuelven a cero y multiplican por cero sin avisar.';
+                        trigger OnAction()
+                        begin
+                            InsertText('IFZERO(');
+                        end;
+                    }
                     action(InsDIV)
                     {
                         ApplicationArea = All;
@@ -606,6 +616,7 @@ page 50139 "Asistente Fórmula Liq."
                 AgregarDiag(Diag, 'neutro', SinContextoMsg, '')
             else begin
                 Evaluador.Init(Ctx, WorkDate());
+                Evaluador.SetCodigosAtributos(CodigosAtributos);
                 if Campo = CampoCondicionTok then begin
                     if Evaluador.TryEvalCondicion(Texto, ValorBool) then
                         AgregarDiag(Diag, 'ok', '', Format(ValorBool))
@@ -637,6 +648,7 @@ page 50139 "Asistente Fórmula Liq."
         Cat: Record "Variable Liq. Test" temporary;
         Catalogo: Codeunit "Catálogo Variables Liq.";
     begin
+        Clear(CodigosAtributos);
         Catalogo.CargarCatalogo(Cat, CodEmpleado, CodConvenio, CodCategoria);
         if Cat.FindSet() then
             repeat
@@ -697,6 +709,7 @@ page 50139 "Asistente Fórmula Liq."
     // contexto anterior después de cambiar de empleado o período.
     local procedure RecargarSiHayContexto()
     begin
+        Clear(CodigosAtributos);
         if (CodEmpleado = '') or (CodPeriodo = '') then
             exit;
         CurrPage.Variables.Page.LimpiarFiltro();
@@ -741,6 +754,7 @@ page 50139 "Asistente Fórmula Liq."
         CtxBuilder.Init(CodEmpleado, CodProyecto, CodPeriodo, FechaRef, CodConvenio, CodCategoria, '', TipoLiqCtx, 0D);
         CtxBuilder.BuildContext(Ctx);
         CtxBuilder.GetTipoMap(TipoMap);
+        CtxBuilder.GetCodigosAtributos(CodigosAtributos);
         CurrPage.Variables.Page.LoadFromContext(Ctx, TipoMap);
     end;
 
@@ -765,6 +779,7 @@ page 50139 "Asistente Fórmula Liq."
 
         CurrPage.Variables.Page.GetContext(Ctx);
         Evaluador.Init(Ctx, WorkDate());
+        Evaluador.SetCodigosAtributos(CodigosAtributos);
 
         if CondicionText.Trim() <> '' then begin
             if not Evaluador.TryEvalCondicion(CondicionText, CondResult) then begin
@@ -803,6 +818,8 @@ page 50139 "Asistente Fórmula Liq."
         CurrPage.Variables.Page.GetContext(Ctx);
         if Ctx.Count = 0 then exit; // no variables loaded yet — skip
         Evaluador.Init(Ctx, WorkDate());
+        Evaluador.SetCodigosAtributos(CodigosAtributos);
+        Evaluador.SetModoValidacion(true);
         if Evaluador.TryEvalFormula(Formula, Dummy) then
             StyleExprVar := 'Favorable'
         else
@@ -822,6 +839,8 @@ page 50139 "Asistente Fórmula Liq."
         CurrPage.Variables.Page.GetContext(Ctx);
         if Ctx.Count = 0 then exit;
         Evaluador.Init(Ctx, WorkDate());
+        Evaluador.SetCodigosAtributos(CodigosAtributos);
+        Evaluador.SetModoValidacion(true);
         if Evaluador.TryEvalCondicion(Condicion, Dummy) then
             StyleExprVar := 'Favorable'
         else
@@ -953,6 +972,7 @@ page 50139 "Asistente Fórmula Liq."
     end;
 
     var
+        CodigosAtributos: Dictionary of [Text, Text];
         CampoFormulaTok: Label 'formula', Locked = true;
         CampoCondicionTok: Label 'condicion', Locked = true;
         SinContextoMsg: Label 'Cargá el catálogo o el contexto para validar.';

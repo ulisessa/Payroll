@@ -14,6 +14,8 @@ permissionset 50302 "Liq. Pesca - Lectura"
     Caption = 'Liq. Pesca - Lectura';
 
     Permissions =
+        tabledata "Detalle Ganancias Liq." = R,
+        table "Detalle Ganancias Liq." = X,
         // ── Tables — read only ──
         tabledata "Estado Empleado" = R,
         tabledata "Tipo Liquidación" = R,
@@ -123,6 +125,16 @@ permissionset 50302 "Liq. Pesca - Lectura"
         table "Stg Empleado NAV" = X,
         table "Stg Descarga Cab NAV" = X,
         table "Stg Descarga Lin NAV" = X,
+        codeunit "Evaluador Fórmula" = X,
+        codeunit "Detalle Cálculo Línea" = X,
+        codeunit "Presentación Cálculo Liq." = X,
+        codeunit "Gestión Francos" = X,
+        page "Detalle Cálculo Línea" = X,
+        page "Pasos Cálculo Sub" = X,
+        page "Deducciones Aplicadas Liq." = X,
+        page "Lotes Franco Consumidos" = X,
+        table "Paso Cálculo Línea" = X,
+        table "Lote Franco Buffer Liq." = X,
         // ── Pages ──
         page "Lista Liquidaciones" = X,
         page "Ficha Liquidación" = X,
@@ -173,6 +185,7 @@ permissionset 50302 "Liq. Pesca - Lectura"
         page "Árbol de Liquidaciones" = X,
         page "Árbol de Parámetros" = X,
         page "Claves de Parámetro a Revisar" = X,
+        page "Moneda de Parámetro a Revisar" = X,
         page "Fórmulas con Errores" = X,
         page "Ficha Valor Parámetro" = X,
         page "Atributos Entidad FactBox" = X,

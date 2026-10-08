@@ -43,6 +43,28 @@ page 110017 "Árbol de Liquidaciones"
                         Cargar();
                     end;
                 }
+                field(SoloAnioEnCurso; SoloAnioEnCurso)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Sólo el año de la fecha de referencia';
+                    ToolTip = 'Tildado: únicamente los períodos del año en que cae la fecha de referencia. Sin tildar, todos los años cargados — útil para buscar algo viejo, pero el árbol se vuelve largo.';
+
+                    trigger OnValidate()
+                    begin
+                        Cargar();
+                    end;
+                }
+                field(FechaReferencia; FechaReferencia)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Fecha de referencia';
+                    ToolTip = 'El año que se muestra sale de esta fecha. Arranca en la fecha de trabajo —el 2 de enero uno sigue cerrando diciembre— y se puede mover para ver otro año sin destildar el filtro.';
+
+                    trigger OnValidate()
+                    begin
+                        Cargar();
+                    end;
+                }
             }
             repeater(Lines)
             {
@@ -267,7 +289,50 @@ page 110017 "Árbol de Liquidaciones"
     trigger OnOpenPage()
     begin
         AgrupaPorProyecto := true;
+        SoloAnioEnCurso := true;
+        // La fecha de TRABAJO y no la del reloj: el 2 de enero uno sigue cerrando diciembre.
+        FechaReferencia := WorkDate();
         Cargar();
+    end;
+
+    /// <summary>Acota a los períodos del año en que cae la fecha de referencia.</summary>
+    /// <remarks>
+    /// POR LAS FECHAS DEL PERÍODO Y NO POR SU CÓDIGO. Acá los códigos son aaaamm y el año se podría
+    /// sacar del prefijo, pero eso ata el árbol a una convención de nomenclatura: el día que otra
+    /// empresa numere los períodos de otra forma —o que alguien cargue un período extraordinario
+    /// fuera del patrón— el filtro deja de encontrarlos y nadie se entera, porque un árbol con menos
+    /// nodos no se ve roto. Las fechas del período son un dato, no una convención.
+    ///
+    /// Se arma la lista de códigos en vez de filtrar por fecha sobre la liquidación: un cierre de
+    /// marea lleva la fecha del arribo, que puede caer en otro año que el período al que se imputa.
+    /// Lo que el árbol agrupa son períodos, así que son los períodos los que hay que elegir.
+    /// </remarks>
+    local procedure AplicarFiltroDeAnio(var Liq: Record "Liquidación")
+    var
+        Periodo: Record "Período Liquidación";
+        Desde: Date;
+        Hasta: Date;
+        Filtro: TextBuilder;
+    begin
+        if FechaReferencia = 0D then
+            exit;
+        Desde := DMY2Date(1, 1, Date2DMY(FechaReferencia, 3));
+        Hasta := DMY2Date(31, 12, Date2DMY(FechaReferencia, 3));
+
+        // Intersección y no contención: un período que arranca en diciembre y termina en enero
+        // pertenece a los dos años, y dejarlo afuera escondería liquidaciones reales.
+        Periodo.SetFilter("Fecha Desde", '<=%1', Hasta);
+        Periodo.SetFilter("Fecha Hasta", '>=%1', Desde);
+        if not Periodo.FindSet() then begin
+            // Ningún período en ese año: se deja ver todo en vez de un árbol vacío sin explicación.
+            exit;
+        end;
+        repeat
+            if Filtro.Length() > 0 then
+                Filtro.Append('|');
+            Filtro.Append(Periodo."Código");
+        until Periodo.Next() = 0;
+        Liq.SetFilter("Cód. Período", Filtro.ToText());
     end;
 
     trigger OnAfterGetRecord()
@@ -312,7 +377,10 @@ page 110017 "Árbol de Liquidaciones"
 
         HayFiltroPeriodo := FCodPeriodo <> '';
         if FCodPeriodo <> '' then
-            Liq.SetRange("Cód. Período", FCodPeriodo);
+            Liq.SetRange("Cód. Período", FCodPeriodo)
+        else
+            if SoloAnioEnCurso then
+                AplicarFiltroDeAnio(Liq);
         Arbol.AgruparPorProyecto(AgrupaPorProyecto);
         Arbol.Construir(Rec, Liq);
 
@@ -528,6 +596,8 @@ page 110017 "Árbol de Liquidaciones"
 
     var
         FCodPeriodo: Code[10];
+        SoloAnioEnCurso: Boolean;
+        FechaReferencia: Date;
         // Arranca tildado: la presentación con proyecto es la que se venía usando.
         AgrupaPorProyecto: Boolean;
         EstadoTxt: Text;

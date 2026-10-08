@@ -13,6 +13,8 @@ permissionset 50300 "Liq. Pesca - Admin"
     Caption = 'Liq. Pesca - Admin';
 
     Permissions =
+        tabledata "Detalle Ganancias Liq." = R,
+        table "Detalle Ganancias Liq." = X,
         // ── Tables — data access ──
         tabledata "Estado Empleado" = RIMD,
         tabledata "Tipo Liquidación" = RIMD,
@@ -121,6 +123,14 @@ permissionset 50300 "Liq. Pesca - Admin"
         codeunit "Motor Liquidación" = X,
         codeunit "Ejecutor Liquidación" = X,
         codeunit "Evaluador Fórmula" = X,
+        codeunit "Detalle Cálculo Línea" = X,
+        codeunit "Presentación Cálculo Liq." = X,
+        page "Detalle Cálculo Línea" = X,
+        page "Pasos Cálculo Sub" = X,
+        page "Deducciones Aplicadas Liq." = X,
+        page "Lotes Franco Consumidos" = X,
+        table "Paso Cálculo Línea" = X,
+        table "Lote Franco Buffer Liq." = X,
         codeunit "Catálogo Variables Liq." = X,
         codeunit "Control Orden Acumuladores" = X,
         codeunit "Registro Procesos Liq." = X,
@@ -226,6 +236,7 @@ permissionset 50300 "Liq. Pesca - Admin"
         page "Árbol de Liquidaciones" = X,
         page "Árbol de Parámetros" = X,
         page "Claves de Parámetro a Revisar" = X,
+        page "Moneda de Parámetro a Revisar" = X,
         page "Fórmulas con Errores" = X,
         page "Ficha Valor Parámetro" = X,
         page "Atributos Entidad FactBox" = X,

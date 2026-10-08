@@ -103,6 +103,21 @@ page 50145 "Concepto Liq. Card"
                     ApplicationArea = All;
                     ToolTip = 'Qué atributo del empleado explica esta línea. Cargado, la liquidación muestra al lado del importe la descripción del valor que el empleado tenía en ese atributo a esa fecha: en la cuota sindical, el gremio; en el aporte de obra social, la obra social. No interviene en el cálculo.';
                 }
+                field("Cód. Parámetro Valor"; Rec."Cód. Parámetro Valor")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Parámetro base del que sale el valor unitario cuando el precio no lo pone la fórmula sino el motor, como en el consumo de francos. Se le agregan el convenio y la categoría del lote, y el sufijo del atributo de precio si hay: VALOR_FRANCO_LAN_729/15_MR05.';
+                }
+                field("Cód. Tipo Atributo Precio"; Rec."Cód. Tipo Atributo Precio")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Atributo cuyo valor aporta un sufijo al código del parámetro, preguntado a la entidad del lote y a la fecha en que se devengó. Con TIPOACTIVIDAD del buque, un franco ganado en un tangonero se valúa distinto que uno ganado en un potero. Vacío = un solo precio por convenio y categoría.';
+                }
+                field("Divisor Valor"; Rec."Divisor Valor")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Por cuánto se divide el parámetro para llevarlo a la unidad del concepto. 30 cuando el parámetro está por mes y el concepto paga por día. Cero = el parámetro ya está en la unidad correcta.';
+                }
             }
             group(GrpFormula)
             {
@@ -620,6 +635,7 @@ page 50145 "Concepto Liq. Card"
         else begin
             AsegurarContexto();
             Evaluador.Init(FCtxCatalogo, WorkDate());
+            Evaluador.SetModoValidacion(true);
             if Campo = CampoCondicionTok then begin
                 if Evaluador.TryEvalCondicion(Texto, ValorBool) then
                     AgregarDiag(Diag, 'ok', ValoresOrientativosMsg, Format(ValorBool))

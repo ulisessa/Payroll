@@ -47,7 +47,27 @@ page 110051 "Comparar BC contra Meta4"
                     Editable = true;
                     Caption = 'Año';
                     ToolTip = 'Año a comparar. 2026 es el año en que Meta4 y BC corrieron en paralelo.';
-                    trigger OnValidate() begin Cargar(); CurrPage.Update(false); end;
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
+                }
+                field(FMesDesde; FMesDesde)
+                {
+                    ApplicationArea = All;
+                    Editable = true;
+                    Caption = 'Mes desde';
+                    MinValue = 0;
+                    MaxValue = 12;
+                    ToolTip = 'Primer mes a comparar, 1 a 12. En cero, desde enero.';
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
+                }
+                field(FMesHasta; FMesHasta)
+                {
+                    ApplicationArea = All;
+                    Editable = true;
+                    Caption = 'Mes hasta';
+                    MinValue = 0;
+                    MaxValue = 12;
+                    ToolTip = 'Último mes a comparar, 1 a 12. En cero, hasta diciembre. El corte es por MES entero y no por fecha suelta: del lado de Meta4 el bruto es un acumulador corrido dentro del mes, así que partir un mes por la mitad compararía un acumulado contra unos pocos días de BC.';
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
                 }
                 field(FMarea; FMarea)
                 {
@@ -56,15 +76,23 @@ page 110051 "Comparar BC contra Meta4"
                     Caption = 'Marea';
                     TableRelation = Job."No.";
                     ToolTip = 'Proyecto de la marea, que es buque y número de marea a la vez (PP-128-000059 = buque 128, marea 59). Compara recibo de marea contra recibo de marea: de los dos lados entra sólo lo de esa marea, sin la liquidación mensual. Para ver el mes completo, dejalo en blanco.';
-                    trigger OnValidate() begin Cargar(); CurrPage.Update(false); end;
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
                 }
                 field(FSoloDif; FSoloDif)
                 {
                     ApplicationArea = All;
                     Editable = true;
                     Caption = 'Sólo diferencias';
-                    ToolTip = 'Deja fuera los meses que coinciden al centavo.';
-                    trigger OnValidate() begin Cargar(); CurrPage.Update(false); end;
+                    ToolTip = 'Deja fuera los meses que coinciden al centavo en bruto, descuentos y neto. Las contribuciones no cuentan acá: son costo patronal y no cambian lo que cobra la persona.';
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
+                }
+                field(FSoloFaltantes; FSoloFaltantes)
+                {
+                    ApplicationArea = All;
+                    Editable = true;
+                    Caption = 'Sólo los que faltan en un sistema';
+                    ToolTip = 'Deja únicamente los empleados-mes que existen en Meta4 y no en BC, o al revés. Es lo contrario de comparar importes: acá el dato es la ausencia.';
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
                 }
                 field(FSoloConBC; FSoloConBC)
                 {
@@ -72,15 +100,33 @@ page 110051 "Comparar BC contra Meta4"
                     Editable = true;
                     Caption = 'Sólo meses que BC calculó';
                     ToolTip = 'Sin esto también aparecen los meses que Meta4 liquidó y BC todavía no, que suelen ser la mayoría y tapan las diferencias reales.';
-                    trigger OnValidate() begin Cargar(); CurrPage.Update(false); end;
+                    trigger OnValidate() begin RecargarEnElLugar(); end;
                 }
             }
             repeater(Lines)
             {
-                field("No. Empleado"; Rec."No. Empleado") { ApplicationArea = All; Editable = false; }
+                field("No. Empleado"; Rec."No. Empleado")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    DrillDown = true;
+                    ToolTip = 'Hacé clic para abrir el legajo. Conviene para mirar convenio, categoría y fecha de ingreso sin perder el lugar en la comparación.';
+
+                    trigger OnDrillDown()
+                    begin
+                        AbrirLegajo();
+                    end;
+                }
                 field(Apellido; Rec.Apellido) { ApplicationArea = All; Editable = false; }
                 field(Nombre; Rec.Nombre) { ApplicationArea = All; Editable = false; }
                 field(Mes; Rec.Mes) { ApplicationArea = All; Editable = false; }
+                field(Presencia; Rec.Presencia)
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    StyleExpr = EstiloPresencia;
+                    ToolTip = 'Si el empleado tiene liquidación en los dos sistemas ese mes, o en uno solo. Sale de contar corridas, no importes: una corrida que liquidó cero sigue contando.';
+                }
                 field("Importe Meta4"; Rec."Importe Meta4")
                 {
                     ApplicationArea = All;
@@ -102,14 +148,8 @@ page 110051 "Comparar BC contra Meta4"
                     ToolTip = 'BC menos Meta4. Positivo = BC liquidó de más. Hacé clic para ver qué concepto la explica.';
 
                     trigger OnDrillDown()
-                    var
-                        Detalle: Page "Detalle Comp. Meta4";
                     begin
-                        // Se pasan los tres datos y la página arma su propio buffer: el detalle es
-                        // de un solo empleado-mes, así que no tiene sentido calcularlo para los
-                        // 2.000 meses de la lista por si alguien hace clic en uno.
-                        Detalle.Cargar(Rec."No. Empleado", Rec.Año, Rec.Mes, FMarea, FNoMarea);
-                        Detalle.Run();
+                        AbrirDetalle();
                     end;
                 }
                 field("% Diferencia"; Rec."% Diferencia") { ApplicationArea = All; Editable = false; StyleExpr = EstiloDif; }
@@ -130,7 +170,41 @@ page 110051 "Comparar BC contra Meta4"
                     ApplicationArea = All;
                     Editable = false;
                     StyleExpr = EstiloDesc;
-                    ToolTip = 'BC menos Meta4. Ojo con el signo: acá un positivo es BC reteniendo de MÁS, y eso BAJA el neto.';
+                    DrillDown = true;
+                    ToolTip = 'BC menos Meta4. Ojo con el signo: acá un positivo es BC reteniendo de MÁS, y eso BAJA el neto. Hacé clic para ver qué concepto la explica.';
+
+                    trigger OnDrillDown()
+                    begin
+                        AbrirDetalle();
+                    end;
+                }
+                field("Contrib. Meta4"; Rec."Contrib. Meta4")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    Visible = false;
+                    ToolTip = 'Lo que Meta4 liquidó de contribuciones patronales (TOT_CONTRIB). No entra en el recibo: es costo de la empresa.';
+                }
+                field("Contrib. BC"; Rec."Contrib. BC")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    Visible = false;
+                    ToolTip = 'Total Contribuciones de la cabecera de las liquidaciones de BC.';
+                }
+                field("Dif. Contrib."; Rec."Dif. Contrib.")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    Visible = false;
+                    StyleExpr = EstiloContrib;
+                    DrillDown = true;
+                    ToolTip = 'BC menos Meta4 sobre las contribuciones. Es la única de las cuatro que NO toca el recibo: una diferencia acá no explica el bruto ni el neto, ni se explica por ellos. Hacé clic para ver qué concepto la explica.';
+
+                    trigger OnDrillDown()
+                    begin
+                        AbrirDetalle();
+                    end;
                 }
                 field("Neto Meta4"; Rec."Neto Meta4")
                 {
@@ -149,13 +223,25 @@ page 110051 "Comparar BC contra Meta4"
                     ApplicationArea = All;
                     Editable = false;
                     StyleExpr = EstiloNeto;
-                    ToolTip = 'BC menos Meta4 sobre el líquido. Es la columna que dice si la persona cobraría distinto: un bruto que coincide puede tapar un neto que no.';
+                    DrillDown = true;
+                    ToolTip = 'BC menos Meta4 sobre el líquido. Es la columna que dice si la persona cobraría distinto: un bruto que coincide puede tapar un neto que no. Hacé clic para ver qué concepto la explica.';
+
+                    trigger OnDrillDown()
+                    begin
+                        AbrirDetalle();
+                    end;
+                }
+                field("Liq. en Meta4"; Rec."Liq. en Meta4")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Cuántas corridas de Meta4 entraron. Cero con liquidaciones en BC es un mes que Meta4 no liquidó.';
                 }
                 field("Liq. en BC"; Rec."Liq. en BC")
                 {
                     ApplicationArea = All;
                     Editable = false;
-                    ToolTip = 'Cuántas liquidaciones de BC entraron. Cero con Meta4 distinto de cero es un mes que BC no calculó.';
+                    ToolTip = 'Cuántas liquidaciones de BC entraron. Cero con corridas en Meta4 es un mes que BC no calculó.';
                 }
                 field("Hay Borrador"; Rec."Hay Borrador")
                 {
@@ -176,8 +262,17 @@ page 110051 "Comparar BC contra Meta4"
                 ApplicationArea = All;
                 Caption = 'Refrescar';
                 Image = Refresh;
-                ToolTip = 'Vuelve a leer el archivo y las liquidaciones.';
-                trigger OnAction() begin Cargar(); CurrPage.Update(false); end;
+                ToolTip = 'Vuelve a leer el archivo y las liquidaciones, sin moverse de la fila donde estabas.';
+                trigger OnAction() begin RecargarEnElLugar(); end;
+            }
+            action(FichaEmpleado)
+            {
+                ApplicationArea = All;
+                Caption = 'Ficha del empleado';
+                Image = Employee;
+                ShortCutKey = 'Shift+F7';
+                ToolTip = 'Abre el legajo del empleado de la fila.';
+                trigger OnAction() begin AbrirLegajo(); end;
             }
         }
     }
@@ -194,7 +289,73 @@ page 110051 "Comparar BC contra Meta4"
     begin
         EstiloDif := Estilo(Rec.Diferencia);
         EstiloDesc := Estilo(Rec."Dif. Descuentos");
+        EstiloContrib := Estilo(Rec."Dif. Contrib.");
+        // Una fila que esta en un solo sistema se marca aunque sus importes no difieran: el dato
+        // es la ausencia, no el monto.
+        if Rec.Presencia = Rec.Presencia::Ambos then
+            EstiloPresencia := 'Standard'
+        else
+            EstiloPresencia := 'Attention';
         EstiloNeto := Estilo(Rec."Dif. Neto");
+    end;
+
+    /// <summary>Recarga el buffer y vuelve a la fila donde estaba el cursor.</summary>
+    /// <remarks>
+    /// Cargar() vacía y rehace la tabla temporal entera, así que sin esto el cursor vuelve a la
+    /// primera fila. Con dos mil empleados-mes, mirar una diferencia, corregir el parámetro,
+    /// refrescar y tener que buscar de nuevo dónde estabas hace que uno deje de refrescar.
+    ///
+    /// La clave se guarda antes y se reposiciona después. Si la fila ya no está —se corrigió y con
+    /// "sólo diferencias" salió de la lista, que es el final feliz— se queda donde la dejó Cargar,
+    /// sin error: no encontrarla es un resultado posible, no una falla.
+    /// </remarks>
+    local procedure RecargarEnElLugar()
+    var
+        EmpAnt: Code[20];
+        AnioAnt: Integer;
+        MesAnt: Integer;
+    begin
+        EmpAnt := Rec."No. Empleado";
+        AnioAnt := Rec.Año;
+        MesAnt := Rec.Mes;
+
+        Cargar();
+
+        if EmpAnt <> '' then
+            if Rec.Get(EmpAnt, AnioAnt, MesAnt) then;
+        CurrPage.Update(false);
+    end;
+
+    /// <summary>El detalle concepto por concepto de este empleado-mes.</summary>
+    /// <remarks>
+    /// Lo abren los TRES campos de diferencia —haberes, descuentos y neto— porque los tres se
+    /// explican con la misma lista: el detalle trae todos los conceptos del mes, de los dos lados,
+    /// y un descuento que difiere es una fila como cualquier otra. Antes sólo se llegaba desde la
+    /// diferencia de haberes, y para una de descuentos había que adivinar que ahí también estaba.
+    ///
+    /// El buffer lo arma la página de detalle: es de un solo empleado-mes, así que no tiene sentido
+    /// calcularlo para los 2.000 meses de la lista por si alguien hace clic en uno.
+    /// </remarks>
+    local procedure AbrirDetalle()
+    var
+        Detalle: Page "Detalle Comp. Meta4";
+    begin
+        Detalle.Cargar(Rec."No. Empleado", Rec.Año, Rec.Mes, FMarea, FNoMarea);
+        Detalle.Run();
+    end;
+
+    /// <summary>Abre el legajo del empleado de la fila actual.</summary>
+    local procedure AbrirLegajo()
+    var
+        Emp: Record Employee;
+    begin
+        if Rec."No. Empleado" = '' then
+            exit;
+        // Un legajo de la comparación puede no existir como empleado —el archivo de Meta4 trae gente
+        // que no se migró— y ahí abrir la ficha vacía confundiría más que no hacer nada.
+        if not Emp.Get(Rec."No. Empleado") then
+            Error(ErrSinLegajo, Rec."No. Empleado");
+        Page.Run(Page::"Employee Card", Emp);
     end;
 
     // Verde si cierra, rojo si no. Va por columna: el bruto puede cerrar y el neto no, y eso es
@@ -279,6 +440,17 @@ page 110051 "Comparar BC contra Meta4"
              (Cab."Tipo Imputación" <> 1) and (Cab."Tipo Imputación" <> 14));
     end;
 
+    /// <summary>El TP_IMPUT de Meta4 que identifica una corrida de anticipos.</summary>
+    /// <remarks>
+    /// Va acá y no como número suelto porque se compara en más de un lugar y el 4 solo no dice nada.
+    /// El significado de cada TP_IMPUT está anotado en "Hist. Liq. Meta4"."Tipo Imputación": se
+    /// dedujo perfilando qué columnas trae cada uno en no-cero, no de un catálogo.
+    /// </remarks>
+    local procedure TipoImputAnticipo(): Integer
+    begin
+        exit(4);
+    end;
+
     local procedure NoColumna(Nombre: Code[50]): Integer
     var
         Col: Record "Columna Hist. Meta4";
@@ -340,11 +512,45 @@ page 110051 "Comparar BC contra Meta4"
             // cabecera acá suma cada liquidación una sola vez.
             if Liq.Get(LinLiq."No. Liquidación") then begin
                 Rec."Descuentos BC" += Liq."Total Descuentos";
+                Rec."Contrib. BC" += Liq."Total Contribuciones";
                 Rec."Neto BC" += Liq."Neto a Pagar";
             end;
             Rec."Liq. en BC" += 1;
             if LinLiq.Estado = LinLiq.Estado::Borrador then
                 Rec."Hay Borrador" := true;
+            Rec.Modify();
+        until LinLiq.Next() = 0;
+    end;
+
+    /// <summary>Suma al bruto de BC el acumulador no remunerativo, sin tocar descuentos ni neto.</summary>
+    /// <remarks>
+    /// Sólo el importe: los descuentos, el neto y el contador de liquidaciones ya los cargó
+    /// AcumularLineasBC leyendo la cabecera una vez por liquidación.
+    ///
+    /// Si la fila no existe se crea igual. Una liquidación con acumulador no remunerativo y sin
+    /// remunerativo es rara pero posible —un mes de puro acuerdo sindical o de prestación ILT— y
+    /// saltearla la haría desaparecer del listado sin aviso, que es lo que esta pantalla no debe
+    /// hacer nunca.
+    /// </remarks>
+    local procedure AcumularNoRemunerativoBC(var LinLiq: Record "Línea Liquidación")
+    var
+        Empl: Record Employee;
+    begin
+        if not LinLiq.FindSet() then
+            exit;
+        repeat
+            if not Rec.Get(LinLiq."No. Empleado", FAnio, Date2DMY(LinLiq."Fecha Liquidación", 2)) then begin
+                Rec.Init();
+                Rec."No. Empleado" := LinLiq."No. Empleado";
+                Rec.Año := FAnio;
+                Rec.Mes := Date2DMY(LinLiq."Fecha Liquidación", 2);
+                if Empl.Get(Rec."No. Empleado") then begin
+                    Rec.Apellido := Empl."Last Name";
+                    Rec.Nombre := Empl."First Name";
+                end;
+                Rec.Insert();
+            end;
+            Rec."Importe BC" += LinLiq.Importe;
             Rec.Modify();
         until LinLiq.Next() = 0;
     end;
@@ -379,6 +585,35 @@ page 110051 "Comparar BC contra Meta4"
     /// Y se toma el MAXIMO por empleado-mes, no la suma: TOT_REMUN_27617 es un acumulador corrido
     /// dentro del mes. Sumar las corridas de un mes con tres liquidaciones lo triplica.
     /// </remarks>
+    // ── el rango de meses ────────────────────────────────────────────────────
+    // En cero significa "sin acotar" y no "mes cero", para que la pantalla siga abriendo con el año
+    // entero como antes. El corte es por MES ENTERO a propósito: el bruto de Meta4 —TOT_REMUN_27617—
+    // es un acumulador corrido DENTRO del mes, y la carga lo desarma restando cada corrida contra la
+    // anterior, reiniciando en cada empleado-mes. Cortar a mitad de mes dejaría a Meta4 con el
+    // acumulado de todo el mes enfrentado a unos pocos días de BC.
+    local procedure MesD(): Integer
+    begin
+        if (FMesDesde < 1) or (FMesDesde > 12) then exit(1);
+        exit(FMesDesde);
+    end;
+
+    local procedure MesH(): Integer
+    begin
+        if (FMesHasta < 1) or (FMesHasta > 12) then exit(12);
+        if FMesHasta < MesD() then exit(MesD());
+        exit(FMesHasta);
+    end;
+
+    local procedure FechaD(): Date
+    begin
+        exit(DMY2Date(1, MesD(), FAnio));
+    end;
+
+    local procedure FechaH(): Date
+    begin
+        exit(CalcDate('<CM>', DMY2Date(1, MesH(), FAnio)));
+    end;
+
     local procedure Cargar()
     var
         Cab: Record "Hist. Liq. Meta4";
@@ -388,17 +623,31 @@ page 110051 "Comparar BC contra Meta4"
         Empl: Record Employee;
         Meta4: Dictionary of [Text, Decimal];
         Meta4Desc: Dictionary of [Text, Decimal];
+        Meta4Contrib: Dictionary of [Text, Decimal];
+        Meta4Corridas: Dictionary of [Text, Decimal];
         Meta4Neto: Dictionary of [Text, Decimal];
         DeLaMarea: Dictionary of [Code[20], Boolean];
         Clave: Text;
         ClaveAnt: Text;
         NoCol: Integer;
         NoColRet: Integer;
+        NoColContrib: Integer;
         NoColLiq: Integer;
         NoMarea: Integer;
         Acum: Decimal;
         Delta: Decimal;
+        VistaUsuario: Text;
     begin
+        // LO QUE EL USUARIO FILTRÓ SE GUARDA ANTES DE TOCAR NADA. Para vaciar el buffer hace falta
+        // un Reset —DeleteAll con filtros borraría sólo una parte—, y ese Reset se lleva puestos
+        // TODOS los filtros, incluidos los que puso el usuario en la página. Hasta acá, refrescar
+        // dejaba la lista entera de vuelta: con dos mil empleados-mes, filtrar por un legajo,
+        // corregir un parámetro y refrescar significaba volver a filtrar cada vez.
+        //
+        // La vista lleva también la ordenación, así que se repone igual: quien ordenó por diferencia
+        // descendente sigue ahí después de refrescar.
+        VistaUsuario := Rec.GetView();
+
         Rec.Reset();
         Rec.DeleteAll();
 
@@ -407,6 +656,7 @@ page 110051 "Comparar BC contra Meta4"
         // tabla del buffer—: TOT_REMUN_27617 es acumulado corrido, las otras dos son por corrida.
         NoCol := NoColumna('TOT_REMUN_27617');
         NoColRet := NoColumna('TOT_RETEN');
+        NoColContrib := NoColumna('TOT_CONTRIB');
         NoColLiq := NoColumna('LIQUIDO');
         if NoCol = 0 then
             exit;
@@ -428,10 +678,15 @@ page 110051 "Comparar BC contra Meta4"
         if FMarea <> '' then begin
             LinLiq.Reset();
             LinLiq.SetRange("No. Proyecto", FMarea);
-            LinLiq.SetFilter("Fecha Liquidación", '%1..%2', DMY2Date(1, 1, FAnio), DMY2Date(31, 12, FAnio));
+            LinLiq.SetFilter("Fecha Liquidación", '%1..%2', FechaD(), FechaH());
             LinLiq.SetFilter("Cód. Tipo Liq.", '<>%1', 'HIST_REMUN');
             LinLiq.SetFilter("Tipo Concepto", '<>%1&<>%2',
                 LinLiq."Tipo Concepto"::Informativo, LinLiq."Tipo Concepto"::"Contribución Patronal");
+            // Mismos criterios que el detalle (ver Pag110052): el devengo no se paga en el mes y no
+            // está en el recibo de Meta4. Acá sólo arma la lista de empleados de la marea, pero un
+            // tripulante cuya única línea del proyecto fuera de devengo entraría a la comparación
+            // sin tener nada que comparar.
+            LinLiq.SetRange("Es Devengo", false);
             if LinLiq.FindSet() then
                 repeat
                     if not DeLaMarea.ContainsKey(LinLiq."No. Empleado") then
@@ -467,6 +722,7 @@ page 110051 "Comparar BC contra Meta4"
         // 6.299.341,22 contra 6.299.415,05—, así que sacarlo rompería la simetría.
         Cab.SetCurrentKey("No. Empleado", Año, Mes, "Contador Liq.");
         Cab.SetRange(Año, FAnio);
+        Cab.SetRange(Mes, MesD(), MesH());
         if FMarea <> '' then
             Cab.SetFilter("No. Empleado", ConstruirFiltroEmpleados(DeLaMarea));
         if Cab.FindSet() then
@@ -482,7 +738,29 @@ page 110051 "Comparar BC contra Meta4"
                 // TOT_REMUN_27617, y estos dos no tienen por qué perderse por eso.
                 if EsDeLaMarea(Cab, NoMarea) then begin
                     Sumar(Meta4Desc, Clave, ValorDe(Val, Cab."No. Entrada", NoColRet));
-                    Sumar(Meta4Neto, Clave, ValorDe(Val, Cab."No. Entrada", NoColLiq));
+                    // Las contribuciones van con los descuentos y no con el neto: TOT_CONTRIB es
+                    // por corrida como TOT_RETEN, y en la corrida de anticipo viene nula, asi que
+                    // no hay que excluirla a mano.
+                    Sumar(Meta4Contrib, Clave, ValorDe(Val, Cab."No. Entrada", NoColContrib));
+                    // Una corrida es una corrida aunque todos sus totales den cero: el contador
+                    // sube igual, porque 'tiene liquidacion en Meta4' y 'liquido algo' son dos
+                    // preguntas distintas y la segunda no sirve para encontrar a los que faltan.
+                    Sumar(Meta4Corridas, Clave, 1);
+                    // EL NETO ES LA ÚNICA DE LAS TRES QUE SACA LA CORRIDA DE ANTICIPO. El LIQUIDO de
+                    // un TP_IMPUT 4 es plata entregada a cuenta —250.000 en cada uno de los 107
+                    // empleados que tienen esa corrida en enero de 2026— y el recibo de BC no la
+                    // paga: las novedades de anticipo están anuladas a propósito. Sumándola, Meta4
+                    // quedaba con un neto 250.000 MAYOR QUE SU PROPIO bruto menos sus descuentos
+                    // (04924: 13.697.168,47 - 7.196.653,43 = 6.500.515,04, y la columna mostraba
+                    // 6.750.516,00), y esa diferencia contra BC se leía como un error de cálculo.
+                    //
+                    // EL BRUTO SÍ LA CONSERVA, por lo explicado arriba: el anticipo está dentro del
+                    // acumulado de TOT_REMUN_27617 y también dentro del bruto de BC, así que sacarlo
+                    // rompería la simetría y además escondería su delta en la corrida siguiente.
+                    // Son dos reglas distintas porque miden cosas distintas: el bruto, lo devengado
+                    // en el mes; el neto, lo que se pagó con ESTE recibo.
+                    if Cab."Tipo Imputación" <> TipoImputAnticipo() then
+                        Sumar(Meta4Neto, Clave, ValorDe(Val, Cab."No. Entrada", NoColLiq));
                 end;
 
                 Val.SetRange("No. Entrada", Cab."No. Entrada");
@@ -495,14 +773,24 @@ page 110051 "Comparar BC contra Meta4"
                 end;
             until Cab.Next() = 0;
 
-        foreach Clave in Meta4.Keys() do begin
+        // SE RECORRE EL CONTADOR DE CORRIDAS Y NO Meta4, que es el diccionario del bruto. El bruto
+        // sólo se carga si la corrida trae TOT_REMUN_27617, así que una corrida sin esa columna no
+        // generaba NINGUNA fila: el empleado desaparecía de la comparación en vez de aparecer como
+        // "Sólo Meta4", que es justo lo que se vino a buscar. El contador sube por cada corrida de
+        // la marea, tenga las columnas que tenga, así que sus claves son el superconjunto.
+        foreach Clave in Meta4Corridas.Keys() do begin
             Rec.Init();
             Rec."No. Empleado" := CopyStr(Clave.Split('|').Get(1), 1, 20);
             Rec.Año := FAnio;
             Evaluate(Rec.Mes, Clave.Split('|').Get(2));
-            Rec."Importe Meta4" := Meta4.Get(Clave);
+            if Meta4.ContainsKey(Clave) then
+                Rec."Importe Meta4" := Meta4.Get(Clave);
             if Meta4Desc.ContainsKey(Clave) then
                 Rec."Descuentos Meta4" := Meta4Desc.Get(Clave);
+            if Meta4Contrib.ContainsKey(Clave) then
+                Rec."Contrib. Meta4" := Meta4Contrib.Get(Clave);
+            if Meta4Corridas.ContainsKey(Clave) then
+                Rec."Liq. en Meta4" := Round(Meta4Corridas.Get(Clave), 1);
             if Meta4Neto.ContainsKey(Clave) then
                 Rec."Neto Meta4" := Meta4Neto.Get(Clave);
             if Empl.Get(Rec."No. Empleado") then begin
@@ -517,7 +805,7 @@ page 110051 "Comparar BC contra Meta4"
         // cero siempre. Acá interesa sólo lo que CALCULÓ el motor.
         LinLiq.Reset();
         LinLiq.SetRange("Cód. Concepto", 'REMUNERATIVO_BRUTO');
-        LinLiq.SetRange("Fecha Liquidación", DMY2Date(1, 1, FAnio), DMY2Date(31, 12, FAnio));
+        LinLiq.SetRange("Fecha Liquidación", FechaD(), FechaH());
         LinLiq.SetFilter("Cód. Tipo Liq.", '<>%1', 'HIST_REMUN');
         // LA LIQUIDACIÓN SIN PROYECTO NO ENTRA, y es el espejo de dejar afuera la corrida mensual
         // del lado de Meta4. Con filtro de marea esta pantalla compara RECIBO DE MAREA CONTRA RECIBO
@@ -533,12 +821,38 @@ page 110051 "Comparar BC contra Meta4"
         end;
         AcumularLineasBC(LinLiq);
 
+        // EL BRUTO DE META4 NO ES SÓLO LO REMUNERATIVO. TOT_REMUN_27617 —la columna que se compara—
+        // incluye el acuerdo sindical del Dto 633/18, que es no remunerativo: para el 00949 son
+        // 3.648.920,23 de los cuales 2.554.244,16 son acuerdo. Enfrentarlo contra REMUNERATIVO_BRUTO
+        // solo mostraba un -70% que no existe, y encima en los casos donde el 70/30 del convenio
+        // 729/15 es MÁS grande que la parte remunerativa, o sea justo los tripulantes.
+        //
+        // Va en una pasada aparte y no agregando el concepto al filtro de arriba: esa pasada también
+        // lee descuentos y neto de la CABECERA y cuenta liquidaciones, y con dos líneas por
+        // liquidación los duplicaría.
+        LinLiq.SetRange("Cód. Concepto", 'NO_REMUNERATIVO');
+        AcumularNoRemunerativoBC(LinLiq);
+
         // ── cierre ───────────────────────────────────────────────────────────
         Rec.Reset();
         if Rec.FindSet() then
             repeat
                 Rec.Diferencia := Rec."Importe BC" - Rec."Importe Meta4";
                 Rec."Dif. Descuentos" := Rec."Descuentos BC" - Rec."Descuentos Meta4";
+                Rec."Dif. Contrib." := Rec."Contrib. BC" - Rec."Contrib. Meta4";
+                Rec."Hay Dif. Recibo" :=
+                    (Rec.Diferencia <> 0) or (Rec."Dif. Descuentos" <> 0) or (Rec."Dif. Neto" <> 0);
+                // De los CONTADORES y no de los importes: una corrida que liquido cero sigue
+                // siendo una corrida, y un empleado que esta en los dos sistemas con todo en cero
+                // no es un empleado que falta en uno.
+                case true of
+                    (Rec."Liq. en Meta4" > 0) and (Rec."Liq. en BC" = 0):
+                        Rec.Presencia := Rec.Presencia::"Sólo Meta4";
+                    (Rec."Liq. en Meta4" = 0) and (Rec."Liq. en BC" > 0):
+                        Rec.Presencia := Rec.Presencia::"Sólo BC";
+                    else
+                        Rec.Presencia := Rec.Presencia::Ambos;
+                end;
                 Rec."Dif. Neto" := Rec."Neto BC" - Rec."Neto Meta4";
                 if Rec."Importe Meta4" <> 0 then
                     Rec."% Diferencia" := Round(Rec.Diferencia / Rec."Importe Meta4" * 100, 0.01)
@@ -547,21 +861,46 @@ page 110051 "Comparar BC contra Meta4"
                 Rec.Modify();
             until Rec.Next() = 0;
 
-        Rec.Reset();
-        if FSoloConBC then
-            Rec.SetFilter("Liq. en BC", '>%1', 0);
+        // Se repone lo que el usuario tenía y DESPUÉS se imponen los filtros de la página.
+        //
+        // Un Reset acá volvería a tirar los filtros del usuario, que es el bug que esto arregla. Y
+        // reponer la vista a secas tampoco alcanza: trae los filtros de las tres casillas TAL COMO
+        // ESTABAN, así que destildar una no la soltaría —la vista guardada la reinstalaría—. Por eso
+        // los tres campos que maneja la página se limpian uno por uno, con SetRange sin valor, y
+        // recién ahí se aplica el estado actual de las casillas. Todo lo demás —el legajo, el mes,
+        // el orden— es del usuario y sobrevive intacto.
+        Rec.SetView(VistaUsuario);
+        Rec.SetRange(Presencia);
+        Rec.SetRange("Liq. en BC");
+        Rec.SetRange("Hay Dif. Recibo");
+
+        // Va primero: si se piden los faltantes, "solo con liq. en BC" los contradice —esconderia
+        // justo los que estan solo en Meta4— asi que este gana y el otro no se aplica.
+        if FSoloFaltantes then
+            Rec.SetFilter(Presencia, '<>%1', Rec.Presencia::Ambos)
+        else
+            if FSoloConBC then
+                Rec.SetFilter("Liq. en BC", '>%1', 0);
+        // Mira las TRES del recibo y no solo el bruto: un bruto que coincide puede tapar un neto
+        // que no, que es justo el caso que el grossing-up produce.
         if FSoloDif then
-            Rec.SetFilter(Diferencia, '<>%1', 0);
+            Rec.SetRange("Hay Dif. Recibo", true);
         if Rec.FindFirst() then;
     end;
 
     var
         FAnio: Integer;
+        FMesDesde: Integer;
+        FMesHasta: Integer;
         FMarea: Code[20];
         FSoloDif: Boolean;
         FSoloConBC: Boolean;
+        FSoloFaltantes: Boolean;
         FNoMarea: Integer;   // la marea de FMarea ya resuelta, para que el drilldown filtre igual
         EstiloDif: Text;
         EstiloDesc: Text;
+        EstiloContrib: Text;
+        EstiloPresencia: Text;
         EstiloNeto: Text;
+        ErrSinLegajo: Label 'El legajo %1 no existe como empleado: figura en el archivo de Meta4 pero no está en Business Central.', Comment = '%1=legajo';
 }

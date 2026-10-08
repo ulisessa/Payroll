@@ -1,7 +1,6 @@
 namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
-using Microsoft.Foundation.NoSeries;
 using Microsoft.HumanResources.Setup;
 
 report 50043 "Crear Liq. para Empleado"
@@ -29,6 +28,7 @@ report 50043 "Crear Liq. para Empleado"
                 Periodo.Get(FCodPeriodo);
                 if Periodo.Estado = Periodo.Estado::Cerrado then
                     Error(ErrPeriodoCerrado, FCodPeriodo);
+                Periodo.ErrorSiCreado();
                 HRSetup.Get();
                 if HRSetup."Cód. Serie Liq." = '' then
                     Error(ErrSerieNoConfigurada);
@@ -36,15 +36,15 @@ report 50043 "Crear Liq. para Empleado"
 
             trigger OnAfterGetRecord()
             var
-                Personal: Record "Personal Proyecto";
+                Lotes: Codeunit "Proceso Liq. Por Lote";
             begin
-                Personal.SetRange("No. Empleado", Emp."No.");
-                Personal.SetRange("Fecha Baja", 0D);
-                if not Personal.FindSet() then
-                    CurrReport.Skip();
-                repeat
-                    InsertarLiq(Personal);
-                until Personal.Next() = 0;
+                // TODA la lógica de creación vive en el codeunit del lote: cuántas liquidaciones
+                // corresponden según "Agrupa por Empleado", de dónde sale el proyecto, qué
+                // asignaciones cuentan y las cuatro guardas. Este reporte la duplicaba a mano y se
+                // salteaba las cuatro, así que creaba una liquidación por asignación —incluidas las
+                // que todavía no habían empezado— con el proyecto de la asignación en vez del que
+                // resuelve el estado del empleado.
+                Creadas += Lotes.CrearParaEmpleado(Emp."No.", FCodPeriodo, FTipoLiq);
             end;
 
             trigger OnPostDataItem()
@@ -85,35 +85,6 @@ report 50043 "Crear Liq. para Empleado"
     procedure SetPeriodo(CodPeriodo: Code[10])
     begin
         FCodPeriodo := CodPeriodo;
-    end;
-
-    local procedure InsertarLiq(Personal: Record "Personal Proyecto")
-    var
-        Liq: Record "Liquidación";
-        ExistLiq: Record "Liquidación";
-        NoSeries: Codeunit "No. Series";
-    begin
-        ExistLiq.SetRange("No. Empleado", Personal."No. Empleado");
-        ExistLiq.SetRange("No. Proyecto", Personal."No. Proyecto");
-        ExistLiq.SetRange("Cód. Período", FCodPeriodo);
-        ExistLiq.SetRange("Cód. Tipo Liq.", FTipoLiq);
-        if not ExistLiq.IsEmpty() then
-            exit;
-
-        Liq.Init();
-        Liq."No." := NoSeries.GetNextNo(HRSetup."Cód. Serie Liq.", WorkDate(), true);
-        Liq."No. Empleado" := Personal."No. Empleado";
-        Liq."Nombre Empleado" := CopyStr(Emp."First Name" + ' ' + Emp."Last Name", 1, MaxStrLen(Liq."Nombre Empleado"));
-        Liq."No. Proyecto" := Personal."No. Proyecto";
-        Liq."Cód. Período" := FCodPeriodo;
-        Liq."Fecha Liquidación" := Periodo."Fecha Hasta";
-        Liq."Cód. Tipo Liq." := FTipoLiq;
-        Liq.Estado := Liq.Estado::Borrador;
-        // El par de la cabecera es el de los ATRIBUTOS del empleado. Lo de la asignación queda como
-        // respaldo para cuando todavía no tenga atributos cargados.
-        Liq.ResolverParDeAtributos();
-        Liq.Insert(true);
-        Creadas += 1;
     end;
 
     var

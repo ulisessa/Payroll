@@ -306,14 +306,7 @@ codeunit 110035 "Atributos Entidad UI"
         Atributo: Record "Atributo Entidad Liq.";
         ValorAtr: Record "Valor Atributo Liq.";
     begin
-        if (CodEntidad = '') or (FechaRef = 0D) then
-            exit('');
-        Atributo.SetRange("Tipo Entidad", TipoEntidad);
-        Atributo.SetRange("Cód. Entidad", CodEntidad);
-        Atributo.SetRange("Cód. Tipo Atributo", CodTipoAtributo);
-        Atributo.SetFilter("Vigencia Desde", '<=%1', FechaRef);
-        Atributo.SetFilter("Vigencia Hasta", '%1|>=%2', 0D, FechaRef);
-        if not Atributo.FindLast() then
+        if not Atributo.Vigente(CodTipoAtributo, TipoEntidad, CodEntidad, FechaRef) then
             exit('');
         if ValorAtr.Get(CodTipoAtributo, Atributo."Cód. Valor Padre", Atributo."Cód. Valor") then
             if ValorAtr.Descripción <> '' then

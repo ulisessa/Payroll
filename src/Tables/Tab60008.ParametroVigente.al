@@ -47,6 +47,30 @@ table 60008 "Parámetro Vigente"
             DataClassification = CustomerContent;
             TableRelation = Currency;
         }
+        field(14; "Cód. Variable TC"; Code[60])
+        {
+            Caption = 'Variable Tipo de Cambio';
+            DataClassification = CustomerContent;
+            // Qué variable convierte ESTE valor a pesos. Acompaña a Moneda y por eso vive en la misma
+            // fila: tener la moneda en un lado y su tipo de cambio en otro es de las cosas que seis
+            // meses después nadie entiende.
+            //
+            // POR FILA Y NO POR PARÁMETRO, a propósito. Queda por alcance —USD_MAREA_04724 puede ir
+            // al vendedor y USD_MAREA_768/19_OF03 al comprador, porque son filas distintas— y por
+            // vigencia, así que un cambio de convención se expresa con una fila nueva en vez de
+            // reescribir la anterior.
+            //
+            // El motor TODAVÍA NO LA LEE. Hoy convierte el neto del grossing-up con el vendedor
+            // cableado (Cod50014, TipoCambioVendedor), que es correcto para los cuatro de tierra y no
+            // para todos: la producción va al comprador. El plan para encenderla, con sus seis pasos
+            // y qué verificar en cada uno, está en GROSSING_UP_Y_TC_CONFIGURABLES.md.
+            //
+            // Sin TableRelation que valide: hoy los dos candidatos —TC_COMPRADOR y TC_VENDEDOR— son
+            // Fuentes de Datos, pero el TC de una marea NO es una cotización sino un valor acordado,
+            // y ese caso puede resolverse por otra vía. El lookup ayuda a cargar; no acota.
+            TableRelation = "Fuente Datos Liquidación"."Nombre Variable";
+            ValidateTableRelation = false;
+        }
         field(6; "En Uso"; Boolean)
         {
             Caption = 'En Uso';

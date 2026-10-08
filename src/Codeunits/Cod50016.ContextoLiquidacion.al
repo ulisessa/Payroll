@@ -2,6 +2,7 @@ namespace UAS.Payroll;
 
 using Microsoft.Projects.Project.Job;
 using Microsoft.HumanResources.Employee;
+using Microsoft.HumanResources.Setup;
 using Microsoft.Foundation.Calendar;
 
 codeunit 50016 "Contexto Liquidación"
@@ -24,25 +25,45 @@ codeunit 50016 "Contexto Liquidación"
         FCodPeriodo: Code[10];
         FFechaRef: Date;
         FPeriodoFechaDesde: Date;
+        FCoberturaDesde: Date;
+        FCoberturaHasta: Date;
+        FTramosDesde: List of [Date];
+        FTramosHasta: List of [Date];
         FCodConvenio: Code[20];
         FCodCategoria: Code[20];
         FLiqNo: Code[20];
         FFrancosMgt: Codeunit "Gestión Francos";
+        FTiposCambio: Dictionary of [Text, Decimal];
         FTipoLiq: Code[20];
         FPeriodosMes: List of [Code[10]];
         FPeriodosMesCargados: Boolean;
         FParamLog: Text;
         FActualCodMap: Dictionary of [Code[50], Code[50]]; // EffectiveKey → CódParámetro real en DB
+        FBasesConFilas: Dictionary of [Code[20], Boolean]; // CódParámetroBase que tiene AL MENOS una versión vigente
         FParamBaseMap: Dictionary of [Text, Code[20]];  // NombreVar → CódParámetroBase
         FParamCodMap: Dictionary of [Text, Code[50]];   // NombreVar → CódParámetro real en DB
         FParamVigMap: Dictionary of [Text, Date];       // NombreVar → VigenciaDesde
         FMoneda: Code[10];
+        // Qué variable convierte cada parámetro en divisa, por Nombre Variable. Se llena en
+        // LoadParametros y la consume ConvertirParametrosEnDivisa, que corre después de las fuentes
+        // de datos porque es ahí donde recién existen TC_COMPRADOR y TC_VENDEDOR.
+        FParamTC: Dictionary of [Text, Code[60]];
         FTipoMap: Dictionary of [Text, Text];          // NombreVar → 'Atributo'|'Parámetro'|'Sistema'|'Fuente Datos'|'Acumulador'
         FValoresTexto: Dictionary of [Text, Text];     // NombreVar → valor en su tipo original (fuentes no numéricas)
+        FCodigosAtributos: Dictionary of [Text, Text];
         FAdvertenciasParametros: Text;
         MsgParamSinValor: Label '%1: no tiene ningún valor cargado en Parámetros Vigentes.';
+        // Los tres cortan el cálculo en vez de avisar. El resultado de no convertir es un importe en
+        // divisa haciéndose pasar por pesos: mil cuatrocientas veces más chico, sin error, y los
+        // controles de importe no lo ven porque el número es válido. Los tres se arreglan con un
+        // campo en Parámetros Vigentes o con una cotización cargada, así que cortar es barato.
+        ErrParamSinVariableTC: Label '%1 está en moneda extranjera y no declara con qué variable convertirse. Completá "Variable Tipo de Cambio" en Parámetros Vigentes: sin eso su importe quedaría en divisa y no en pesos.', Comment = '%1=nombre de la variable del parámetro';
+        ErrVariableTCInexistente: Label 'La variable %1, que %2 declara para convertirse, no existe en el contexto. Revisá que siga siendo una Fuente de Datos activa.', Comment = '%1=variable de tipo de cambio, %2=nombre de la variable del parámetro';
+        ErrVariableTCEnCero: Label 'La variable %1 vale cero a esta fecha, así que %2 no se puede convertir. Cargá la cotización de %3.', Comment = '%1=variable de tipo de cambio, %2=nombre de la variable del parámetro, %3=fecha de referencia';
         MsgCodCalculoDesconocido: Label 'La variable %1 tiene el Cód. Cálculo "%2", que el motor no conoce: vale CERO en todas las fórmulas que la usen. Revisá el código en Variables de Sistema.', Comment = '%1=nombre de la variable, %2=código de cálculo';
         MsgFuenteSinFiltros: Label 'La Fuente de Datos %1 no tiene ningún filtro cargado: está agregando la tabla entera. Si sus filtros vivían en "Filtro Fuente Datos Liq.", revisá que sigan cargados.', Comment = '%1=nombre de variable de la fuente';
+        MsgFuenteSinCampoFecha: Label 'La Fuente de Datos %1 elige la fila más reciente o más antigua, pero no declara "No. Campo Fecha Inicio": sin ese campo no hay por dónde ordenar y vale CERO. Completalo en la Fuente de Datos.', Comment = '%1=nombre de variable de la fuente';
+        MsgFuenteSinClaveUtil: Label 'La Fuente de Datos %1 pide ordenar por el campo %2, pero la tabla no tiene ninguna clave que lo contenga. En AL sólo se puede ordenar por una clave declarada, así que el recorrido queda por clave primaria. Declará la clave en la tabla o elegí otro campo.', Comment = '%1=nombre de variable de la fuente, %2=número de campo';
         MsgParamDesactualizado: Label '%1: el último valor vigente es del %2 (%3 día(s) de antigüedad respecto a la liquidación). Verifique si corresponde cargar una versión más reciente.';
         // Calendar cache — loaded once per (CodCalendario, Año), shared by CalcDiasHabilesAnio
         // and CalcDiasAltaAnio to avoid ~730 DB queries per liquidation.
@@ -62,6 +83,13 @@ codeunit 50016 "Contexto Liquidación"
         FFinEfCache: Dictionary of [Text, List of [Date]]; // Nombre Variable → fechas de inicio del scope token
         FFinEfMapa: Dictionary of [Text, Date];            // "NombreVar|fecha" → fin efectivo de ese inicio
         FFinEfOrden: Dictionary of [Text, Boolean];        // Nombre Variable → la lista vino ordenada y hay mapa
+        // Acumulados históricos por concepto — ver CargarAcumHistorico.
+        FAcumAnual: Dictionary of [Code[20], Decimal];     // Cód. Concepto → suma del año, SIN esta liquidación
+        FAcumPeriodo: Dictionary of [Code[20], Decimal];   // Cód. Concepto → suma del período, SIN esta liquidación
+        FEstaLiq: Dictionary of [Code[20], Decimal];    // Cód. Concepto → lo que ESTA liquidación lleva escrito
+        FAcumAnualCargado: Boolean;
+        FAcumPeriodoCargado: Boolean;
+        FEstaLiqCargado: Boolean;
 
     procedure Init(
         EmployeeNo: Code[20];
@@ -80,6 +108,10 @@ codeunit 50016 "Contexto Liquidación"
         FJobNo := JobNo;
         FCodPeriodo := CodPeriodo;
         FFechaRef := FechaRef;
+        // Los acumulados históricos dependen de empleado, fecha, período y liquidación: los cuatro
+        // se fijan acá, así que acá se tiran. Sin esto, un lote que reusa la instancia le pasaría
+        // los totales de un tripulante al siguiente.
+        InvalidarAcumulados();
         // LA VENTANA ES LA DE LA LIQUIDACIÓN, NO LA DEL PERÍODO. Un cierre de marea
         // vive dentro de un período mensual pero cubre sólo sus días: la del 3/1 al
         // 29/1 de enero no tiene por qué ver lo que pasó el 1 y el 2. Tomando el
@@ -100,14 +132,17 @@ codeunit 50016 "Contexto Liquidación"
         FCodCategoria := CodCategoria;
         FLiqNo := LiqNo;
         FTipoLiq := TipoLiq;
+        CargarTramos(LiqNo);
         FParamLog := '';
         FMoneda := '';
+        Clear(FParamTC);
         // Los períodos del mes se recalculan por liquidación: el mismo codeunit se reusa para todo
         // un lote, y un lote puede cruzar meses.
         Clear(FPeriodosMes);
         FPeriodosMesCargados := false;
         FAdvertenciasParametros := '';
         Clear(FValoresTexto);
+        Clear(FCodigosAtributos);
         Clear(FActualCodMap);
         Clear(FParamBaseMap);
         Clear(FParamCodMap);
@@ -133,8 +168,90 @@ codeunit 50016 "Contexto Liquidación"
         Clear(Ctx);
         LoadScalars(Ctx);
         LoadDynamicSources(Ctx);
+        // VA DESPUÉS DE LoadDynamicSources Y NO DENTRO DE LoadParametros, que sería el lugar obvio:
+        // TC_COMPRADOR y TC_VENDEDOR son Fuentes de Datos, así que mientras se cargan los parámetros
+        // todavía no existen. Convertir ahí los dejaría en cero.
+        //
+        // Y NO se resuelve adelantando LoadDynamicSources: LoadAtributos está escrito para no pisar
+        // lo que ya ocupó un parámetro o una fuente, y mover el orden invierte esa precedencia.
+        ConvertirParametrosEnDivisa(Ctx);
         LoadAtributos(Ctx);
         InitAccumulators(Ctx);
+    end;
+
+    /// <summary>
+    /// Resuelve las Fuentes de Datos TC_* y se las presta al ledger de francos.
+    /// </summary>
+    /// <remarks>
+    /// POR QUÉ EL LEDGER NO PUEDE LEERLAS DEL CONTEXTO. Busca el precio con el convenio y la
+    /// categoría SELLADOS EN CADA LOTE, no con el par de esta liquidación —es lo que hace al franco
+    /// no fungible—, así que lee `Parámetro Vigente` por su cuenta y se saltea
+    /// `ConvertirParametrosEnDivisa`. Sin esto, una fila en divisa se usaría como si fueran pesos.
+    ///
+    /// DÓNDE SE LLAMA: en medio de LoadScalars, entre LoadParametros —que es donde se conoce
+    /// FMoneda, que el filtro de la fuente necesita— y LoadVariablesSistema, que es donde se valúan
+    /// los francos. La ventana es de una línea.
+    ///
+    /// SE LE PASA TAMBIÉN AL MOTOR. `Cod50014` tiene su PROPIA instancia de Gestión Francos para el
+    /// desglose por lote, y una instancia no ve lo que se le publicó a la otra: el motor las pide
+    /// con `GetTiposCambioFrancos` después de armar el contexto.
+    /// </remarks>
+    local procedure ResolverTiposCambioFrancos()
+    var
+        Fuente: Record "Fuente Datos Liquidación";
+        Nombre: Text;
+    begin
+        Clear(FTiposCambio);
+        Fuente.SetRange(Activo, true);
+        Fuente.SetFilter("Nombre Variable", 'TC_*');
+        if Fuente.FindSet() then
+            repeat
+                Nombre := Fuente."Nombre Variable";
+                if FTiposCambio.ContainsKey(Nombre) then
+                    FTiposCambio.Set(Nombre, ResolveFuente(Fuente))
+                else
+                    FTiposCambio.Add(Nombre, ResolveFuente(Fuente));
+            until Fuente.Next() = 0;
+        FFrancosMgt.PublicarTiposCambio(FTiposCambio);
+    end;
+
+    /// <summary>Las cotizaciones ya resueltas, para la otra instancia del ledger.</summary>
+    procedure GetTiposCambioFrancos(var TCs: Dictionary of [Text, Decimal])
+    begin
+        TCs := FTiposCambio;
+    end;
+
+    /// <summary>
+    /// Las cotizaciones TC_* a una fecha, para quien valúa francos SIN armar un contexto de
+    /// liquidación.
+    /// </summary>
+    /// <remarks>
+    /// ESTE ES EL CAMINO DE LAS PÁGINAS. `GetTiposCambioFrancos` sirve al motor, que ya armó el
+    /// contexto y sólo pide prestadas las cotizaciones que resolvió. Una página no armó nada: abre
+    /// el detalle de una línea ya calculada y reconstruye el desglose por lote, así que su instancia
+    /// del ledger nace con el diccionario vacío y la primera fila en divisa corta con
+    /// `ErrFrancoTCInexistente` —"la cotización no existe en el contexto de la liquidación"—.
+    ///
+    /// Es la tercera vez que aparece el mismo agujero: una instancia de Gestión Francos no ve lo que
+    /// se le publicó a otra. Lo tenían el motor y el desglose por lote de `Cod50014`; faltaban las
+    /// dos páginas. En vez de que cada llamador aprenda la firma de `Init`, se la encierra acá.
+    ///
+    /// El par convenio/categoría va vacío A PROPÓSITO: las fuentes TC_* son cotizaciones por fecha y
+    /// no dependen del encuadre, y el franco se valúa con el par SELLADO EN SU LOTE, que el ledger
+    /// lee por su cuenta. Pasar el par del tripulante de hoy sería justo el error que hace al franco
+    /// fungible.
+    ///
+    /// LA MONEDA SÍ HAY QUE PASARLA, y va DESPUÉS de `Init`, que la limpia. `TC_COMPRADOR` filtra la
+    /// cotización por `{MONEDA}`, token que llena `LoadParametros` —acá no corre—, así que sin esto
+    /// el filtro queda vacío y la fuente devuelve la cotización de otra divisa o cero. El llamador
+    /// la saca de `GestionFrancos.MonedaDelPrecio`, que la lee del parámetro del precio.
+    /// </remarks>
+    procedure TiposCambioFrancosAFecha(EmployeeNo: Code[20]; FechaRef: Date; Moneda: Code[10]; var TCs: Dictionary of [Text, Decimal])
+    begin
+        Init(EmployeeNo, '', '', FechaRef, '', '', '', '', 0D);
+        FMoneda := Moneda;
+        ResolverTiposCambioFrancos();
+        TCs := FTiposCambio;
     end;
 
     /// <summary>
@@ -189,6 +306,13 @@ codeunit 50016 "Contexto Liquidación"
         if TipoAtr.FindSet() then
             repeat
                 DefinirEnCero(Ctx, TipoAtr."Nombre Variable", 'Atributo');
+                // El compañero <VAR>_ULT_MAREA, por el mismo motivo que el _ESFCY de los parámetros
+                // doce líneas más arriba: es un nombre que sólo existe en runtime, y este contexto
+                // es el que la validación previa usa para decidir si una fórmula nombra algo que no
+                // existe. Sin esto la liquidación ni siquiera llega a calcularse: ValidarFormulas
+                // corta antes, y el error apunta a la variable como si estuviera mal escrita.
+                if TipoAtr."Publicar Última Marea" then
+                    DefinirEnCero(Ctx, TipoAtr."Nombre Variable" + '_ULT_MAREA', 'Atributo');
             until TipoAtr.Next() = 0;
 
         InitAccumulators(Ctx);
@@ -244,6 +368,16 @@ codeunit 50016 "Contexto Liquidación"
         if not RestaurarValoresDelPar(ClaveNueva, Ctx) then begin
             FSilenciarAvisosParam := true;
             LoadParametros(Ctx);
+            // HAY QUE VOLVER A CONVERTIR. LoadParametros pisa el contexto con los valores crudos de
+            // la base, así que los parámetros en divisa del par nuevo entran en divisa y la pasada
+            // de la carga inicial ya pasó. Sin esto, un concepto marcado con otro par lee dólares
+            // creyendo que son pesos: el 03664 tenía BASE_PROD_CAL convertido y PROD_EMPRESA sin
+            // convertir EN LA MISMA LIQUIDACIÓN, porque uno usa el par del empleado y el otro el de
+            // la asignación. No se nota como error, sólo como un importe mil veces más chico.
+            //
+            // Va ANTES de GuardarValoresDelPar: lo que se cachea tiene que ser el valor convertido,
+            // porque al volver al par se restaura de la caché y no se recarga.
+            ConvertirParametrosEnDivisa(Ctx);
             FSilenciarAvisosParam := false;
             GuardarValoresDelPar(ClaveNueva, Ctx);
         end;
@@ -354,7 +488,63 @@ codeunit 50016 "Contexto Liquidación"
     local procedure LoadScalars(var Ctx: Dictionary of [Text, Decimal])
     begin
         LoadParametros(Ctx);
+        // JUSTO ACÁ, EN MEDIO DE LAS DOS, y la ventana es de una sola línea de ancho:
+        //   • DESPUÉS de LoadParametros porque el filtro de TC_COMPRADOR es `{MONEDA}`, y FMoneda
+        //     recién se conoce ahí —sale de la primera fila de parámetro que venga en divisa—.
+        //     Antes, el filtro queda en blanco, la fuente no trae ninguna fila y el TC da cero.
+        //   • ANTES de LoadVariablesSistema porque PAGO_FRANCOS_FIFO y SALDO_FRANCOS valúan contra
+        //     el ledger, que ya necesita la cotización para convertir el precio del franco.
+        // No sirve ponerlo junto al resto de las Fuentes de Datos: LoadDynamicSources corre después
+        // de LoadScalars y para entonces los francos ya se valuaron.
+        ResolverTiposCambioFrancos();
         LoadVariablesSistema(Ctx);
+    end;
+
+    /// <summary>Convierte a pesos los parámetros cargados en divisa, con el TC que cada uno declara.</summary>
+    /// <remarks>
+    /// Segunda pasada: los parámetros entran al contexto en su divisa y acá se convierten, una vez
+    /// que las Fuentes de Datos ya pusieron TC_COMPRADOR y TC_VENDEDOR sobre la mesa.
+    ///
+    /// APAGADA POR DEFECTO. Mientras "Convertir Param. por TC" esté en falso el motor se comporta
+    /// como siempre y esto no toca nada. El plan para encenderla —y por qué hay que migrar en el
+    /// mismo movimiento las 4 fórmulas que todavía usan {VARIABLE}_ESFCY— está en
+    /// GROSSING_UP_Y_TC_CONFIGURABLES.md.
+    ///
+    /// El valor de {VARIABLE}_ESFCY se deja como está aunque el valor ya esté convertido: apagar la
+    /// bandera volvería a multiplicar, y mientras la llave de paso exista las dos lecturas tienen que
+    /// seguir contando la misma historia. Se limpia cuando se retire el mecanismo viejo.
+    /// </remarks>
+    local procedure ConvertirParametrosEnDivisa(var Ctx: Dictionary of [Text, Decimal])
+    var
+        HRSetup: Record "Human Resources Setup";
+        NombreVar: Text;
+        NombreTC: Code[60];
+        TipoCambio: Decimal;
+    begin
+        if not HRSetup.Get() then
+            exit;
+        if not HRSetup."Convertir Param. por TC" then
+            exit;
+
+        // Los tres casos que no pueden convertir CORTAN. Antes avisaban y dejaban el importe en
+        // divisa, que es la peor de las opciones: un número válido, mil cuatrocientas veces más
+        // chico, que ningún control de importe detecta. Convertir por 1 sería lo mismo.
+        //
+        // Cortar es barato porque los tres se arreglan con un campo o con una cotización, y porque
+        // la llave de paso sigue ahí: apagar "Convertir Param. por TC" vuelve al comportamiento
+        // viejo sin publicar.
+        foreach NombreVar in FParamTC.Keys() do begin
+            NombreTC := FParamTC.Get(NombreVar);
+            if NombreTC = '' then
+                Error(ErrParamSinVariableTC, NombreVar);
+            if not Ctx.ContainsKey(NombreTC) then
+                Error(ErrVariableTCInexistente, NombreTC, NombreVar);
+            TipoCambio := Ctx.Get(NombreTC);
+            if TipoCambio <= 0 then
+                Error(ErrVariableTCEnCero, NombreTC, NombreVar, FFechaRef);
+            if Ctx.ContainsKey(NombreVar) then
+                Ctx.Set(NombreVar, Ctx.Get(NombreVar) * TipoCambio);
+        end;
     end;
 
     local procedure LoadParametros(var Ctx: Dictionary of [Text, Decimal])
@@ -365,13 +555,21 @@ codeunit 50016 "Contexto Liquidación"
         ValorMap: Dictionary of [Code[50], Decimal];
         VigMap: Dictionary of [Code[50], Date];
         MonedaMap: Dictionary of [Code[50], Code[10]];
+        TCMap: Dictionary of [Code[50], Code[60]];
         Valor: Decimal;
         VigDate: Date;
         Moneda: Code[10];
         NombreEsFCY: Text;
         EsFCY: Decimal;
     begin
-        BuildParametroCache(ValorMap, VigMap, MonedaMap);
+        BuildParametroCache(ValorMap, VigMap, MonedaMap, TCMap);
+
+        // FParamTC se rearma de cero en cada pasada, igual que la caché de valores. UsarParCCT
+        // vuelve a llamar acá con otro par, y un parámetro puede estar en divisa en un par y en
+        // pesos en el otro —BASICO y los dos PRECIO_PUERTO_* son mixtos a propósito—. Conservar la
+        // entrada del par anterior haría que la conversión multiplique por el tipo de cambio un
+        // valor que ya está en pesos.
+        Clear(FParamTC);
 
         // La lista de nombres que esta pasada escribe en el contexto. La usa la caché por par para
         // saber qué copiar y qué restaurar sin volver a la base.
@@ -410,6 +608,8 @@ codeunit 50016 "Contexto Liquidación"
                 EsFCY := 1;
                 if FMoneda = '' then
                     FMoneda := Moneda;
+                if TCMap.ContainsKey(CodigoEfectivo) then
+                    FParamTC.Set(Param."Nombre Variable", TCMap.Get(CodigoEfectivo));
             end else
                 EsFCY := 0;
             if not Ctx.ContainsKey(NombreEsFCY) then
@@ -484,13 +684,29 @@ codeunit 50016 "Contexto Liquidación"
         // armar el contexto: sin esto, cada concepto marcado repetiría los mismos avisos.
         if FSilenciarAvisosParam then exit;
         if Format(Param."Antigüedad Máxima Vigencia") = '' then exit;
-        if VigDate = 0D then
-            Mensaje := StrSubstNo(MsgParamSinValor, Param."Nombre Variable")
-        else begin
+        if VigDate = 0D then begin
+            // Un parámetro cargado por convenio, por par o por empleado no resuelve para quien
+            // queda fuera de ese alcance, y eso es lo normal: la fórmula que lo consume lo envuelve
+            // en IFZERO. Pero LoadParametros recorre TODOS los parámetros en TODAS las
+            // liquidaciones, así que sin este corte cada uno dejaba un aviso por liquidación de
+            // cada empleado ajeno a su alcance: 4.683 de COEF_GUARDIA_PUERTO, 5.481 de
+            // PRECIO_PUERTO_CAL y 4.174 de PRECIO_PUERTO_LAN sólo en enero de 2026.
+            //
+            // Lo que sí hay que avisar es la base que no tiene NINGUNA versión vigente a la fecha:
+            // ahí falta una carga, no un alcance.
+            if FBasesConFilas.ContainsKey(Param.Código) then exit;
+            Mensaje := StrSubstNo(MsgParamSinValor, Param."Nombre Variable");
+        end else begin
             FechaLimite := CalcDate(Param."Antigüedad Máxima Vigencia", FFechaRef);
             if VigDate < FechaLimite then
                 Mensaje := StrSubstNo(MsgParamDesactualizado, Param."Nombre Variable", VigDate, FFechaRef - VigDate);
         end;
+        AgregarAdvertenciaParametro(Mensaje);
+    end;
+
+    /// <summary>Suma un aviso a la tira que el motor muestra al terminar de calcular.</summary>
+    local procedure AgregarAdvertenciaParametro(Mensaje: Text)
+    begin
         if Mensaje = '' then exit;
         if FAdvertenciasParametros <> '' then
             FAdvertenciasParametros += '\';
@@ -521,24 +737,33 @@ codeunit 50016 "Contexto Liquidación"
     local procedure BuildParametroCache(
         var ValorMap: Dictionary of [Code[50], Decimal];
         var VigMap: Dictionary of [Code[50], Date];
-        var MonedaMap: Dictionary of [Code[50], Code[10]])
+        var MonedaMap: Dictionary of [Code[50], Code[10]];
+        var TCMap: Dictionary of [Code[50], Code[60]])
     var
         ParamVig: Record "Parámetro Vigente";
         EffKey: Code[50];
     begin
+        Clear(FBasesConFilas);
         ParamVig.SetCurrentKey("Cód. Parámetro", "Vigencia Desde");
         ParamVig.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
         if not ParamVig.FindSet() then exit;
         repeat
             EffKey := EffectiveKey(ParamVig);
+            // Qué bases llegaron a tener alguna versión vigente a esta fecha, sin importar para
+            // qué alcance. Lo usa CheckVigenciaDesactualizada para no confundir "no está cargado"
+            // con "no aplica a este empleado".
+            if not FBasesConFilas.ContainsKey(ParamVig."Cód. Parámetro Base") then
+                FBasesConFilas.Add(ParamVig."Cód. Parámetro Base", true);
             if ValorMap.ContainsKey(EffKey) then begin
                 ValorMap.Set(EffKey, ParamVig.Valor);
                 VigMap.Set(EffKey, ParamVig."Vigencia Desde");
                 MonedaMap.Set(EffKey, ParamVig.Moneda);
+                TCMap.Set(EffKey, ParamVig."Cód. Variable TC");
             end else begin
                 ValorMap.Add(EffKey, ParamVig.Valor);
                 VigMap.Add(EffKey, ParamVig."Vigencia Desde");
                 MonedaMap.Add(EffKey, ParamVig.Moneda);
+                TCMap.Add(EffKey, ParamVig."Cód. Variable TC");
             end;
             FActualCodMap.Set(EffKey, ParamVig."Cód. Parámetro");
         until ParamVig.Next() = 0;
@@ -657,6 +882,7 @@ codeunit 50016 "Contexto Liquidación"
     local procedure ComputeVariableSistema(VarSis: Record "Variable Sistema Liq."): Decimal
     var
         Cat: Record "Categoría CCT";
+        TipoLiq: Record "Tipo Liquidación";
     begin
         case VarSis."Cód. Cálculo" of
             'AÑOS_ANTIGUEDAD':
@@ -665,6 +891,8 @@ codeunit 50016 "Contexto Liquidación"
                 exit(CalcAntiguedadAl30Junio());
             'DIAS_HAB':
                 exit(CalcDiasHabiles());
+            'DIAS_MES':
+                exit(CalcDiasMes());
             'DIAS_FERIADOS':
                 // Calendar days in [Período.Fecha Desde, Fecha Hasta] with a date-specific "Base Calendar
                 // Change" entry marked Nonworking = true. Only counts genuine feriados (fixed-date
@@ -690,7 +918,16 @@ codeunit 50016 "Contexto Liquidación"
                 // nombre: las fórmulas lo escribían como DIAS_PROYECTO+DIAS_PUERTO cada vez, y en
                 // los campos que esperan el NOMBRE de una variable —Variable Base— esa suma no se
                 // podía expresar y quedaba en cero sin avisar.
-                exit(CalcDiasNavegacionMarea() + CalcDiasPuertoMarea());
+                //
+                // LOS DÍAS DE PUERTO DE FUERA DE LA ASIGNACIÓN SE RESTAN, y es la razón de ser de
+                // esta variable frente a DIAS_PROYECTO + DIAS_PUERTO escritos a mano. La marea son
+                // los días del BUQUE, de la zarpada al arribo; un tripulante que sube antes a hacer
+                // trabajos de puerto suma un día SUYO, que el 1083 paga y que NO estira la marea.
+                // DIAS_MAREA alimenta el objetivo del grossing-up y la producción, y ahí ese día no
+                // va: el acuerdo se prorratea sobre los días del viaje. Medido contra el recibo de
+                // Meta4, que lleva las dos cuentas por separado —DIAS_NAVEG 22, DIAS_PUERTO 1,
+                // DIAS_MAREA 23— y prorratea el acuerdo sobre 22.
+                exit(CalcDiasNavegacionMarea() + CalcDiasPuertoDelViaje());
             'DIAS_FERIADOS_MAREA':
                 // Feriados within the marea's own window (not the período's full range) — días
                 // efectivamente a bordo. Para recargo por feriado trabajado (Art. 166 LCT) en la marea.
@@ -730,6 +967,14 @@ codeunit 50016 "Contexto Liquidación"
                 exit(CalcVacacionesProporcionales());
             'MESES_PROM_VAC':
                 exit(CalcMesesPromedioVacaciones());
+            'MESES_PROM_AUS_6':
+                exit(CalcMesesPromedioAusencia(6));
+            'MESES_PROM_AUS_12':
+                exit(CalcMesesPromedioAusencia(12));
+            'DIAS_ESTADO_PERIODO':
+                exit(CalcDiasEstadoPeriodo(VarSis."Cód. Estado"));
+            'DIAS_ESTADO_PREVIOS':
+                exit(CalcDiasEstadoPrevios(VarSis."Cód. Estado"));
             'DIAS_VAC_PERIODO':
                 // Days the employee was in a Vacaciones state that overlap with the current billing period.
                 // Use this as the divisor/multiplier in the vacation day discount formula (concept 4743).
@@ -741,6 +986,27 @@ codeunit 50016 "Contexto Liquidación"
                 // Calendar month number of the reference date (1 = January … 12 = December).
                 // Used to project YTD income to annual: (HAB_GRAV_ANUAL + BASE_IG4) / MES_ANUAL * 12.
                 exit(Date2DMY(FFechaRef, 2));
+            'TIPO_LIQ':
+                // El Orden del tipo de liquidación de esta corrida, para que una fórmula pueda
+                // comportarse distinto según el documento. El caso que lo motivó: la producción de
+                // una marea (PROD_KN_MAREA) son los kilos de la marea ENTERA, así que sólo es
+                // comparable en un cierre; en un devengado a mitad de marea hay que ir por el
+                // garantizado, que sí está prorrateado por los días del período.
+                //
+                // Se devuelve el Orden y no el código porque las fórmulas son numéricas.
+                // Tab50578 obliga a que el Orden sea único justamente para que IF(TIPO_LIQ = 1, …)
+                // identifique un solo tipo.
+                //
+                // OJO con el cero: una liquidación sin Cód. Tipo Liq. —las viejas, anteriores a la
+                // migración— también da cero, y cero es el Orden de SALDO_INICIAL. Comparar contra
+                // 0 no distingue esos dos casos; contra cualquier otro Orden sí.
+                begin
+                    if FTipoLiq = '' then
+                        exit(0);
+                    if TipoLiq.Get(FTipoLiq) then
+                        exit(TipoLiq.Orden);
+                    exit(0);
+                end;
             'YTD_ACUM':
                 exit(CalcImporteAnualPorAcumulador(VarSis."Cód. Acumulador"));
             'PERIODO_ACUM':
@@ -766,33 +1032,161 @@ codeunit 50016 "Contexto Liquidación"
 
     // Returns the YTD sum of LinLiq.Importe for all concepts that feed CodAcum
     // ("Invertir Signo" = false, latest Vigencia <= FFechaRef). Each distinct concept code counted once.
+    /// <summary>
+    /// Carga de una sola vez, agrupados por concepto, los importes históricos del empleado — el del
+    /// año para YTD_ACUM y el del período para PERIODO_ACUM.
+    /// </summary>
+    /// <remarks>
+    /// POR QUE EXISTE. Antes cada lectura de un acumulador hacía UN CalcSums POR CONCEPTO de la
+    /// fracción. Un acumulador con 100 conceptos son 100 consultas, no hay memoización de variables
+    /// de sistema —cada fórmula que lo nombra vuelve a resolverlo— y hay varios acumuladores por
+    /// liquidación. En el perfil de la 1.0.0.497 eso daba 3,41 s en el del período y 2,06 s en el
+    /// anual sobre 27,4 s de cálculo. Acá se recorre UNA vez el conjunto del empleado y se suma por
+    /// concepto en memoria.
+    ///
+    /// LOS DOS EXCLUYEN LA LIQUIDACIÓN EN CURSO, y eso NO es lo que hacía el anual. El del período ya
+    /// la excluía. El anual no: sus líneas se escriben con Estado Calculada, así que entran en el
+    /// filtro "Estado distinto de Borrador" y el importe del concepto NO es sólo histórico. Por eso se cachea
+    /// la parte que no se mueve y lo de esta liquidación se lee aparte — ver CargarEstaLiq.
+    ///
+    /// HOY ESA SEGUNDA LECTURA VUELVE VACÍA SIEMPRE, y conviene saberlo antes de "simplificarla":
+    /// las variables de sistema se resuelven una sola vez, en BuildContext, y para entonces
+    /// DeleteLineas ya borró las líneas de esta liquidación y RunConceptos todavía no escribió
+    /// ninguna. Es una consulta que no devuelve filas. Se deja porque es lo que hace que la función
+    /// dé bien SIN IMPORTAR CUÁNDO se la llame: el día que alguien recalcule un acumulador a mitad
+    /// de la corrida —como ya hace RecargarPctEscala con PCT_ESCALA— sin esto el valor perdería en
+    /// silencio todo lo que la liquidación lleva liquidado.
+    ///
+    /// SE CARGA CON SetLoadFields porque sólo hacen falta dos campos de una tabla ancha, y el año de
+    /// un tripulante son cientos de líneas.
+    /// </remarks>
+    local procedure CargarAcumHistorico(Anual: Boolean)
+    var
+        LinLiq: Record "Línea Liquidación";
+        Acumulado: Decimal;
+    begin
+        LinLiq.Reset();
+        LinLiq.SetLoadFields("Cód. Concepto", Importe);
+        LinLiq.SetRange("No. Empleado", FEmployeeNo);
+        if Anual then begin
+            LinLiq.SetCurrentKey("No. Empleado", "Fecha Liquidación");
+            LinLiq.SetRange("Fecha Liquidación", DMY2Date(1, 1, Date2DMY(FFechaRef, 3)), FFechaRef);
+        end else begin
+            LinLiq.SetCurrentKey("No. Empleado", "Cód. Período", "Tipo Concepto");
+            LinLiq.SetRange("Cód. Período", FCodPeriodo);
+        end;
+        LinLiq.SetFilter(Estado, '<>%1', LinLiq.Estado::Borrador);
+        if FLiqNo <> '' then
+            LinLiq.SetFilter("No. Liquidación", '<>%1', FLiqNo);
+        if LinLiq.FindSet() then
+            repeat
+                if Anual then begin
+                    if FAcumAnual.Get(LinLiq."Cód. Concepto", Acumulado) then
+                        FAcumAnual.Set(LinLiq."Cód. Concepto", Acumulado + LinLiq.Importe)
+                    else
+                        FAcumAnual.Add(LinLiq."Cód. Concepto", LinLiq.Importe);
+                end else
+                    if FAcumPeriodo.Get(LinLiq."Cód. Concepto", Acumulado) then
+                        FAcumPeriodo.Set(LinLiq."Cód. Concepto", Acumulado + LinLiq.Importe)
+                    else
+                        FAcumPeriodo.Add(LinLiq."Cód. Concepto", LinLiq.Importe);
+            until LinLiq.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Lo que la liquidación EN CURSO lleva liquidado, por concepto, dentro de la ventana del año.
+    /// </summary>
+    /// <remarks>
+    /// SE ARMA EL MAPA ENTERO DE UNA VEZ, nunca por concepto: releerlo concepto por concepto serían
+    /// 150 consultas para REMUNERATIVO_BRUTO, que es cambiar 150 consultas grandes por 150 chicas.
+    ///
+    /// Y SE CACHEA CON LA MISMA VIDA QUE EL HISTÓRICO, o sea hasta el próximo Init. Antes se releía
+    /// en cada lectura de acumulador —una consulta por variable YTD— y el perfil 165 le puso precio:
+    /// 41 muestras, 1,5% del tiempo ocupado, por una consulta que hoy NO DEVUELVE FILAS NUNCA. Las
+    /// variables de sistema se resuelven todas juntas en BuildContext, cuando DeleteLineas ya borró
+    /// las líneas de esta liquidación y RunConceptos todavía no escribió ninguna.
+    ///
+    /// SI ALGÚN DÍA SE RECALCULA UN ACUMULADOR A MITAD DE LA CORRIDA —como ya hace RecargarPctEscala
+    /// con PCT_ESCALA— hay que llamar a InvalidarAcumulados() antes, o el valor va a quedar con la
+    /// foto vieja. Esa es la contrapartida de no releer, y por eso el invalidador es público y tiene
+    /// nombre: para que se encuentre desde el lugar donde haría falta.
+    /// </remarks>
+    /// <summary>
+    /// Tira las tres cachés de acumulados: el histórico del año, el del período y lo que esta
+    /// liquidación lleva escrito.
+    /// </summary>
+    /// <remarks>
+    /// La llama Init, porque las tres dependen de empleado, fecha, período y liquidación, y los
+    /// cuatro se fijan ahí. Es pública además para el caso que hoy no existe pero es el que puede
+    /// romper esto en silencio: alguien que vuelva a pedir un acumulador DESPUÉS de que la corrida
+    /// escribió líneas. Sin invalidar, se lleva la foto de antes de escribirlas.
+    /// </remarks>
+    procedure InvalidarAcumulados()
+    begin
+        Clear(FAcumAnual);
+        Clear(FAcumPeriodo);
+        Clear(FEstaLiq);
+        FAcumAnualCargado := false;
+        FAcumPeriodoCargado := false;
+        FEstaLiqCargado := false;
+    end;
+
+    local procedure CargarEstaLiq(var Mapa: Dictionary of [Code[20], Decimal])
+    var
+        LinLiq: Record "Línea Liquidación";
+        Acumulado: Decimal;
+    begin
+        Clear(Mapa);
+        if FLiqNo = '' then
+            exit;
+        LinLiq.Reset();
+        LinLiq.SetLoadFields("Cód. Concepto", Importe);
+        LinLiq.SetRange("No. Liquidación", FLiqNo);
+        LinLiq.SetRange("Fecha Liquidación", DMY2Date(1, 1, Date2DMY(FFechaRef, 3)), FFechaRef);
+        LinLiq.SetFilter(Estado, '<>%1', LinLiq.Estado::Borrador);
+        if LinLiq.FindSet() then
+            repeat
+                if Mapa.Get(LinLiq."Cód. Concepto", Acumulado) then
+                    Mapa.Set(LinLiq."Cód. Concepto", Acumulado + LinLiq.Importe)
+                else
+                    Mapa.Add(LinLiq."Cód. Concepto", LinLiq.Importe);
+            until LinLiq.Next() = 0;
+    end;
+
     local procedure CalcImporteAnualPorAcumulador(CodAcum: Code[20]): Decimal
     var
         Fraccion: Record "Fracción Acumulador";
-        LinLiq: Record "Línea Liquidación";
         Procesados: Dictionary of [Code[20], Boolean];
-        AnioInicio: Date;
+        Importe: Decimal;
+        Parcial: Decimal;
         Total: Decimal;
     begin
-        AnioInicio := DMY2Date(1, 1, Date2DMY(FFechaRef, 3));
+        if not FAcumAnualCargado then begin
+            CargarAcumHistorico(true);
+            FAcumAnualCargado := true;
+        end;
+        if not FEstaLiqCargado then begin
+            CargarEstaLiq(FEstaLiq);
+            FEstaLiqCargado := true;
+        end;
+
         Fraccion.SetCurrentKey("Cód. Acumulador", "Vigencia Desde");
         Fraccion.SetRange("Cód. Acumulador", CodAcum);
-        //Fraccion.SetRange("Invertir Signo", false);
         Fraccion.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
         if not Fraccion.FindSet() then exit(0);
         repeat
             if not Procesados.ContainsKey(Fraccion."Cód. Concepto") then begin
                 Procesados.Add(Fraccion."Cód. Concepto", true);
-                LinLiq.Reset();
-                LinLiq.SetRange("No. Empleado", FEmployeeNo);
-                LinLiq.SetRange("Fecha Liquidación", AnioInicio, FFechaRef);
-                LinLiq.SetRange("Cód. Concepto", Fraccion."Cód. Concepto");
-                LinLiq.SetFilter(Estado, '<>%1', LinLiq.Estado::Borrador);
-                LinLiq.CalcSums(Importe);
-                If Fraccion."Invertir Signo" then
-                    Total -= LinLiq.Importe
+                // El histórico sale de la caché; lo de esta liquidación se relee, porque crece
+                // mientras se calcula. La suma de los dos es lo que devolvía el CalcSums de antes.
+                if not FAcumAnual.Get(Fraccion."Cód. Concepto", Importe) then
+                    Importe := 0;
+                if FEstaLiq.Get(Fraccion."Cód. Concepto", Parcial) then
+                    Importe += Parcial;
+                if Fraccion."Invertir Signo" then
+                    Total -= Importe
                 else
-                    Total += LinLiq.Importe;
+                    Total += Importe;
             end;
         until Fraccion.Next() = 0;
         exit(Total);
@@ -819,12 +1213,19 @@ codeunit 50016 "Contexto Liquidación"
     local procedure CalcImportePeriodoPorAcumulador(CodAcum: Code[20]): Decimal
     var
         Fraccion: Record "Fracción Acumulador";
-        LinLiq: Record "Línea Liquidación";
         Procesados: Dictionary of [Code[20], Boolean];
+        Importe: Decimal;
         Total: Decimal;
     begin
         if (CodAcum = '') or (FCodPeriodo = '') then
             exit(0);
+
+        // ACÁ NO HAY PARTE VIVA, al revés que en el anual: este acumulador ya excluía la liquidación
+        // en curso, así que lo que queda son liquidaciones que nadie está tocando. La caché alcanza.
+        if not FAcumPeriodoCargado then begin
+            CargarAcumHistorico(false);
+            FAcumPeriodoCargado := true;
+        end;
 
         Fraccion.SetCurrentKey("Cód. Acumulador", "Vigencia Desde");
         Fraccion.SetRange("Cód. Acumulador", CodAcum);
@@ -834,19 +1235,12 @@ codeunit 50016 "Contexto Liquidación"
         repeat
             if not Procesados.ContainsKey(Fraccion."Cód. Concepto") then begin
                 Procesados.Add(Fraccion."Cód. Concepto", true);
-                LinLiq.Reset();
-                LinLiq.SetCurrentKey("No. Empleado", "Cód. Período", "Tipo Concepto");
-                LinLiq.SetRange("No. Empleado", FEmployeeNo);
-                LinLiq.SetRange("Cód. Período", FCodPeriodo);
-                LinLiq.SetRange("Cód. Concepto", Fraccion."Cód. Concepto");
-                if FLiqNo <> '' then
-                    LinLiq.SetFilter("No. Liquidación", '<>%1', FLiqNo);
-                LinLiq.SetFilter(Estado, '<>%1', LinLiq.Estado::Borrador);
-                LinLiq.CalcSums(Importe);
+                if not FAcumPeriodo.Get(Fraccion."Cód. Concepto", Importe) then
+                    Importe := 0;
                 if Fraccion."Invertir Signo" then
-                    Total -= LinLiq.Importe
+                    Total -= Importe
                 else
-                    Total += LinLiq.Importe;
+                    Total += Importe;
             end;
         until Fraccion.Next() = 0;
         exit(Total);
@@ -989,10 +1383,17 @@ codeunit 50016 "Contexto Liquidación"
         EmpRel.SetFilter("Cód. Tipo Ded.", '<>%1', '');
         if EmpRel.FindSet() then
             repeat
+                // SIN FECHA DE ALTA NO HAY DEDUCCIÓN. Tener el familiar en la ficha no alcanza: la
+                // ficha sirve también para asignaciones familiares, obra social y adherentes. Lo que
+                // habilita la deducción de Ganancias es haberlo dado de alta A EFECTOS DEL IMPUESTO,
+                // que es un dato aparte —el F.572 del empleado—. Antes un alta en blanco se leía como
+                // "vigente desde siempre" y se deducía de más: un cónyuge que nunca se declaró
+                // bajaba la retención todos los meses sin que nada lo marcara.
                 FechaIngresoImp := FechaIngresoImpuesto(EmpRel);
                 FechaEgresoImp := FechaEgresoImpuesto(EmpRel);
-                if ((FechaIngresoImp = 0D) or (FechaIngresoImp <= FFechaRef)) and
-                   ((FechaEgresoImp = 0D) or (FechaEgresoImp >= FPeriodoFechaDesde))
+                if (FechaIngresoImp <> 0D) and (FechaIngresoImp <= FFechaRef) and
+                   ((FechaEgresoImp = 0D) or (FechaEgresoImp >= FPeriodoFechaDesde)) and
+                   DentroDeEdad(EmpRel)
                 then begin
                     CodTipo := EmpRel."Cód. Tipo Ded.";
                     PctRel := EmpRel."% Deducción";
@@ -1075,53 +1476,91 @@ codeunit 50016 "Contexto Liquidación"
     // Seniority = sum of all employment periods (Alta → Baja) + Antigüedad Reconocida.
     // Intermediate states (Vacaciones, Enfermedad, Suspensión) are inside a period and
 
+    /// <summary>
+    /// ¿El familiar está dentro del tope de edad que fija su tipo de deducción?
+    /// </summary>
+    /// <remarks>
+    /// "Se podrán declarar a cargo al cónyuge, conviviente, hijos e hijastros MENORES DE 18 AÑOS de
+    /// edad, o INCAPACITADOS SIN LÍMITE DE EDAD". El tope lo trae el parámetro del tipo —HIJO lleva
+    /// 18, HIJO_INC y CONYUGE no llevan ninguno— así que acá no hay ningún código de tipo escrito.
+    ///
+    /// EL MES DEL CUMPLEAÑOS CUENTA: el hijo que cumple 18 el 20 de marzo se deduce en marzo y deja
+    /// de deducirse en abril. Es el mismo criterio binario que usa el resto de la función, que
+    /// aplica la deducción anual completa cuando el familiar es válido y no la prorratea.
+    ///
+    /// SE MIDE CONTRA EL INICIO DEL PERÍODO, NO CONTRA EL DE LA COBERTURA, y por eso lee el período
+    /// en vez de usar FPeriodoFechaDesde como hace el test de alta y baja unas líneas más arriba.
+    /// La diferencia importa cuando alguien tiene dos liquidaciones en el mismo mes: un cierre de
+    /// marea cubre del 3 al 29 y la regular de la nómina del 1 al 31, así que un hijo que cumple 18
+    /// el 2 de enero quedaría deducido en una y no en la otra, y la retención oscilaría entre dos
+    /// liquidaciones del mismo mes. Ganancias se liquida por mes: el mes es la unidad.
+    ///
+    /// SIN TOPE O SIN FECHA DE NACIMIENTO, DEDUCE. Las dos puertas abiertas son a propósito: con el
+    /// tope en cero el cálculo queda como estaba —así esto se puede publicar sin cambiar un peso, y
+    /// la baja se decide después cargando el 18—, y sin fecha de nacimiento no se le puede quitar
+    /// una deducción a alguien por un dato que falta.
+    /// </remarks>
+    local procedure DentroDeEdad(EmpRel: Record "Employee Relative"): Boolean
+    var
+        Param: Record "Parámetro";
+        Periodo: Record "Período Liquidación";
+        Nacimiento: Date;
+        InicioMes: Date;
+        Corte: Date;
+    begin
+        if EmpRel."Cód. Tipo Ded." = '' then
+            exit(true);
+        if not Param.Get(EmpRel."Cód. Tipo Ded.") then
+            exit(true);
+        if Param."Edad Máxima Familiar" <= 0 then
+            exit(true);
+
+        Nacimiento := EmpRel."Birth Date";
+        if Nacimiento = 0D then
+            exit(true);
+
+        if Periodo.Get(FCodPeriodo) then
+            InicioMes := Periodo."Fecha Desde"
+        else
+            InicioMes := FPeriodoFechaDesde;   // sin período no queda otra referencia
+
+        // Cumple el tope el día que llega a esa edad; se deduce mientras ese día caiga dentro del
+        // mes o después.
+        Corte := CalcDate('<+' + Format(Param."Edad Máxima Familiar") + 'Y>', Nacimiento);
+        exit(Corte >= InicioMes);
+    end;
+
     local procedure FechaIngresoImpuesto(EmpRel: Record "Employee Relative"): Date
     var
         Fecha: Date;
     begin
-        // Canónico: "Fecha inicial" (50000), de tableextension 50673. Todo converge ahí; las tres de
-        // abajo son legacy y quedan sólo como respaldo para filas que la migración no alcanzó.
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50000);
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50010); // Fecha alta familiar a cargo
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50008); // Fecha alta impuesto
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50211); // Fecha Ingreso Impuesto
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        exit(0D);
+        // Canónico: "Fecha alta impuesto" (50008), que es el FEC_ALTA_IMP de Meta4: la fecha en que
+        // el familiar se declaró como carga A EFECTOS DE GANANCIAS.
+        //
+        // NO se leen "Fecha inicial" (50000) ni "Fecha alta familiar a cargo" (50010). Esas dos
+        // existen para otra cosa —la vigencia de la fila y las asignaciones familiares— y están
+        // cargadas para TODOS los familiares. Leerlas acá hacía que cualquier familiar en la ficha
+        // dedujera Ganancias, aunque nunca se lo hubiera declarado: la "Fecha inicial" del cónyuge
+        // del legajo 90016 es de 1991 y su alta de impuesto está vacía, y así BC le deducía
+        // 404.330,39 que Meta4 no deduce. Con 1.852 cónyuges en la base y 46 sin alta de impuesto,
+        // el error no se ve en un caso suelto: se ve en el total de retenciones.
+        // Fuente única. "Fecha Ingreso Impuesto" (50211), que es nuestra, quedó ObsoleteState =
+        // Pending y está vacía en las 8.315 filas: no hay página que la cargue, así que leerla como
+        // respaldo no puede aportar nada y sólo sostiene la duplicación.
+        exit(LeerFechaLegacyEmpRel(EmpRel, 50008));
     end;
 
     local procedure FechaEgresoImpuesto(EmpRel: Record "Employee Relative"): Date
     var
         Fecha: Date;
     begin
-        // Canónico: "Fecha final" (50001). Mismo criterio que la de alta.
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50001);
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50011); // Fecha baja familiar a cargo
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50009); // Fecha baja impuesto
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        Fecha := LeerFechaLegacyEmpRel(EmpRel, 50212); // Fecha Egreso Impuesto
-        if Fecha <> 0D then
-            exit(Fecha);
-
-        exit(0D);
+        // Canónico: "Fecha baja impuesto" (50009), el FEC_BAJA_IMP de Meta4. Mismo criterio que la
+        // de alta: no se leen "Fecha final" ni "Fecha baja familiar a cargo", que son la vigencia
+        // de la fila y la baja de asignaciones familiares. Acá el efecto de confundirlas es el
+        // inverso —dejar de deducir antes de tiempo— y es igual de silencioso.
+        // Fuente única, por el mismo motivo que la de alta: "Fecha Egreso Impuesto" (50212) está
+        // obsoleta y vacía.
+        exit(LeerFechaLegacyEmpRel(EmpRel, 50009));
     end;
 
     local procedure LeerFechaLegacyEmpRel(EmpRel: Record "Employee Relative"; FieldNo: Integer): Date
@@ -1192,6 +1631,29 @@ codeunit 50016 "Contexto Liquidación"
         end;
     end;
 
+    /// <summary>Días calendario del período, de punta a punta: 31 en enero, 28 en febrero.</summary>
+    /// <remarks>
+    /// Existe para prorratear un valor mensual entre las liquidaciones que se reparten el mes. La
+    /// alternativa que venía de las planillas de producción es un 30 fijo —`+H13/30*F13*$C$7` en
+    /// `HF802 6 CLC producción.xlsx`—, puesto así para no tener que tocar la planilla mes a mes.
+    /// Con el 30 fijo los tramos de un mes NO suman el mes: los 22 + 7 días de un oficial en enero
+    /// dan 29/30 del objetivo, y en febrero 29/30 de algo que debería ser 29/28.
+    ///
+    /// Se mide sobre el PERÍODO y no sobre el mes del calendario porque el período es lo que el
+    /// motor liquida; hoy coinciden, y si alguna vez un período dejara de ser un mes natural, esto
+    /// sigue diciendo lo que hay que repartir.
+    /// </remarks>
+    local procedure CalcDiasMes(): Decimal
+    var
+        Periodo: Record "Período Liquidación";
+    begin
+        if not Periodo.Get(FCodPeriodo) then
+            exit(0);
+        if (Periodo."Fecha Desde" = 0D) or (Periodo."Fecha Hasta" = 0D) then
+            exit(0);
+        exit(Periodo."Fecha Hasta" - Periodo."Fecha Desde" + 1);
+    end;
+
     local procedure CalcDiasHabiles(): Decimal
     var
         Periodo: Record "Período Liquidación";
@@ -1246,11 +1708,17 @@ codeunit 50016 "Contexto Liquidación"
         if not Periodo.Get(FCodPeriodo) then exit(0);
         CodCal := CalendarioDeFeriados(Periodo);
         if CodCal = '' then exit(0); // no calendar → no feriados to distinguish
+        // RECORRE EL PERÍODO PERO SÓLO CUENTA LO QUE ESTA LIQUIDACIÓN CUBRE. Antes contaba el mes
+        // entero sin mirar siquiera la cobertura, así que un empleado con dos liquidaciones en el
+        // mes cobraba los mismos feriados en las dos. Va día por día y no por diferencia de fechas
+        // porque un feriado depende del calendario, no del largo del tramo.
         FechaActual := Periodo."Fecha Desde";
         while FechaActual <= Periodo."Fecha Hasta" do begin
-            EnsureCalendarioCache(CodCal, Date2DMY(FechaActual, 3));
-            if EsFeriadoCached(FechaActual) then
-                Dias += 1;
+            if DiaEnLaVentana(FechaActual) then begin
+                EnsureCalendarioCache(CodCal, Date2DMY(FechaActual, 3));
+                if EsFeriadoCached(FechaActual) then
+                    Dias += 1;
+            end;
             FechaActual += 1;
         end;
         exit(Dias);
@@ -1294,11 +1762,9 @@ codeunit 50016 "Contexto Liquidación"
         Periodo: Record "Período Liquidación";
         EstadoEmp: Record "Estado Empleado";
         CodEst: Record "Cód. Estado Empleado";
-        FechaActual: Date;
-        OlapStart: Date;
-        OlapEnd: Date;
         CodCal: Code[10];
         Dias: Integer;
+        i: Integer;
     begin
         if FEmployeeNo = '' then exit(0);
         if not Periodo.Get(FCodPeriodo) then exit(0);
@@ -1308,27 +1774,84 @@ codeunit 50016 "Contexto Liquidación"
         EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
         EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
         EstadoEmp.SetRange("No. Empleado", FEmployeeNo);
+        // Un estado que EMPIEZA después de la fecha de referencia no puede tocar la ventana: los
+        // tramos viven dentro del período y el período termina en esa fecha. Además de ahorrar
+        // trabajo, es lo que sacaba del paso a los estados futuros —los 14 cierres que fallaban
+        // tenían un GP abierto iniciado entre abril y junio mientras se liquidaba enero—.
+        EstadoEmp.SetFilter("Fecha Inicio", '<=%1', FFechaRef);
         if not EstadoEmp.FindSet() then exit(0);
         repeat
             if CodEst.Get(EstadoEmp."Cód. Estado") then
-                if CodEst."Devenga Francos" and not CodEst."Transcurre en Marea" then begin
-                    // La ventana es la de la liquidación, no la del período: un cierre de marea no
+                if CodEst."Devenga Francos" and not CodEst."Transcurre en Marea" then
+                    // La ventana es la de la liquidación y no la del período: un cierre de marea no
                     // tiene por qué ver los días de guardia previos al embarque, que ya paga la
-                    // regular de la nómina.
-                    OlapStart := EstadoEmp."Fecha Inicio";
-                    if FPeriodoFechaDesde > OlapStart then OlapStart := FPeriodoFechaDesde;
-                    OlapEnd := EstadoEmp.FechaFinEfectiva();
-                    if FFechaRef < OlapEnd then OlapEnd := FFechaRef;
-                    FechaActual := OlapStart;
-                    while FechaActual <= OlapEnd do begin
-                        EnsureCalendarioCache(CodCal, Date2DMY(FechaActual, 3));
-                        if EsFeriadoCached(FechaActual) then
-                            Dias += 1;
-                        FechaActual += 1;
-                    end;
-                end;
+                    // regular de la nómina. Y se recorren los TRAMOS, para que dos liquidaciones del
+                    // mismo mes no cuenten el mismo feriado.
+                    if FTramosDesde.Count() = 0 then
+                        Dias += FeriadosDelTramo(CodCal, EstadoEmp."Fecha Inicio", EstadoEmp.FechaFinEfectiva(),
+                                                 VentanaDesde(), VentanaHasta())
+                    else
+                        for i := 1 to FTramosDesde.Count() do
+                            Dias += FeriadosDelTramo(CodCal, EstadoEmp."Fecha Inicio", EstadoEmp.FechaFinEfectiva(),
+                                                     FTramosDesde.Get(i), FTramosHasta.Get(i));
         until EstadoEmp.Next() = 0;
         exit(Dias);
+    end;
+
+    /// <summary>
+    /// La ventana de esta liquidación cuando no hay tramos: su cobertura, y el período como último
+    /// recurso.
+    /// </summary>
+    /// <remarks>
+    /// El período entero NUNCA es la respuesta correcta para una liquidación que cubre parte del mes:
+    /// le haría pagar feriados y días que corresponden a otra. Se usa sólo cuando la cabecera todavía
+    /// no tiene cobertura calculada, que es el único caso en que no hay nada mejor.
+    /// </remarks>
+    local procedure VentanaDesde(): Date
+    begin
+        if FCoberturaDesde <> 0D then
+            exit(FCoberturaDesde);
+        exit(FPeriodoFechaDesde);
+    end;
+
+    local procedure VentanaHasta(): Date
+    begin
+        if FCoberturaHasta <> 0D then
+            exit(FCoberturaHasta);
+        exit(FFechaRef);
+    end;
+
+    /// <summary>
+    /// Feriados del calendario en la intersección del estado con un tramo de la ventana.
+    /// </summary>
+    /// <remarks>
+    /// ACÁ ESTABA EL ERROR "La fecha no es válida". Antes esto recorría el estado ENTERO día por día
+    /// preguntando en cada uno si caía en la ventana. Un estado abierto no termina: FechaFinEfectiva
+    /// devuelve 31/12/9999, así que el bucle iba a recorrer casi ocho mil años y, al llegar al tope,
+    /// el `FechaActual += 1` se pasaba del máximo que admite un Date y reventaba el cálculo entero.
+    /// Eran 14 cierres de marea de enero de 2026 —183 errores en el registro— que quedaban sin
+    /// liquidar, y como BarrerVacias borra las cabeceras sin líneas, el único rastro era el registro.
+    ///
+    /// Recortar contra el tramo ANTES de recorrer arregla las dos cosas: no hay desborde posible
+    /// porque el fin nunca supera la ventana, y el bucle pasa de millones de vueltas a los días del
+    /// mes. El resultado no cambia: los días que se descartaban uno por uno son los mismos que ahora
+    /// quedan fuera de la intersección.
+    /// </remarks>
+    local procedure FeriadosDelTramo(CodCal: Code[10]; EstDesde: Date; EstHasta: Date; TramoDesde: Date; TramoHasta: Date) Dias: Integer
+    var
+        FechaActual: Date;
+    begin
+        if EstDesde < TramoDesde then EstDesde := TramoDesde;
+        if EstHasta > TramoHasta then EstHasta := TramoHasta;
+        if EstHasta < EstDesde then exit(0);
+
+        FechaActual := EstDesde;
+        while FechaActual <= EstHasta do begin
+            EnsureCalendarioCache(CodCal, Date2DMY(FechaActual, 3));
+            if EsFeriadoCached(FechaActual) then
+                Dias += 1;
+            FechaActual += 1;
+        end;
     end;
 
     local procedure CalcDiasFeriadosMarea(): Decimal
@@ -1337,32 +1860,31 @@ codeunit 50016 "Contexto Liquidación"
         Job: Record Job;
         RangeStart: Date;
         RangeEnd: Date;
-        FechaActual: Date;
         CodCal: Code[10];
         Dias: Integer;
+        i: Integer;
     begin
         if (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then exit(0);
         if not Periodo.Get(FCodPeriodo) then exit(0);
         CodCal := CalendarioDeFeriados(Periodo);
         if CodCal = '' then exit(0);
 
+        // La marea acota por sus propias fechas, y la LIQUIDACIÓN por las suyas. Antes el extremo
+        // derecho era FFechaRef y el izquierdo el inicio del período: para un cierre de marea eso
+        // coincide con el arribo y funciona, pero ignora los TRAMOS, que son los que evitan que dos
+        // liquidaciones del mismo mes se cuenten el mismo feriado. Se recorre igual que la guardia.
         RangeStart := Job."Starting Date";
-        if FPeriodoFechaDesde > RangeStart then
-            RangeStart := FPeriodoFechaDesde;
-
         RangeEnd := FFechaRef;
         if (Job."Ending Date" > 0D) and (Job."Ending Date" < RangeEnd) then
             RangeEnd := Job."Ending Date";
-
         if RangeEnd < RangeStart then exit(0);
 
-        FechaActual := RangeStart;
-        while FechaActual <= RangeEnd do begin
-            EnsureCalendarioCache(CodCal, Date2DMY(FechaActual, 3));
-            if EsFeriadoCached(FechaActual) then
-                Dias += 1;
-            FechaActual += 1;
-        end;
+        if FTramosDesde.Count() = 0 then
+            exit(FeriadosDelTramo(CodCal, RangeStart, RangeEnd, VentanaDesde(), VentanaHasta()));
+
+        for i := 1 to FTramosDesde.Count() do
+            Dias += FeriadosDelTramo(CodCal, RangeStart, RangeEnd,
+                                     FTramosDesde.Get(i), FTramosHasta.Get(i));
         exit(Dias);
     end;
 
@@ -1544,6 +2066,116 @@ codeunit 50016 "Contexto Liquidación"
         if (Job."Ending Date" > 0D) and (RangeEnd = Job."Ending Date") and (Job."Hora ingreso a puerto" < 120000T) then
             Dias += 1;
 
+        // LOS DÍAS DE PUERTO QUE DECLARA EL ESTADO Y LA ASIGNACIÓN NO CUBRE.
+        //
+        // La marea son los días del BUQUE —de la zarpada al arribo— y la asignación del tripulante
+        // es su parte de esa marea. Pero alguien puede embarcar antes para hacer trabajos de puerto
+        // sobre esa misma marea: son días suyos, se pagan como puerto, y NO estiran la marea ni
+        // entran en el prorrateo del neto acordado. El caso que lo destapó: un primer oficial que
+        // subió el 2/1 con el buque zarpando el 3/1.
+        //
+        // Hasta acá esos días sólo existían si la asignación arrancaba antes que la zarpada, y
+        // entonces los tomaba la regla de víspera de más arriba. Pero poner la asignación en la
+        // zarpada es lo CORRECTO —22 días de marea, que es lo que cobra el acuerdo— y hacía
+        // desaparecer el día de puerto: quedaba dentro de la cobertura y no lo pagaba nadie.
+        //
+        // Se suman por separado para no contarlos dos veces: sólo los que caen FUERA de la ventana
+        // de la asignación, que es justo donde la regla de víspera no llega.
+        Dias += DiasPuertoDeclaradosFueraDeLaAsignacion(VentDesde, VentHasta);
+
+        exit(Dias);
+    end;
+
+    /// <summary>Los días de puerto que son parte del VIAJE: sin los que el tripulante hizo fuera de su asignación.</summary>
+    /// <remarks>
+    /// `DIAS_PUERTO` —lo que cobra el 1083— incluye el día del que sube antes a trabajar en puerto.
+    /// `DIAS_MAREA` no, porque la marea son los días del buque y ese día es del tripulante: el
+    /// acuerdo se prorratea sobre el viaje, no sobre su presencia.
+    ///
+    /// Se escribe como una resta sobre el total y no como un segundo recorrido a propósito: así las
+    /// dos variables no pueden desincronizarse si mañana cambia una regla de borde.
+    /// </remarks>
+    local procedure CalcDiasPuertoDelViaje(): Decimal
+    var
+        Job: Record Job;
+        VentDesde: Date;
+        VentHasta: Date;
+    begin
+        if (FJobNo = '') or not Job.Get(FJobNo) or (Job."Starting Date" = 0D) then
+            exit(0);
+        VentanaEmpleadoEnMarea(Job, VentDesde, VentHasta);
+        exit(CalcDiasPuertoMarea() - DiasPuertoDeclaradosFueraDeLaAsignacion(VentDesde, VentHasta));
+    end;
+
+    /// <summary>Días de puerto de esta marea que el estado declara y la asignación no cubre.</summary>
+    /// <remarks>
+    /// Son los que la regla de víspera no ve porque la asignación empieza en la zarpada. Se acotan a
+    /// la ventana de ESTA liquidación —`FPeriodoFechaDesde` a `FFechaRef`— para que una marea a
+    /// caballo de dos meses no cobre el mismo día en los dos.
+    ///
+    /// NO HACE FALTA DISTINGUIR NAVEGACIÓN DE PUERTO, y conviene no intentarlo. Un día de estado de
+    /// marea que cae FUERA de la ventana de la asignación es, por definición, un día a bordo que no
+    /// es parte del viaje que le toca: eso es un día de puerto, sea cual sea el código del estado.
+    ///
+    /// El primer intento sí distinguía, tomando como "navegación" el `Estado Liq. Personal Predet.`
+    /// del proyecto. No funciona: ese campo está cargado en **11 de 3.975** proyectos de marea, así
+    /// que la función salía por la guarda y no contaba nada. Y en `Cód. Estado Empleado` no hay
+    /// ninguna bandera que separe `NV` de `PS`/`PL` —`Transcurre en Marea` los marca a los tres—,
+    /// así que distinguirlos pedía un campo nuevo. Medido: no cambia ni un resultado.
+    ///
+    /// Medido antes de escribirlo: sobre las 180 liquidaciones de marea calculadas, 179 dan
+    /// exactamente los mismos días que hoy y la única que cambia es la que había perdido su día de
+    /// puerto. No inventa días en ningún otro lado.
+    /// </remarks>
+    local procedure DiasPuertoDeclaradosFueraDeLaAsignacion(VentDesde: Date; VentHasta: Date): Integer
+    var
+        Estado: Record "Estado Empleado";
+        CodEst: Record "Cód. Estado Empleado";
+        Desde: Date;
+        Hasta: Date;
+        Dias: Integer;
+    begin
+        if (FEmployeeNo = '') or (FJobNo = '') then
+            exit(0);
+
+        Estado.SetRange("Tipo Entidad", Estado."Tipo Entidad"::Empleado);
+        Estado.SetRange("No. Empleado", FEmployeeNo);
+        Estado.SetRange("No. Proyecto", FJobNo);
+        if not Estado.FindSet() then
+            exit(0);
+
+        repeat
+            // El Get va en su propio if y no pegado al and: AL evalúa los dos lados, así que un
+            // código de estado que no exista haría fallar la lectura de la bandera igual.
+            if CodEst.Get(Estado."Cód. Estado") then
+                if CodEst."Transcurre en Marea" then begin
+                    Desde := Estado."Fecha Inicio";
+                    Hasta := Estado."Fecha Fin";
+                    if Hasta = 0D then
+                        Hasta := FFechaRef;
+
+                    // Acotado a la ventana de esta liquidación.
+                    if Desde < FPeriodoFechaDesde then Desde := FPeriodoFechaDesde;
+                    if Hasta > FFechaRef then Hasta := FFechaRef;
+
+                    // Y recortado contra la ventana de la asignación, que ya la cuentan las reglas
+                    // de arriba. Sólo sobrevive lo que queda ANTES del alta o DESPUÉS de la baja.
+                    if Hasta >= Desde then
+                        if (VentDesde > 0D) and (Desde < VentDesde) then begin
+                            if Hasta >= VentDesde then
+                                Dias += VentDesde - Desde
+                            else
+                                Dias += Hasta - Desde + 1;
+                        end else
+                            if (VentHasta > 0D) and (Hasta > VentHasta) then begin
+                                if Desde <= VentHasta then
+                                    Dias += Hasta - VentHasta
+                                else
+                                    Dias += Hasta - Desde + 1;
+                            end;
+                end;
+        until Estado.Next() = 0;
+
         exit(Dias);
     end;
 
@@ -1606,12 +2238,9 @@ codeunit 50016 "Contexto Liquidación"
             if CodEst.Get(EstadoEmp."Cód. Estado") and
                (CodEst."Tipo Estado" = CodEst."Tipo Estado"::Francos)
             then begin
-                OlapStart := EstadoEmp."Fecha Inicio";
-                if FPeriodoFechaDesde > OlapStart then OlapStart := FPeriodoFechaDesde;
-                OlapEnd := EstadoEmp.FechaFinEfectiva();
-                if FFechaRef < OlapEnd then OlapEnd := FFechaRef;
-                if OlapEnd >= OlapStart then
-                    Total += OlapEnd - OlapStart + 1;
+                // Por los TRAMOS de la liquidación, no por su desde-hasta: una Regular que cubre "del 1
+                // al 4 y del 26 al 31" no tiene que contar los días del medio, que son de otra.
+                Total += DiasEnLaVentana(EstadoEmp."Fecha Inicio", EstadoEmp.FechaFinEfectiva());
             end;
         until EstadoEmp.Next() = 0;
         exit(Total);
@@ -1644,12 +2273,9 @@ codeunit 50016 "Contexto Liquidación"
                 FechaFinDerecho := EstadoEmp."Fecha Inicio" + EstadoMgt.CalcDiasVacaciones(FEmployeeNo, EstadoEmp."Fecha Inicio") - 1;
                 if FechaFinDerecho < FechaFinEfectiva then FechaFinEfectiva := FechaFinDerecho;
 
-                OlapStart := EstadoEmp."Fecha Inicio";
-                if FPeriodoFechaDesde > OlapStart then OlapStart := FPeriodoFechaDesde;
-                OlapEnd := FechaFinEfectiva;
-                if FFechaRef < OlapEnd then OlapEnd := FFechaRef;
-                if OlapEnd >= OlapStart then
-                    Total += OlapEnd - OlapStart + 1;
+                // Por los TRAMOS y no por el desde-hasta de la cabecera: si las vacaciones están
+                // repartidas entre dos liquidaciones, cada una cuenta las suyas.
+                Total += DiasEnLaVentana(EstadoEmp."Fecha Inicio", FechaFinEfectiva);
             end;
         until EstadoEmp.Next() = 0;
         exit(Total);
@@ -1882,14 +2508,18 @@ codeunit 50016 "Contexto Liquidación"
         repeat
             if not Ctx.ContainsKey(TipoAtr."Nombre Variable") then begin
                 Valor := 0;
+                Clear(Atributo);
                 CodEntidad := EntidadDeLaLiquidacion(TipoAtr."Tipo Entidad");
                 if (CodEntidad <> '') and AtributoVigente(TipoAtr.Código, TipoAtr."Tipo Entidad", CodEntidad, Atributo) then begin
                     Valor := Atributo."Valor Numérico";
                     GuardarValorTexto(TipoAtr."Nombre Variable", Atributo.ValorParaMostrar());
                 end;
                 Ctx.Add(TipoAtr."Nombre Variable", Valor);
+                if TipoAtr.UsaLista() then
+                    FCodigosAtributos.Set(TipoAtr."Nombre Variable", Atributo."Cód. Valor");
                 SetTipo(TipoAtr."Nombre Variable", 'Atributo');
             end;
+            PublicarAtributoUltimaMarea(TipoAtr, Ctx);
         until TipoAtr.Next() = 0;
     end;
 
@@ -1900,6 +2530,112 @@ codeunit 50016 "Contexto Liquidación"
     /// El buque no está en la liquidación: sale del proyecto, cuya dimensión global 1 es el buque
     /// (ver "Gestión Entidades Liq.", donde el código de la entidad ES el del valor de dimensión).
     /// </remarks>
+    /// <summary>
+    /// Publica "&lt;variable&gt;_ULT_MAREA" con el mismo atributo resuelto contra el buque de la
+    /// última marea, para los Tipos de Atributo que lo pidan.
+    /// </summary>
+    /// <remarks>
+    /// AGREGA UNA VARIABLE, NO CAMBIA LA QUE YA HABÍA. El buque del proyecto que se liquida sigue
+    /// siendo el correcto para el recibo, para los precios y para el coeficiente de pesquería: lo
+    /// único que necesita mirar la última marea es la decisión entre sueldo a órdenes y Artículo 48.
+    /// Reemplazar TIPOACTIVIDAD habría arrastrado COEF_PESQUERIA de 1 a 0,30 y el importe habría
+    /// quedado mal por el otro lado.
+    ///
+    /// El sufijo sigue la convención de {VARIABLE}_ESFCY: un nombre derivado que el catálogo no
+    /// declara pero las fórmulas pueden usar.
+    ///
+    /// Registra también el CÓDIGO en FCodigosAtributos cuando el atributo es de lista, que es lo
+    /// que permite escribir TIPOACTIVIDAD_ULT_MAREA = 'TA' en vez de compararlo contra su proyección
+    /// numérica. Importa: el numérico de 'TA' es CERO, indistinguible de "no resolvió" para alguien
+    /// que nunca navegó.
+    /// </remarks>
+    local procedure PublicarAtributoUltimaMarea(TipoAtr: Record "Tipo Atributo Liq."; var Ctx: Dictionary of [Text, Decimal])
+    var
+        Atributo: Record "Atributo Entidad Liq.";
+        NombreDerivado: Text;
+        CodBuque: Code[20];
+        Valor: Decimal;
+    begin
+        if not TipoAtr."Publicar Última Marea" then
+            exit;
+        if TipoAtr."Tipo Entidad" <> TipoAtr."Tipo Entidad"::Buque then
+            exit;
+        if TipoAtr."Nombre Variable" = '' then
+            exit;
+
+        NombreDerivado := TipoAtr."Nombre Variable" + '_ULT_MAREA';
+        if Ctx.ContainsKey(NombreDerivado) then
+            exit;
+
+        CodBuque := BuqueDeLaUltimaMarea();
+        if (CodBuque <> '') and AtributoVigente(TipoAtr.Código, TipoAtr."Tipo Entidad", CodBuque, Atributo) then begin
+            Valor := Atributo."Valor Numérico";
+            GuardarValorTexto(NombreDerivado, Atributo.ValorParaMostrar());
+        end;
+
+        Ctx.Add(NombreDerivado, Valor);
+        if TipoAtr.UsaLista() then
+            FCodigosAtributos.Set(NombreDerivado, Atributo."Cód. Valor");
+        SetTipo(NombreDerivado, 'Atributo');
+    end;
+
+    /// <summary>
+    /// El buque de la última marea en la que el empleado estuvo embarcado a la fecha de referencia.
+    /// </summary>
+    /// <remarks>
+    /// QUÉ CUENTA COMO EMBARCADO NO SE DECIDE ACÁ: lo dice la bandera "Transcurre en Marea" de
+    /// Cód. Estado Empleado, que hoy está en NV (Navegación), PL (Puerto Llegada) y PS (Puerto
+    /// Salida). Los tres son "afectado a esa marea", incluidos los días de puerto de cada punta.
+    /// Si mañana cambia el criterio se toca la bandera, no este código.
+    ///
+    /// Por eso no se puede expresar con una Fuente de Datos: la bandera vive en el maestro de
+    /// códigos y no en Estado Empleado, así que filtrarla es un join, y una fuente lee una sola
+    /// tabla. Poner 'NV|PL|PS' en una línea de filtro cablearía justo lo que la bandera configura.
+    ///
+    /// Se queda con el estado de inicio MÁS RECIENTE que ya haya empezado, aunque esté cerrado
+    /// --cerrado es el caso normal acá-- y sin mirar hacia adelante, igual que AtributoVigente.
+    /// Se recorre comparando en vez de confiar en el orden: la clave de Estado Empleado es
+    /// "No. Mov." sola, o sea el orden de alta, que suele coincidir con el cronológico y no hay
+    /// nada que lo garantice.
+    ///
+    /// Vacío cuando el empleado nunca estuvo embarcado --personal de tierra-- y también cuando el
+    /// proyecto de esa marea no tiene dimensión 1. Vacío es correcto y además es seguro:
+    /// TokenResolvedToEmpty hace que la fuente que lo use devuelva 0 en lugar de leer sin filtrar.
+    /// </remarks>
+    local procedure BuqueDeLaUltimaMarea(): Code[20]
+    var
+        Estado: Record "Estado Empleado";
+        CodEstado: Record "Cód. Estado Empleado";
+        Job: Record Job;
+        MejorInicio: Date;
+        MejorProyecto: Code[20];
+        Encontrado: Boolean;
+    begin
+        if FEmployeeNo = '' then
+            exit('');
+
+        Estado.SetRange("No. Empleado", FEmployeeNo);
+        Estado.SetRange("Tipo Entidad", "Tipo Entidad Estado"::Empleado);
+        Estado.SetFilter("Fecha Inicio", '<=%1', FFechaRef);
+        if Estado.FindSet() then
+            repeat
+                if Estado."No. Proyecto" <> '' then
+                    if CodEstado.Get(Estado."Cód. Estado") then
+                        if CodEstado."Transcurre en Marea" then
+                            if (not Encontrado) or (Estado."Fecha Inicio" >= MejorInicio) then begin
+                                MejorInicio := Estado."Fecha Inicio";
+                                MejorProyecto := Estado."No. Proyecto";
+                                Encontrado := true;
+                            end;
+            until Estado.Next() = 0;
+
+        if not Encontrado then
+            exit('');
+        if not Job.Get(MejorProyecto) then
+            exit('');
+        exit(Job."Global Dimension 1 Code");
+    end;
+
     local procedure EntidadDeLaLiquidacion(TipoEntidad: Enum "Tipo Entidad Estado"): Code[20]
     var
         Job: Record Job;
@@ -1926,23 +2662,16 @@ codeunit 50016 "Contexto Liquidación"
     /// </remarks>
     local procedure AtributoVigente(CodTipoAtributo: Code[20]; TipoEntidad: Enum "Tipo Entidad Estado"; CodEntidad: Code[20]; var Atributo: Record "Atributo Entidad Liq."): Boolean
     begin
-        Atributo.Reset();
-        Atributo.SetRange("Tipo Entidad", TipoEntidad);
-        Atributo.SetRange("Cód. Entidad", CodEntidad);
-        Atributo.SetRange("Cód. Tipo Atributo", CodTipoAtributo);
-        Atributo.SetFilter("Vigencia Desde", '<=%1', FFechaRef);
-        Atributo.SetFilter("Vigencia Hasta", '%1|>=%2', 0D, FFechaRef);
-        exit(Atributo.FindLast());
+        exit(Atributo.Vigente(CodTipoAtributo, TipoEntidad, CodEntidad, FFechaRef));
     end;
 
-    /// <summary>
-    /// Valor en su tipo original de las fuentes que no son numéricas, por nombre de variable.
-    /// </summary>
-    /// <remarks>
-    /// El contexto de cálculo sigue siendo solo decimales: esto es lo que se guarda al lado para
-    /// auditar e imprimir. Son dos preguntas distintas — con qué número calculó la fórmula, y qué
-    /// texto hay que mostrarle a la persona.
-    /// </remarks>
+    /// <summary>Códigos vigentes de atributos de lista, independientes de su proyección numérica.</summary>
+    procedure GetCodigosAtributos(var Destino: Dictionary of [Text, Text])
+    begin
+        Destino := FCodigosAtributos;
+    end;
+
+    /// <summary>Valores de presentación para auditar e imprimir, por nombre de variable.</summary>
     procedure GetValoresTexto(var Destino: Dictionary of [Text, Text])
     var
         Clave: Text;
@@ -1973,6 +2702,7 @@ codeunit 50016 "Contexto Liquidación"
             RecRef.Close();
             exit(0);
         end;
+        AplicarClaveFuente(Fuente, RecRef);
 
         // La vigencia se resuelve recorriendo, no con un SetFilter. El filtro tendría que decir
         // "fecha fin en blanco O >= fecha de referencia", y esa forma sobre un campo Date ya nos
@@ -1984,8 +2714,11 @@ codeunit 50016 "Contexto Liquidación"
                 FechaInicio := 0D;
                 if Fuente."No. Campo Fecha Inicio" > 0 then
                     FechaInicio := FieldRefToDate(RecRef.Field(CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Fecha Inicio")));
-                if FilaVigenteAFechaRef(Fuente, RecRef, FechaInicio) then
-                    if (not Encontrado) or (FechaInicio >= MejorInicio) then begin
+                if FilaElegibleNoNumerica(Fuente, RecRef, FechaInicio) then
+                    if (not Encontrado) or
+                       ((Fuente."Función Agregado" = Fuente."Función Agregado"::"FILA_MAS_ANTIGUA") and (FechaInicio <= MejorInicio)) or
+                       ((Fuente."Función Agregado" <> Fuente."Función Agregado"::"FILA_MAS_ANTIGUA") and (FechaInicio >= MejorInicio))
+                    then begin
                         MejorInicio := FechaInicio;
                         Encontrado := true;
                         FieldVar := RecRef.Field(CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Valor"));
@@ -2018,6 +2751,128 @@ codeunit 50016 "Contexto Liquidación"
                 end;
         end;
         exit(0);
+    end;
+
+    /// <summary>
+    /// Fija la clave de recorrido declarada por la fuente, si declaró una.
+    /// </summary>
+    /// <remarks>
+    /// EN AL SÓLO SE PUEDE ORDENAR POR UNA CLAVE DECLARADA EN LA TABLA: no hay forma de pedirle a
+    /// la base que ordene por un campo cualquiera. Por eso la fuente declara el CAMPO y acá se
+    /// busca una clave que lo contenga —prefiriendo aquella donde sea el ÚLTIMO campo, que es la
+    /// que ordena por él dentro del grupo que los filtros ya acotaron—.
+    ///
+    /// El ejemplo es Estado Empleado: su clave K2 es (Tipo Entidad, No. Empleado, Fecha Inicio), y
+    /// con los dos primeros fijados por los filtros, recorrerla ordena por Fecha Inicio. Su clave
+    /// primaria, en cambio, es "No. Mov." sola —el orden de alta—, que suele coincidir con el
+    /// cronológico y no hay nada que lo garantice.
+    ///
+    /// Sin clave utilizable AVISA y deja el orden como estaba. Seguir en silencio devolvería la
+    /// fila equivocada con cara de buena, que es justo lo que este campo viene a evitar.
+    /// </remarks>
+    local procedure AplicarClaveFuente(Fuente: Record "Fuente Datos Liquidación"; var RecRef: RecordRef)
+    var
+        KeyR: KeyRef;
+        CampoClave: Integer;
+        i: Integer;
+        j: Integer;
+        Elegida: Integer;
+        EsUltimo: Boolean;
+    begin
+        if Fuente."No. Campo Clave" = 0 then
+            exit;
+
+        CampoClave := CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Clave");
+        // Se queda con la primera clave que contenga el campo, y la cambia si aparece otra donde el
+        // campo sea el ÚLTIMO. Una vez encontrada ésa no se sigue mejorando: es la mejor posible.
+        for i := 1 to RecRef.KeyCount() do begin
+            KeyR := RecRef.KeyIndex(i);
+            for j := 1 to KeyR.FieldCount() do
+                if (not EsUltimo) and (KeyR.FieldIndex(j).Number() = CampoClave) then begin
+                    EsUltimo := j = KeyR.FieldCount();
+                    if (Elegida = 0) or EsUltimo then
+                        Elegida := i;
+                end;
+        end;
+
+        if Elegida = 0 then begin
+            AgregarAdvertenciaParametro(StrSubstNo(MsgFuenteSinClaveUtil, Fuente."Nombre Variable", Fuente."No. Campo Clave"));
+            exit;
+        end;
+
+        RecRef.CurrentKeyIndex(Elegida);
+        RecRef.Ascending(not Fuente."Orden Descendente");
+    end;
+
+    /// <summary>
+    /// Qué filas mira una fuente de texto o fecha: las vigentes, o también las ya cerradas.
+    /// </summary>
+    /// <remarks>
+    /// Con FILA_MAS_RECIENTE o FILA_MAS_ANTIGUA alcanza con que la fila haya empezado; con
+    /// cualquier otra función sigue valiendo la vigencia de siempre. Es la misma distinción que en
+    /// ValorDeFilaPorFecha y tiene que quedar igual en los dos caminos: una fuente de texto y una
+    /// numérica con la misma función no pueden elegir filas distintas.
+    /// </remarks>
+    local procedure FilaElegibleNoNumerica(Fuente: Record "Fuente Datos Liquidación"; var RecRef: RecordRef; FechaInicio: Date): Boolean
+    begin
+        if Fuente."Función Agregado" in
+           [Fuente."Función Agregado"::"FILA_MAS_RECIENTE", Fuente."Función Agregado"::"FILA_MAS_ANTIGUA"]
+        then
+            exit((FechaInicio <> 0D) and (FechaInicio <= FFechaRef));
+        exit(FilaVigenteAFechaRef(Fuente, RecRef, FechaInicio));
+    end;
+
+    /// <summary>
+    /// La fila más reciente —o la más antigua— por el campo de fecha declarado, y su Campo Valor.
+    /// </summary>
+    /// <remarks>
+    /// SE QUEDA CON FILAS YA CERRADAS, y ésa es toda la diferencia con la vigencia del resto del
+    /// motor. Las demás lecturas preguntan "qué rige HOY"; éstas preguntan "cuál fue la última",
+    /// que no es lo mismo y hasta ahora no se podía expresar. El caso que lo motivó: en qué marea
+    /// estuvo embarcado por última vez un empleado que justamente YA NO lo está — si el estado
+    /// siguiera abierto, la pregunta no haría falta.
+    ///
+    /// Lo que sí se respeta es que no hay red hacia adelante: una fila que empieza después de la
+    /// fecha de referencia no cuenta, igual que en AtributoVigente. Adivinar hacia el futuro
+    /// escondería una carga mal fechada.
+    ///
+    /// Sin campo de fecha declarado no hace nada y avisa, en vez de caer de vuelta en FindLast():
+    /// elegir por clave primaria es exactamente el defecto que estas dos funciones vienen a evitar,
+    /// y hacerlo en silencio sería peor que no resolver.
+    /// </remarks>
+    local procedure ValorDeFilaPorFecha(Fuente: Record "Fuente Datos Liquidación"; var RecRef: RecordRef): Decimal
+    var
+        FieldVar: FieldRef;
+        FechaFila: Date;
+        MejorFecha: Date;
+        Mejor: Decimal;
+        Encontrado: Boolean;
+        MasReciente: Boolean;
+    begin
+        if Fuente."No. Campo Valor" = 0 then
+            exit(0);
+        if Fuente."No. Campo Fecha Inicio" = 0 then begin
+            AgregarAdvertenciaParametro(StrSubstNo(MsgFuenteSinCampoFecha, Fuente."Nombre Variable"));
+            exit(0);
+        end;
+
+        MasReciente := Fuente."Función Agregado" = Fuente."Función Agregado"::"FILA_MAS_RECIENTE";
+        if RecRef.FindSet() then
+            repeat
+                FechaFila := FieldRefToDate(RecRef.Field(CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Fecha Inicio")));
+                if (FechaFila <> 0D) and (FechaFila <= FFechaRef) then
+                    if (not Encontrado) or
+                       (MasReciente and (FechaFila >= MejorFecha)) or
+                       ((not MasReciente) and (FechaFila <= MejorFecha))
+                    then begin
+                        MejorFecha := FechaFila;
+                        Encontrado := true;
+                        FieldVar := RecRef.Field(CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Valor"));
+                        Mejor := FieldRefToDecimal(FieldVar);
+                    end;
+            until RecRef.Next() = 0;
+
+        exit(Mejor);
     end;
 
     // Sin campo de fecha inicio configurado, la fuente no tiene noción de vigencia y toda fila sirve.
@@ -2076,6 +2931,7 @@ codeunit 50016 "Contexto Liquidación"
             RecRef.Close();
             exit(0);
         end;
+        AplicarClaveFuente(Fuente, RecRef);
         AppendParamLog('FDS:' + Format(Fuente."Id. Tabla") + '/' + Fuente."Nombre Variable");
 
         case Fuente."Función Agregado" of
@@ -2113,6 +2969,9 @@ codeunit 50016 "Contexto Liquidación"
                     FieldVar := RecRef.Field(CampoFuenteCanonico(Fuente."Id. Tabla", Fuente."No. Campo Valor"));
                     Total := FieldRefToDecimal(FieldVar);
                 end;
+            Fuente."Función Agregado"::"FILA_MAS_RECIENTE",
+            Fuente."Función Agregado"::"FILA_MAS_ANTIGUA":
+                Total := ValorDeFilaPorFecha(Fuente, RecRef);
             Fuente."Función Agregado"::"DIAS_OVERLAP":
                 if (Fuente."No. Campo Fecha Inicio" > 0) and RecRef.FindSet() then
                     repeat
@@ -2121,12 +2980,7 @@ codeunit 50016 "Contexto Liquidación"
                         FechaFin := ResolverFechaFin(Fuente, RecRef, FechaInicio);
                         if FechaFin = 0D then
                             FechaFin := FFechaRef;
-                        OlapStart := FechaInicio;
-                        if FPeriodoFechaDesde > OlapStart then OlapStart := FPeriodoFechaDesde;
-                        OlapEnd := FechaFin;
-                        if FFechaRef < OlapEnd then OlapEnd := FFechaRef;
-                        if OlapEnd >= OlapStart then
-                            Total += OlapEnd - OlapStart + 1;
+                        Total += DiasEnLaVentana(FechaInicio, FechaFin);
                     until RecRef.Next() = 0;
             Fuente."Función Agregado"::"DURACION_INICIO":
                 // Returns the full duration of any interval whose start falls within the current period.
@@ -2166,6 +3020,89 @@ codeunit 50016 "Contexto Liquidación"
 
         RecRef.Close();
         exit(Total);
+    end;
+
+    /// <summary>
+    /// Cuántos días del intervalo caen dentro de lo que esta liquidación cubre.
+    /// </summary>
+    /// <remarks>
+    /// CON TRAMOS CARGADOS suma contra cada uno; sin tramos, contra la ventana única de siempre. Esa
+    /// bifurcación es lo que deja entrar la maquinaria sin cambiarle el resultado a ninguna
+    /// liquidación hasta que la configuración del tipo diga otra cosa.
+    ///
+    /// Los tramos existen porque un desde/hasta no puede decir "del 1 al 4 y del 26 al 31", que es
+    /// justo lo que le queda a la Regular cuando las vacaciones caen en el medio del mes. Sin eso,
+    /// la Regular reclama los 31 días y vuelve a pagar lo que ya pagó la de Vacaciones.
+    /// </remarks>
+    local procedure DiasEnLaVentana(Desde: Date; Hasta: Date) Dias: Integer
+    var
+        i: Integer;
+        OlapStart: Date;
+        OlapEnd: Date;
+    begin
+        if FTramosDesde.Count() = 0 then begin
+            OlapStart := Desde;
+            if FPeriodoFechaDesde > OlapStart then OlapStart := FPeriodoFechaDesde;
+            OlapEnd := Hasta;
+            if FFechaRef < OlapEnd then OlapEnd := FFechaRef;
+            if OlapEnd >= OlapStart then
+                exit(OlapEnd - OlapStart + 1);
+            exit(0);
+        end;
+
+        for i := 1 to FTramosDesde.Count() do begin
+            OlapStart := Desde;
+            if FTramosDesde.Get(i) > OlapStart then OlapStart := FTramosDesde.Get(i);
+            OlapEnd := Hasta;
+            if FTramosHasta.Get(i) < OlapEnd then OlapEnd := FTramosHasta.Get(i);
+            if OlapEnd >= OlapStart then
+                Dias += OlapEnd - OlapStart + 1;
+        end;
+    end;
+
+    /// <summary>¿Este día lo cubre esta liquidación? Para los cálculos que van día por día.</summary>
+    /// <remarks>
+    /// Mismo criterio que DiasEnLaVentana, en la forma que necesitan los que tienen que mirar cada
+    /// día por separado —los feriados, que no se pueden contar por diferencia de fechas porque
+    /// dependen del calendario—.
+    /// </remarks>
+    local procedure DiaEnLaVentana(Dia: Date): Boolean
+    var
+        i: Integer;
+    begin
+        if FTramosDesde.Count() = 0 then
+            exit((Dia >= FPeriodoFechaDesde) and (Dia <= FFechaRef));
+        for i := 1 to FTramosDesde.Count() do
+            if (Dia >= FTramosDesde.Get(i)) and (Dia <= FTramosHasta.Get(i)) then
+                exit(true);
+        exit(false);
+    end;
+
+    local procedure CargarTramos(LiqNo: Code[20])
+    var
+        Tramo: Record "Tramo Cobertura Liq.";
+        Liq: Record "Liquidación";
+    begin
+        Clear(FTramosDesde);
+        Clear(FTramosHasta);
+        FCoberturaDesde := 0D;
+        FCoberturaHasta := 0D;
+        if LiqNo = '' then
+            exit;
+        // La cobertura de la cabecera es el respaldo de los tramos: al 1/10/2026, 560 de las 567
+        // liquidaciones de enero tenían tramos y 7 no, y esas 7 caían al PERÍODO ENTERO. Para una
+        // mensual que cubre el 1 y el 2 de enero eso significa contar los feriados de todo el mes.
+        if Liq.Get(LiqNo) then begin
+            FCoberturaDesde := Liq."Cobertura Desde";
+            FCoberturaHasta := Liq."Cobertura Hasta";
+        end;
+        Tramo.SetRange("No. Liquidación", LiqNo);
+        if not Tramo.FindSet() then
+            exit;
+        repeat
+            FTramosDesde.Add(Tramo.Desde);
+            FTramosHasta.Add(Tramo.Hasta);
+        until Tramo.Next() = 0;
     end;
 
     // Interval end of the current source row. With "Fin Efectivo" (effective-dated tables like Estado
@@ -2456,13 +3393,23 @@ codeunit 50016 "Contexto Liquidación"
         if SourceTableId <> Database::"Employee Relative" then
             exit(FieldNo);
 
+        // LOS TRES PARES DE FECHAS NO SE CANONIZAN ENTRE SÍ. Acá había un mapeo que mandaba el par
+        // del impuesto (50008/50009) y el de familiar a cargo (50010/50011) al par del vínculo
+        // (50000/50001), con el comentario de que ése era "el canónico". Es exactamente el
+        // aplanamiento contra el que advierten FechaIngresoImpuesto y FechaEgresoImpuesto unas
+        // pantallas más arriba, y el que le dedujo 404.330,39 de más al 90016.
+        //
+        // Lo que rompía: FAM_ADIC_OS filtra por "Fecha alta familiar a cargo", el mapeo la convertía
+        // en "Fecha inicial" —que está cargada en las 8.315 filas— y entonces contaba TODOS los
+        // familiares. El 02792 sumaba sus 7 en vez de 0.
+        //
+        // Lo único que sí es un alias son nuestros dos campos obsoletos, y van al par del IMPUESTO,
+        // que es de donde salieron: no al del vínculo.
         case FieldNo of
-            // Todas las fechas de alta legacy -> "Fecha inicial" (50000), que es la canónica.
-            50008, 50010, 50211:
-                exit(50000);
-            // Todas las fechas de baja legacy -> "Fecha final" (50001).
-            50009, 50011, 50212:
-                exit(50001);
+            50211:
+                exit(50008);
+            50212:
+                exit(50009);
             else
                 exit(FieldNo);
         end;
@@ -2488,9 +3435,33 @@ codeunit 50016 "Contexto Liquidación"
         AsigHasta: Date;
         MareaDesde: Date;
         MareaHasta: Date;
+        AnclaAus: Date;
+        AusHasta: Date;
     begin
         Value := Value.Replace('{EMP_NO}', FEmployeeNo);
         Value := Value.Replace('{JOB_NO}', FJobNo);
+        // EL BUQUE DEL PROYECTO, que es la dimensión 1 del Job. Hace falta para las fuentes que
+        // leen el historial de estados del BUQUE y no el del empleado --la veda, por ejemplo--, donde
+        // la entidad filtrada no es el legajo. Sale del proyecto y no del empleado a propósito: el
+        // buque al que corresponde la liquidación es el del proyecto que está liquidando, sea una
+        // marea o el PN- de nómina de ese mismo buque.
+        //
+        // Sin proyecto queda VACÍO, y eso NO es un descuido: TokenResolvedToEmpty hace que la fuente
+        // devuelva 0 en vez de leer sin filtrar. Una regular sin proyecto sumaría la veda de toda la
+        // flota, que es la peor forma de fallar porque da un número grande y creíble.
+        // Se resuelve con la MISMA función que usan los atributos de buque, no con una copia:
+        // si algún día el buque deja de salir de la dimensión 1 del proyecto, cambia en un solo lugar.
+        Value := Value.Replace('{BUQUE}', EntidadDeLaLiquidacion("Tipo Entidad Estado"::Buque));
+        // EL BUQUE DE LA ÚLTIMA MAREA EN QUE ESTUVO EMBARCADO, que NO es {BUQUE}. La diferencia
+        // sólo aparece cuando el empleado ya no está embarcado, que es justo cuando hace falta:
+        // para decidir si cobra sueldo a órdenes o el Art. 48 párrafo 11 hay que saber si su última
+        // marea fue en un potero o en un tangonero, y la liquidación corre contra el PN- de nómina.
+        //
+        // Los PN- son POR BUQUE --PN-116-NOMINA, PN-128-NOMINA--, así que {BUQUE} devuelve un buque
+        // plausible y no vacío: el de la nómina a la que el empleado está asignado. En enero de 2026
+        // eso coincidía con la última marea en 240 casos y difería en 18, cuatro de ellos cruzando
+        // la serie 801/802 --los poteros--. No falla: miente.
+        Value := Value.Replace('{BUQUE_ULT_MAREA}', BuqueDeLaUltimaMarea());
         Value := Value.Replace('{PERIODO}', FCodPeriodo);
         Value := Value.Replace('{FECHA_REF}', Format(FFechaRef));
         // El inicio del período, para acotar una fuente por AMBAS puntas. Con {FECHA_REF} sola, un
@@ -2498,6 +3469,13 @@ codeunit 50016 "Contexto Liquidación"
         // de dos meses, el cierre de agosto vuelve a sumar la producción que el devengado de julio ya
         // pagó. Con "{PERIODO_DESDE}..{FECHA_REF}" cada liquidación toma sólo su tramo.
         Value := Value.Replace('{PERIODO_DESDE}', Format(FPeriodoFechaDesde));
+        // El 1 de enero del año de la liquidación, para las cuentas corrientes que se reinician con
+        // el año calendario. La primera es el artículo 19 del CCT 729/2015: el tope de días que el
+        // armador paga después de la temporada de calamar sale de los días embarcados y "no es
+        // acumulable por años", así que lo ya pagado se suma desde {AÑO_DESDE} y no desde siempre.
+        // Con la función de agregado DURACION_AÑO alcanza para recortar intervalos, pero una suma
+        // sobre Línea Liquidación necesita el filtro de fecha explícito.
+        Value := Value.Replace('{AÑO_DESDE}', Format(DMY2Date(1, 1, Date2DMY(FFechaRef, 3))));
         // Alta y baja de ESTE tripulante en ESTA marea. Los demás tokens de fecha valen lo mismo
         // para toda la tripulación, y hay cosas que no se pueden acotar con ellos: la producción se
         // cuenta hasta el día en que cada uno desembarca, así que el que se bajó veinte días antes
@@ -2565,7 +3543,61 @@ codeunit 50016 "Contexto Liquidación"
             Value := Value.Replace('{PROM_DESDE}', Format(PromDesde));
             Value := Value.Replace('{PROM_HASTA}', Format(PromHasta));
         end;
+        // LA VENTANA DEL PROMEDIO DE AUSENCIA: los 6 o los 12 meses calendario anteriores a aquel
+        // en que EMPEZÓ la licencia. Misma idea que {PROM_DESDE} de vacaciones y por el mismo
+        // motivo —el promedio es el de cuando se enfermó, no el de cuando se liquida—, pero anclada
+        // en el estado de ausencia y con dos largos, porque el convenio los parte: 12 meses para
+        // 729/15 y 768/19, 6 para 175/75.
+        //
+        // El HASTA es común a los dos: el mes anterior al del inicio. Sólo cambia el DESDE.
+        //
+        // Sin estado de ausencia se cae a la fecha de referencia, igual que la de vacaciones: la
+        // fuente sigue teniendo una ventana con sentido en vez de quedarse sin filtro.
+        if Value.Contains('{AUS_PROM') then begin
+            AnclaAus := FechaInicioAusencia();
+            if AnclaAus = 0D then
+                AnclaAus := FFechaRef;
+            AusHasta := CalcDate('<-CM-1D>', AnclaAus);
+            Value := Value.Replace('{AUS_PROM_HASTA}', Format(AusHasta));
+            Value := Value.Replace('{AUS_PROM6_DESDE}', Format(CalcDate('<-CM>', CalcDate('<-5M>', AusHasta))));
+            Value := Value.Replace('{AUS_PROM12_DESDE}', Format(CalcDate('<-CM>', CalcDate('<-11M>', AusHasta))));
+        end;
         exit(Value);
+    end;
+
+    /// <summary>
+    /// El día en que arrancó la licencia de ausencia que esta liquidación está pagando. 0D si no hay.
+    /// </summary>
+    /// <remarks>
+    /// Misma regla que FechaInicioVacaciones: la PRIMERA vigencia que llega hasta el período o más
+    /// allá, recorriendo en orden de fecha. Una enfermedad que empezó el mes pasado y sigue corriendo
+    /// es la misma licencia, y su promedio se mide desde donde empezó — no desde el mes que se está
+    /// liquidando. Partirla en dos daría dos promedios distintos para una sola licencia.
+    ///
+    /// Los estados que cuentan los marca la bandera "Promedia Ausencia" del catálogo, no una lista
+    /// de códigos acá: el enum "Tipo Estado" no distingue enfermedad de navegación —las dos son
+    /// Normal— así que no hay de dónde deducirlo.
+    /// </remarks>
+    local procedure FechaInicioAusencia(): Date
+    var
+        EstadoEmp: Record "Estado Empleado";
+        CodEst: Record "Cód. Estado Empleado";
+    begin
+        if FEmployeeNo = '' then
+            exit(0D);
+        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
+        EstadoEmp.SetRange("No. Empleado", FEmployeeNo);
+        EstadoEmp.SetFilter("Fecha Inicio", '<=%1', FFechaRef);
+        if not EstadoEmp.FindSet() then
+            exit(0D);
+        repeat
+            if CodEst.Get(EstadoEmp."Cód. Estado") then
+                if CodEst."Promedia Ausencia" then
+                    if EstadoEmp.FechaFinEfectiva() >= FPeriodoFechaDesde then
+                        exit(EstadoEmp."Fecha Inicio");
+        until EstadoEmp.Next() = 0;
+        exit(0D);
     end;
 
     /// <summary>
@@ -2610,6 +3642,157 @@ codeunit 50016 "Contexto Liquidación"
     /// La ventana es la misma que la del token {PROM_DESDE}..{PROM_HASTA} y por el mismo ancla: si
     /// las dos se separan, el numerador y el denominador serían de semestres distintos.
     /// </remarks>
+    /// <summary>
+    /// Cuántos de los meses de la ventana del promedio de ausencia tienen al empleado de alta.
+    /// </summary>
+    /// <remarks>
+    /// Es el DIVISOR del promedio, y tiene que contar meses con alta y no los meses del período:
+    /// un ingreso a mitad de la ventana divide por 12 lo que se ganó en 3 y da un promedio que no
+    /// existe. La regla que dio el usuario para ese caso —"se promedian las remuneraciones desde el
+    /// ingreso hasta el día de inicio de la baja"— sale sola de acá: el numerador ya viene acotado
+    /// por la ventana de la fuente y el denominador queda en los meses que efectivamente trabajó.
+    ///
+    /// Misma mecánica que CalcMesesPromedioVacaciones, anclada en el inicio de la licencia en vez
+    /// del inicio de las vacaciones, y con el largo como parámetro porque el convenio lo parte:
+    /// 12 meses para 729/15 y 768/19, 6 para 175/75.
+    /// </remarks>
+    local procedure CalcMesesPromedioAusencia(Largo: Integer): Decimal
+    var
+        Fase: Record "Fase Alta Empleado";
+        Ancla: Date;
+        Desde: Date;
+        Hasta: Date;
+        MesDesde: Date;
+        MesHasta: Date;
+        Meses: Integer;
+        i: Integer;
+    begin
+        if FEmployeeNo = '' then
+            exit(0);
+
+        Ancla := FechaInicioAusencia();
+        if Ancla = 0D then
+            Ancla := FFechaRef;
+        Hasta := CalcDate('<-CM-1D>', Ancla);
+        // Las dos fórmulas van literales y no armadas con StrSubstNo. Una fórmula de fecha
+        // construida a partir de un número es exactamente el tipo de cosa que el compilador no
+        // mira y que falla en runtime con un mensaje que no dice de dónde salió —"La fórmula de
+        // fecha '0' debe contener una unidad de tiempo"—, sin nombrar tabla, campo ni concepto.
+        // Son dos casos y valen dos líneas; ver también los literales de {AUS_PROM*_DESDE}.
+        if Largo >= 12 then
+            Desde := CalcDate('<-CM>', CalcDate('<-11M>', Hasta))
+        else
+            Desde := CalcDate('<-CM>', CalcDate('<-5M>', Hasta));
+
+        // Sin fases cargadas no hay con qué decidir, y un 0 haría división por cero en la fórmula.
+        Fase.SetRange("No. Empleado", FEmployeeNo);
+        if Fase.IsEmpty() then
+            exit(Largo);
+
+        // Se avanza mes a mes con '<+1M>' en vez de saltar desde el origen con '<+%1M>'. Mismo
+        // resultado y ninguna fórmula de fecha armada en runtime.
+        MesDesde := Desde;
+        for i := 1 to Largo do begin
+            MesHasta := CalcDate('<CM>', MesDesde);
+            Fase.Reset();
+            Fase.SetRange("No. Empleado", FEmployeeNo);
+            Fase.SetFilter("Fecha Alta", '<=%1', MesHasta);
+            Fase.SetFilter("Fecha Baja", '%1|>=%2', 0D, MesDesde);
+            if not Fase.IsEmpty() then
+                Meses += 1;
+            MesDesde := CalcDate('<+1M>', MesDesde);
+        end;
+
+        exit(Meses);
+    end;
+
+    /// <summary>
+    /// Días calendario en un estado dado que caen dentro del período liquidado.
+    /// </summary>
+    /// <remarks>
+    /// Genérica a propósito: DIAS_ENFERMEDAD y DIAS_ACCIDENTE son la misma cuenta sobre AU1 y ACC.
+    /// Sin el tope de derecho que sí tiene DIAS_VAC_PERIODO —una enfermedad dura lo que dura—.
+    ///
+    /// Se recorta contra el período y no contra la cobertura: lo que se paga este mes son los días
+    /// de baja de ESTE mes, y una licencia que cruza el cierre se paga partida en dos liquidaciones.
+    /// </remarks>
+    local procedure CalcDiasEstadoPeriodo(CodEstado: Code[20]): Decimal
+    var
+        EstadoEmp: Record "Estado Empleado";
+        OlapStart: Date;
+        OlapEnd: Date;
+        Total: Integer;
+    begin
+        if (FEmployeeNo = '') or (CodEstado = '') then
+            exit(0);
+
+        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
+        EstadoEmp.SetRange("No. Empleado", FEmployeeNo);
+        EstadoEmp.SetRange("Cód. Estado", CodEstado);
+        EstadoEmp.SetFilter("Fecha Inicio", '<=%1', FFechaRef);
+        if not EstadoEmp.FindSet() then
+            exit(0);
+
+        repeat
+            // Por los TRAMOS de la liquidación. Es la variable que alimenta DIAS_ENFERMEDAD y
+            // DIAS_ACCIDENTE, así que sin esto una enfermedad que cae dentro del tramo de otra
+            // liquidación se cobraría en las dos.
+            Total += DiasEnLaVentana(EstadoEmp."Fecha Inicio", EstadoEmp.FechaFinEfectiva());
+        until EstadoEmp.Next() = 0;
+
+        exit(Total);
+    end;
+
+    /// <summary>
+    /// Días en ese estado ANTERIORES al período que se liquida, contados desde el inicio de la
+    /// licencia en curso. 0 si la licencia empieza en este período.
+    /// </summary>
+    /// <remarks>
+    /// Existe por el art. 13 de la LRT: los primeros 10 días de incapacidad los paga el empleador y
+    /// del 11 en adelante paga la ART. El corte no es por período sino por licencia, así que para
+    /// saber cuántos de los días de ESTE mes todavía le tocan al empleador hay que saber cuántos ya
+    /// se pagaron antes. Verificado contra Meta4: en julio 2023 el legajo 03952 tiene 10 días por
+    /// ACCIDENTE_NR y 1 por PRESTAC_ART_NR —empezó ese mes— y en enero 2024 hay licencias con 30
+    /// días enteros de ART y cero de accidente, que son las que venían de meses anteriores.
+    /// </remarks>
+    local procedure CalcDiasEstadoPrevios(CodEstado: Code[20]): Decimal
+    var
+        EstadoEmp: Record "Estado Empleado";
+        Inicio: Date;
+        OlapStart: Date;
+        OlapEnd: Date;
+        Total: Integer;
+    begin
+        if (FEmployeeNo = '') or (CodEstado = '') then
+            exit(0);
+
+        Inicio := FechaInicioAusencia();
+        if (Inicio = 0D) or (Inicio >= FPeriodoFechaDesde) then
+            exit(0);
+
+        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
+        EstadoEmp.SetRange("No. Empleado", FEmployeeNo);
+        EstadoEmp.SetRange("Cód. Estado", CodEstado);
+        EstadoEmp.SetFilter("Fecha Inicio", '<%1', FPeriodoFechaDesde);
+        if not EstadoEmp.FindSet() then
+            exit(0);
+
+        repeat
+            OlapStart := EstadoEmp."Fecha Inicio";
+            if Inicio > OlapStart then
+                OlapStart := Inicio;
+            OlapEnd := EstadoEmp.FechaFinEfectiva();
+            if FPeriodoFechaDesde - 1 < OlapEnd then
+                OlapEnd := FPeriodoFechaDesde - 1;
+            if OlapEnd >= OlapStart then
+                Total += OlapEnd - OlapStart + 1;
+        until EstadoEmp.Next() = 0;
+
+        exit(Total);
+    end;
+
     local procedure CalcMesesPromedioVacaciones(): Decimal
     var
         Fase: Record "Fase Alta Empleado";

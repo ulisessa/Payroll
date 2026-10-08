@@ -212,10 +212,16 @@ table 60012 "Línea Liquidación"
 
     keys
     {
+        // SIN SumIndexFields A PROPOSITO. Una SIFT sobre la clave primaria agrupa por
+        // (No. Liquidación, No. Línea), que es única: la vista indexada terminaba con UNA FILA POR
+        // LÍNEA —104.588, igual que la tabla— y no ahorraba ninguna suma. Ningún CalcSums la usaba:
+        // los de UpdateTotals y CalcNetoDesdeBD filtran por "Es Devengo" y "Tipo Concepto" y van a
+        // K2; los de acumulados van a K4/K5. Medido sobre 90 horas de uso real: 0 lecturas contra
+        // 1.020.888 mantenimientos. Mantener una vista indexada es la escritura más cara que hay, y
+        // esta tabla es el 45% del tiempo ocupado del cálculo.
         key(PK; "No. Liquidación", "No. Línea")
         {
             Clustered = true;
-            SumIndexFields = Importe;
         }
         // "Es Devengo" va en el MEDIO a propósito: los dos únicos consumidores de esta SIFT
         // (UpdateTotals y CalcNetoDesdeBD en Cod50014) filtran siempre por los tres campos.
@@ -245,6 +251,16 @@ table 60012 "Línea Liquidación"
         // problema que describe el comentario de K2.
         key(K6; "Cód. Concepto", "Vigencia Concepto", "Fecha Liquidación")
         {
+        }
+        // Lecturas por concepto + empleado + fecha: el ledger de francos (Cod50053) y los acumulados
+        // por concepto. Reemplaza al missing_index_5916_5915, que SQL había armado con CUATRO columnas
+        // de clave y las 30 restantes en INCLUDE: una copia entera de la tabla (357 MB contra 275 del
+        // clustered), que cada Insert y cada Delete del cálculo tenía que mantener. Estado queda
+        // afuera —se filtra con un <> y en el medio cortaría el rango de fechas—; Cantidad e Importe
+        // viajan incluidos porque son lo único que esas lecturas traen.
+        key(K7; "Cód. Concepto", "No. Empleado", "Fecha Liquidación")
+        {
+            IncludedFields = Cantidad, Importe;
         }
     }
 

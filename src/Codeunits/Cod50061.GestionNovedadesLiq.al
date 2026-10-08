@@ -102,8 +102,27 @@ codeunit 50066 "Gestión Novedades Liq."
     // La regla vive en la tabla Liquidación y se delega ahí: es la misma que el motor guarda en
     // "Cobertura Desde"/"Cobertura Hasta" y la que usa el control de cobertura. Mantener una copia
     // acá haría que una novedad pudiera entrar en una liquidación que el control da por no cubierta.
+    /// <remarks>
+    /// LA COBERTURA YA ESTÁ ESCRITA EN LA CABECERA cuando se llega acá: el motor la calcula junto con
+    /// los tramos bastante antes de aplicar las novedades. Recalcularla con Cobertura() devuelve otra
+    /// cosa — esa función arranca en el PERÍODO ENTERO y sólo lo recorta cuando el tipo cubre un
+    /// proyecto, que no es el caso ni de la mensual ni de las vacaciones.
+    ///
+    /// Con el período entero las DOS liquidaciones del mes aceptan la misma novedad y se la lleva la
+    /// que se calcule primero, que no es un criterio: vacaciones tiene Orden 30 y la mensual 100, así
+    /// que siempre ganaba vacaciones. El feriado del 1 de enero de 03916 —cuya mensual cubre del 1 al
+    /// 4 y cuyas vacaciones cubren del 5 al 31— terminaba aplicado en la de vacaciones, y la mensual,
+    /// que es la que corresponde por fecha, calculaba el concepto por fórmula.
+    /// </remarks>
     local procedure CalcularRangoLiquidacion(Liq: Record "Liquidación"; var Desde: Date; var Hasta: Date)
     begin
+        if (Liq."Cobertura Desde" <> 0D) and (Liq."Cobertura Hasta" <> 0D) then begin
+            Desde := Liq."Cobertura Desde";
+            Hasta := Liq."Cobertura Hasta";
+            exit;
+        end;
+        // Sin cobertura guardada —una liquidación que todavía no pasó por el motor— se calcula al
+        // vuelo, que es lo que se hacía siempre.
         Liq.Cobertura(Desde, Hasta);
     end;
 
@@ -147,7 +166,25 @@ codeunit 50066 "Gestión Novedades Liq."
         if not ProyectoAplica(Nov, Liq) then
             exit(false);
 
-        if Nov.Fecha <> 0D then
+        // LA FECHA NO FILTRA SI LA NOVEDAD YA NOMBRÓ EL TIPO DE LIQUIDACIÓN. Los dos campos
+        // contestan lo mismo —en cuál de las liquidaciones del mes entra— y el tipo es el explícito:
+        // lo cargó alguien a mano, mientras que la fecha suele venir estampada de la migración, con
+        // el último día del mes puesto a todo.
+        //
+        // Con los dos cargados y en desacuerdo, la novedad no entraba en NINGUNA: el tipo la sacaba
+        // de las demás liquidaciones y la fecha la sacaba de la suya. El legajo 00898 en enero de
+        // 2026 es el caso: Tipo Liq. REGULAR y fecha 31/01, con la Regular cubriendo del 1 al 4 y
+        // las vacaciones del 5 al 31. Sus 153.483,80 de cuota alimentaria no los cobraba nadie.
+        //
+        // Es la misma excepción que ya tiene el proyecto unas líneas más arriba —"un proyecto
+        // cargado a mano sigue ganando"—, y por el mismo motivo: un selector puesto a mano es una
+        // decisión, no una inferencia.
+        //
+        // NO ABRE LA PUERTA A QUE ENTRE EN DOS. Ningún empleado tiene dos liquidaciones del MISMO
+        // tipo en un período —verificado sobre toda la tabla—, así que un tipo explícito resuelve
+        // siempre a una sola y la fecha nunca haría de desempate entre pares. Y si alguna vez las
+        // hubiera, abajo sigue la regla de "ya entró en otra liquidación del mismo empleado".
+        if (Nov.Fecha <> 0D) and (Nov."Cód. Tipo Liq." = '') then
             if (Nov.Fecha < RangoDesde) or (Nov.Fecha > RangoHasta) then
                 exit(false);
         // Ya entró en otra liquidación DEL MISMO EMPLEADO (típico: mensual y cierre de marea de la
@@ -180,15 +217,31 @@ codeunit 50066 "Gestión Novedades Liq."
         EstadoEmp: Record "Estado Empleado";
         EmpNo: Code[20];
     begin
-        if Nov."No. Proyecto" <> '' then
-            exit(Nov."No. Proyecto" = Liq."No. Proyecto");
+        EmpNo := Nov."No. Empleado";
+        if EmpNo = '' then
+            EmpNo := Liq."No. Empleado";
+
+        if Nov."No. Proyecto" <> '' then begin
+            if Nov."No. Proyecto" = Liq."No. Proyecto" then
+                exit(true);
+            // El proyecto de la novedad tiene su liquidación en el período: la novedad es de ESA y
+            // no de ésta.
+            if ExisteLiquidacionDelProyecto(EmpNo, Liq."Cód. Período", Nov."No. Proyecto") then
+                exit(false);
+            // HUÉRFANA: nombra un proyecto que no se liquidó. Antes se descartaba en silencio, con
+            // Estado en cero y sin motivo anotado — en enero de 2026 eran 95 novedades de 29
+            // empleados por 10,5 millones, casi todas de recupero de anticipos. El descuento de un
+            // adelanto no depende de que la marea se haya cerrado: la plata se adelantó igual.
+            //
+            // No se elige "la primera que se calcule", que es lo que este mismo archivo descarta más
+            // arriba por no ser un criterio. Se cae al MISMO camino que una novedad sin proyecto: lo
+            // decide el historial de estados de esa fecha, que sí sabe qué estaba haciendo la
+            // persona. La novedad deja de tener proyecto propio y se comporta como si no lo tuviera.
+        end;
 
         if Nov.Fecha = 0D then
             exit(true);
 
-        EmpNo := Nov."No. Empleado";
-        if EmpNo = '' then
-            EmpNo := Liq."No. Empleado";
         if EmpNo = '' then
             exit(true);
 
@@ -196,8 +249,47 @@ codeunit 50066 "Gestión Novedades Liq."
             exit(true);
         if EstadoEmp."No. Proyecto" = '' then
             exit(true);
+        if EstadoEmp."No. Proyecto" = Liq."No. Proyecto" then
+            exit(true);
 
-        exit(EstadoEmp."No. Proyecto" = Liq."No. Proyecto");
+        // El estado apunta a un proyecto que NO se liquidó en el período. Es el mismo caso que la
+        // novedad huérfana de más arriba, sólo que ahora el proyecto que sobra viene del historial y
+        // no de la novedad: nadie puede reclamarla, así que entra acá en vez de perderse.
+        //
+        // La comparación contra el proyecto de la liquidación existe para DESEMPATAR entre dos
+        // liquidaciones de marea —una novedad de la marea 302 va en la de la 302 y no en la de la
+        // 303—. Cuando el proyecto del estado no tiene liquidación propia no hay empate que resolver,
+        // y exigir que coincida sólo logra perder la novedad.
+        //
+        // En enero de 2026 eran 52 novedades por 2,8 millones, casi todas descuentos de anticipos de
+        // gente que cambió de buque dentro del mes: el estado decía PN-116-NOMINA y la liquidación se
+        // había creado contra PN-114-NOMINA. El descuento de un adelanto no depende de en qué buque
+        // terminó la persona; la plata se adelantó igual.
+        if not ExisteLiquidacionDelProyecto(EmpNo, Liq."Cód. Período", EstadoEmp."No. Proyecto") then
+            exit(true);
+
+        exit(false);
+    end;
+
+    /// <summary>
+    /// ¿El empleado tiene, en este período, una liquidación del proyecto que nombra la novedad?
+    /// </summary>
+    /// <remarks>
+    /// Distingue las dos situaciones que antes se trataban igual: la novedad que pertenece a OTRA
+    /// liquidación —y por eso no entra en ésta— de la que no pertenece a ninguna, que quedaba sin
+    /// aplicar y sin rastro. Con el empleado en blanco —novedad colectiva— se pregunta por el de la
+    /// liquidación, porque la pregunta es si a ESTA persona le corresponde.
+    /// </remarks>
+    local procedure ExisteLiquidacionDelProyecto(EmpNo: Code[20]; CodPeriodo: Code[10]; NoProyecto: Code[20]): Boolean
+    var
+        Otra: Record "Liquidación";
+    begin
+        if EmpNo = '' then
+            exit(false);
+        Otra.SetRange("No. Empleado", EmpNo);
+        Otra.SetRange("Cód. Período", CodPeriodo);
+        Otra.SetRange("No. Proyecto", NoProyecto);
+        exit(not Otra.IsEmpty());
     end;
 
     local procedure EmpleadoDeLiquidacion(NoLiq: Code[20]): Code[20]

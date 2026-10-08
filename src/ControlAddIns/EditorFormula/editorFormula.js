@@ -94,7 +94,13 @@ var UASEditorFormula = (function () {
             }
             if (c === "'") {
                 var j3 = i + 1;
-                while (j3 < n && s.charAt(j3) !== "'") j3++;
+                while (j3 < n) {
+                    if (s.charAt(j3) === "'") {
+                        if (s.charAt(j3 + 1) === "'") { j3 += 2; continue; }
+                        break;
+                    }
+                    j3++;
+                }
                 var cerrada = j3 < n;
                 if (cerrada) j3++;
                 agregar('cadena', i, j3, { cerrada: cerrada });
@@ -209,9 +215,41 @@ var UASEditorFormula = (function () {
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function tramo(cls, texto) {
+    function tramo(cls, texto, extra) {
         if (texto === '') return '';
-        return '<span class="uas-tk uas-tk-' + cls + '">' + escapar(texto) + '</span>';
+        return '<span class="uas-tk uas-tk-' + cls + (extra ? ' ' + extra : '') + '">' + escapar(texto) + '</span>';
+    }
+
+    // ¿Qué paréntesis manda donde está el cursor? Devuelve los índices del '(' que lo abre y del ')'
+    // que lo cierra, o null si el cursor no está dentro de ningún grupo.
+    //
+    // El que vale es el grupo MÁS INTERNO que lo contiene, que es el que decide qué se está
+    // escribiendo: parado en el segundo argumento de un IF anidado dentro de un ROUND, lo que
+    // importa es el IF. Recorriendo de izquierda a derecha ese grupo es el PRIMERO que cierra
+    // conteniendo al cursor, porque los de adentro cierran antes que los de afuera.
+    //
+    // El cursor cuenta como adentro también cuando está sobre los propios paréntesis: pararse en un
+    // ')' y ver dónde abría es justamente para lo que se usa esto.
+    function grupoDelCursor(toks, caret) {
+        var pila = [];
+        var i, t;
+        for (i = 0; i < toks.length; i++) {
+            t = toks[i];
+            if (t.tipo !== 'par') continue;
+            if (t.texto === '(') {
+                pila.push(i);
+            } else if (pila.length) {
+                var abre = pila.pop();
+                if (caret >= toks[abre].ini && caret <= t.fin)
+                    return { abre: abre, cierra: i };
+            }
+        }
+        // Grupos abiertos y todavía sin cerrar: es el estado normal mientras se escribe, y es cuando
+        // más sirve saber cuál es el paréntesis que quedó abierto. Se toma el último que empezó
+        // antes del cursor, que es el más interno de los que lo contienen.
+        for (i = pila.length - 1; i >= 0; i--)
+            if (caret >= toks[pila[i]].ini) return { abre: pila[i], cierra: -1 };
+        return null;
     }
 
     function render(ed) {
@@ -220,17 +258,23 @@ var UASEditorFormula = (function () {
         var caret = ed.ta.selectionStart;
         var html = '';
         var marcaPuesta = false;
+        // Sólo con el foco puesto: si no, el resaltado queda pintado sobre un cursor que ya no está.
+        var grupo = (document.activeElement === ed.ta) ? grupoDelCursor(toks, caret) : null;
 
         for (var i = 0; i < toks.length; i++) {
             var tk = toks[i];
             var cls = clasificar(tk, toks, i).cls;
+            // El de apertura se marca aparte del de cierre: es el que se pidió ver, y cuando el
+            // grupo quedó sin cerrar es el único que hay.
+            var extra = grupo ? (i === grupo.abre ? 'uas-par-abre' : (i === grupo.cierra ? 'uas-par-cierra' : '')) : '';
             if (!marcaPuesta && caret >= tk.ini && caret < tk.fin) {
                 // El cursor cae dentro de este token: se parte en dos para poder anclar la marca
-                // invisible que después se usa para posicionar el popup.
-                html += tramo(cls, texto.substring(tk.ini, caret)) + MARCA + tramo(cls, texto.substring(caret, tk.fin));
+                // invisible que después se usa para posicionar el popup. Los dos pedazos llevan el
+                // resaltado, o parado sobre el propio paréntesis se vería sólo media letra pintada.
+                html += tramo(cls, texto.substring(tk.ini, caret), extra) + MARCA + tramo(cls, texto.substring(caret, tk.fin), extra);
                 marcaPuesta = true;
             } else {
-                html += tramo(cls, tk.texto);
+                html += tramo(cls, tk.texto, extra);
             }
         }
         if (!marcaPuesta) html += MARCA;
@@ -541,11 +585,53 @@ var UASEditorFormula = (function () {
     }
 
     function actualizarPopup(ed, forzado) {
+        var atributo = valoresAtributoEnCursor(ed);
+        if (atributo) {
+            if (atributo.items.length) abrirPopup(ed, atributo.rango, atributo.items);
+            else cerrarPopup();
+            return;
+        }
         var pref = prefijoEnCursor(ed);
         if (!forzado && pref.texto.length === 0) { cerrarPopup(); return; }
         var items = sugerencias(pref.texto);
         if (!items.length) { cerrarPopup(); return; }
         abrirPopup(ed, pref, items);
+    }
+
+    // Reconoce solo VARIABLE = literal y VARIABLE <> literal, fuera de otras cadenas.
+    function valoresAtributoEnCursor(ed) {
+        var s = ed.ta.value, p = ed.ta.selectionStart;
+        var toks = tokenizar(s.substring(0, p)).filter(function (t) { return t.tipo !== 'espacio'; });
+        var ultimo = toks[toks.length - 1], pref = '', ini = p, fin = p;
+        if (!ultimo) return null;
+        if (ultimo.tipo === 'cadena' && ultimo.cerrada) return null;
+        if (ultimo.tipo !== 'op') {
+            pref = ultimo.texto;
+            ini = ultimo.ini;
+            if (ultimo.tipo === 'cadena') pref = pref.substring(1).replace(/''/g, "'");
+            toks.pop();
+            // Reemplaza también el resto del literal si se completa en medio de uno existente.
+            var completo = tokenizar(s).filter(function (t) { return t.ini === ini; })[0];
+            if (completo) fin = completo.fin;
+        }
+        var op = toks[toks.length - 1], variable = toks[toks.length - 2];
+        if (!op || (op.texto !== '=' && op.texto !== '<>') || !variable || variable.tipo !== 'ident') return null;
+        var anterior = toks[toks.length - 3];
+        if (anterior && anterior.texto !== '(' && anterior.texto !== ',' &&
+            !/^(AND|OR|NOT)$/i.test(anterior.texto)) return null;
+        var def = mapaVariablesUp[variable.texto.toUpperCase()];
+        if (!def || !def.valoresAtributo || !def.valoresAtributo.length) return null;
+        var q = pref.toUpperCase(), items = [];
+        def.valoresAtributo.forEach(function (v) {
+            var codigo = String(v.codigo), desc = String(v.desc || '');
+            var pun = codigo.toUpperCase().indexOf(q) === 0 ? 0 :
+                ((codigo + ' ' + desc + ' ' + (v.padre || '')).toUpperCase().indexOf(q) >= 0 ? 1 : -1);
+            if (pun < 0) return;
+            var ins = "'" + codigo.replace(/'/g, "''") + "'";
+            items.push({ pun: pun, it: { nombre: codigo, tipo: 'Valor de atributo',
+                valor: v.padre || '', desc: desc, insertar: ins, caretRel: ins.length } });
+        });
+        return { rango: { ini: ini, fin: fin }, items: ordenar(items) };
     }
 
     // ── Ayuda de firma y barra de estado ──────────────────────────────────────
@@ -795,8 +881,21 @@ var UASEditorFormula = (function () {
             actualizarPopup(ed, false);
         });
 
+        // Las teclas que el popup YA CONSUMIÓ en keydown no se vuelven a procesar acá.
+        //
+        // Sin esto las flechas no movían la lista. Bajar hacía las dos cosas: el keydown corría
+        // mover(1) y marcaba la fila, y al soltar la tecla este keyup llamaba a actualizarPopup, que
+        // recalcula las mismas sugerencias y termina en abrirPopup —donde hay un pop.sel = 0—. La
+        // selección saltaba a la primera fila en cada pulsación, así que parecía que la lista no
+        // respondía: en realidad se movía y rebotaba.
+        //
+        // Izquierda y derecha NO entran acá: el keydown no las intercepta, mueven el cursor de
+        // verdad y el popup tiene que recalcularse con el prefijo nuevo.
+        var CONSUMIDAS_POR_POPUP = { ArrowDown: 1, ArrowUp: 1, PageDown: 1, PageUp: 1 };
+
         ta.addEventListener('keyup', function (e) {
             if (!e.key) return;
+            if (pop.abierto && pop.ed === ed && CONSUMIDAS_POR_POPUP[e.key]) return;
             if (e.key.indexOf('Arrow') === 0 || e.key === 'Home' || e.key === 'End') {
                 render(ed);
                 actualizarEstado(ed);
@@ -812,12 +911,18 @@ var UASEditorFormula = (function () {
 
         ed.editor.addEventListener('scroll', function () { if (pop.abierto && pop.ed === ed) posicionarPopup(ed); });
 
-        ta.addEventListener('focus', function () { ed.editor.className = 'uas-editor uas-editor-foco'; });
+        // Los dos vuelven a pintar por el resaltado del paréntesis, que sólo se muestra con el foco
+        // puesto: sin esto aparecería recién al mover el cursor y quedaría dibujado al irse.
+        ta.addEventListener('focus', function () {
+            ed.editor.className = 'uas-editor uas-editor-foco';
+            render(ed);
+        });
 
         ta.addEventListener('blur', function () {
             ed.editor.className = 'uas-editor';
             cerrarPopup();
             emitir(ed, true);
+            render(ed);
         });
 
         // El textarea solo mide lo que ocupa su texto; sin esto, clickear en el espacio vacío de

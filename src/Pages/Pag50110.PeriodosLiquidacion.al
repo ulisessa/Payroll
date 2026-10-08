@@ -9,6 +9,11 @@ page 50110 "Períodos Liquidación"
     PageType = List;
     SourceTable = "Período Liquidación";
     UsageCategory = Administration;
+    // El más reciente arriba: en una lista que crece un renglón por mes, el que se trabaja es
+    // siempre el último. Ordena por Código y no por Año/Mes porque desde el 26/9/2026 el código es
+    // aaaamm y su orden alfabético YA es el cronológico — con el formato viejo, MENSmmaaaa, esto
+    // habría mezclado los años.
+    SourceTableView = sorting(Código) order(descending);
 
     layout
     {
@@ -25,6 +30,10 @@ page 50110 "Períodos Liquidación"
                 {
                     ApplicationArea = All;
                     StyleExpr = EstadoStyle;
+                    // NO EDITABLE: el estado se cambia con las acciones, que preguntan antes y, en
+                    // el caso de Reabrir, revisan que no haya liquidaciones que lo impidan. Tipeado
+                    // en la grilla, esos controles no corren.
+                    Editable = false;
                 }
                 field("Cód. Calendario"; Rec."Cód. Calendario")
                 {
@@ -79,6 +88,30 @@ page 50110 "Períodos Liquidación"
                         CurrPage.Update(false);
                     end;
                 }
+                action(CrearYCalcular)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Crear y Calcular Liquidaciones';
+                    Image = CalculateSalesTax;
+                    Enabled = Rec.Estado = Rec.Estado::Abierto;
+                    ToolTip = 'Crea y calcula en una sola pasada TODOS los tipos activos, en su orden, y descarta las liquidaciones que salgan vacías sin quemarles el número. Una liquidación sin ninguna línea con importe no aporta nada y estorba: así no llega a quedar.';
+
+                    trigger OnAction()
+                    var
+                        ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                        Creadas: Integer;
+                    begin
+                        if not Confirm(QstCrearYCalcular, true, Rec.Código) then
+                            exit;
+                        // El tipo va en blanco a propósito: son todos, en el Orden del tipo.
+                        // Sin carteles: el resumen y los omitidos los escribe el propio proceso en
+                        // el registro de la sesión, así que salen en el informe y después quedan
+                        // en "Registros de proceso". Antes esto terminaba en hasta cinco Message
+                        // encadenados que había que cerrar uno por uno y que no dejaban rastro.
+                        Creadas := ProcLiq.CrearYCalcularPorPeriodo(Rec.Código, '');
+                        CurrPage.Update(false);
+                    end;
+                }
                 action(CrearLiqEmpleado)
                 {
                     ApplicationArea = All;
@@ -112,6 +145,7 @@ page 50110 "Períodos Liquidación"
                     trigger OnAction()
                     var
                         ProcLiq: Codeunit "Proceso Liq. Por Lote";
+                        Progreso: Codeunit "Progreso Liq.";
                         TipoLiquidacion: Code[20];
                         Calculadas: Integer;
                     begin
@@ -119,7 +153,8 @@ page 50110 "Períodos Liquidación"
                             exit;
                         TipoLiquidacion := 'REGULAR';
                         Calculadas := ProcLiq.CalcularPorPeriodo(Rec.Código, TipoLiquidacion);
-                        Message(MsgCalculadas, Calculadas, Rec.Código);
+                        // El tiempo sale del progreso, que lo congeló al cerrar: acá la ventana ya no está.
+                        Message(MsgCalculadas, Calculadas, Rec.Código, Progreso.TranscurridoTexto());
                         CurrPage.Update(false);
                     end;
                 }
@@ -222,8 +257,122 @@ page 50110 "Períodos Liquidación"
             {
                 Caption = 'Estado del período';
                 Image = Close;
-                ToolTip = 'Cierra el período o lo vuelve a abrir.';
+                ToolTip = 'Abre el período, lo cierra o lo vuelve a abrir. Los períodos Creados no se muestran salvo que se pida.';
 
+                action(AbrirPeriodo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Abrir Período';
+                    Image = ReleaseDoc;
+                    Enabled = Rec.Estado = Rec.Estado::Creado;
+                    ToolTip = 'Pasa el período de Creado a Abierto: desde ahí se le pueden cargar novedades y crear liquidaciones.';
+
+                    trigger OnAction()
+                    begin
+                        Rec.Estado := Rec.Estado::Abierto;
+                        Rec.Modify(true);
+                        CurrPage.Update(false);
+                    end;
+                }
+                action(PasarACreado)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Pasar a Creado';
+                    Image = Undo;
+                    ToolTip = 'Devuelve a Creado los períodos Abiertos seleccionados para esconderlos. Sólo los que no tienen liquidaciones. Las novedades precargadas se conservan.';
+
+                    trigger OnAction()
+                    var
+                        Seleccion: Record "Período Liquidación";
+                        Actual: Record "Período Liquidación";
+                        Codigos: List of [Code[10]];
+                        Codigo: Code[10];
+                        Pasados: Integer;
+                        ConLiquidaciones: Integer;
+                    begin
+                        // Por selección y sobre registros propios, no sobre Rec: modificar Rec cambia
+                        // el Estado que filtra la página y el registro desaparece de la lista a mitad
+                        // de la acción. Códigos primero, por la misma razón.
+                        CurrPage.SetSelectionFilter(Seleccion);
+                        if Seleccion.FindSet() then
+                            repeat
+                                if Seleccion.Estado = Seleccion.Estado::Abierto then
+                                    Codigos.Add(Seleccion.Código);
+                            until Seleccion.Next() = 0;
+                        foreach Codigo in Codigos do
+                            if Actual.Get(Codigo) then
+                                if VolverACreado(Actual) then
+                                    Pasados += 1
+                                else
+                                    ConLiquidaciones += 1;
+                        if Pasados = 0 then
+                            Error(ErrNoSePuedeOcultar, Rec.Código);
+                        CurrPage.Update(false);
+                        if ConLiquidaciones > 0 then
+                            Message(MsgSeleccionParcial, Pasados, ConLiquidaciones);
+                    end;
+                }
+                action(OcultarPosteriores)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Pasar a Creado los posteriores';
+                    Image = Hierarchy;
+                    ToolTip = 'Pasa a Creado todos los períodos Abiertos posteriores al seleccionado que no tengan liquidaciones. Es la forma de ordenar de una vez los que se cargaron por adelantado.';
+
+                    trigger OnAction()
+                    var
+                        Posterior: Record "Período Liquidación";
+                        Actual: Record "Período Liquidación";
+                        Codigos: List of [Code[10]];
+                        Codigo: Code[10];
+                        Pasados: Integer;
+                    begin
+                        if not Confirm(QstOcultarPosteriores, false, Rec.Código) then
+                            exit;
+                        // Códigos primero: VolverACreado modifica Estado, que es el campo filtrado, y el
+                        // registro se cae del filtro cortando el Next() en el primero.
+                        Posterior.SetFilter("Fecha Desde", '>%1', Rec."Fecha Hasta");
+                        Posterior.SetRange(Estado, Posterior.Estado::Abierto);
+                        if Posterior.FindSet() then
+                            repeat
+                                Codigos.Add(Posterior.Código);
+                            until Posterior.Next() = 0;
+                        foreach Codigo in Codigos do
+                            if Actual.Get(Codigo) then
+                                if VolverACreado(Actual) then
+                                    Pasados += 1;
+                        CurrPage.Update(false);
+                        Message(MsgOcultados, Pasados, Rec.Código);
+                    end;
+                }
+                action(MostrarCreadosAccion)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mostrar Creados';
+                    Image = ShowList;
+                    Visible = not MostrarCreados;
+
+                    trigger OnAction()
+                    begin
+                        MostrarCreados := true;
+                        AplicarFiltroCreados();
+                        CurrPage.Update(false);
+                    end;
+                }
+                action(OcultarCreadosAccion)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Ocultar Creados';
+                    Image = HideList;
+                    Visible = MostrarCreados;
+
+                    trigger OnAction()
+                    begin
+                        MostrarCreados := false;
+                        AplicarFiltroCreados();
+                        CurrPage.Update(false);
+                    end;
+                }
                 action(CerrarPeriodo)
                 {
                     ApplicationArea = All;
@@ -232,14 +381,40 @@ page 50110 "Períodos Liquidación"
                     Enabled = Rec.Estado = Rec.Estado::Abierto;
     
                     trigger OnAction()
+                    var
+                        Periodo: Record "Período Liquidación";
+                        Codigos: List of [Code[10]];
+                        Codigo: Code[10];
+                        Cerrados: Integer;
                     begin
-                        if not Confirm('¿Confirma el cierre del período %1? Esta acción no se puede deshacer.', false, Rec.Código) then
+                        // TOMA LA SELECCIÓN, no la fila del cursor. Antes trabajaba sobre Rec, así
+                        // que marcar varios períodos y cerrar cerraba uno solo, sin decir nada.
+                        CurrPage.SetSelectionFilter(Periodo);
+                        Periodo.SetRange(Estado, Periodo.Estado::Abierto);
+                        if not Periodo.FindSet() then
                             exit;
-                        Rec.Estado := Rec.Estado::Cerrado;
-                        Rec."Fecha Cierre" := Today();
-                        Rec."Usuario Cierre" := CopyStr(UserId(), 1, 50);
-                        Rec.Modify(true);
+
+                        // LOS CÓDIGOS PRIMERO Y EL CIERRE DESPUÉS. El bucle modifica el mismo campo
+                        // por el que filtra: recorriendo y cerrando a la vez, la primera fila sale
+                        // del filtro y el Next() no encuentra a las demás.
+                        repeat
+                            Codigos.Add(Periodo.Código);
+                        until Periodo.Next() = 0;
+
+                        if not Confirm(QstCerrarPeriodos, false, Codigos.Count()) then
+                            exit;
+
+                        foreach Codigo in Codigos do
+                            if Periodo.Get(Codigo) then begin
+                                // Validate y no asignación directa: el sello de fecha y usuario lo
+                                // pone el OnValidate del Estado, en la tabla.
+                                Periodo.Validate(Estado, Periodo.Estado::Cerrado);
+                                Periodo.Modify(true);
+                                Cerrados += 1;
+                            end;
+
                         CurrPage.Update(false);
+                        Message(MsgCerrados, Cerrados);
                     end;
                 }
                 action(ReabrirPeriodo)
@@ -320,6 +495,22 @@ page 50110 "Períodos Liquidación"
                 RunObject = Page "Lista Liquidaciones";
                 RunPageLink = "Cód. Período" = field(Código);
             }
+            action(ControlPeriodo)
+            {
+                ApplicationArea = All;
+                Caption = 'Control de liquidación';
+                Image = AnalysisView;
+                ToolTip = 'Abre el control de este período: los conceptos por empleado en una matriz y la lista de quién se apartó de su categoría. Se acota por empleado, concepto, proyecto, tipo, fechas y encuadre.';
+                trigger OnAction()
+                var
+                    Control: Page "Control Liquidación Período";
+                begin
+                    // Se abre con SetPeriodo y no con RunPageOnRec: la página dejó de tener
+                    // SourceTable, así que no hay registro que pasarle — el período es un filtro.
+                    Control.SetPeriodo(Rec."Código");
+                    Control.Run();
+                end;
+            }
         }
         // La promoción se declara acá y no con Promoted/PromotedCategory en cada acción: así el
         // lugar donde vive la acción y el lugar donde aparece en la cinta son decisiones separadas,
@@ -330,9 +521,11 @@ page 50110 "Períodos Liquidación"
             {
                 Caption = 'Proceso';
 
+                actionref(CrearYCalcularProm; CrearYCalcular) { }
                 actionref(CrearLiquidacionesProm; CrearLiquidaciones) { }
                 actionref(CalcularPeriodoProm; CalcularPeriodo) { }
                 actionref(VerLiquidacionesProm; VerLiquidaciones) { }
+                actionref(ControlPeriodoProm; ControlPeriodo) { }
             }
             group(Category_Category4)
             {
@@ -345,21 +538,70 @@ page 50110 "Períodos Liquidación"
             {
                 Caption = 'Período';
 
+                actionref(AbrirPeriodoProm; AbrirPeriodo) { }
+                actionref(MostrarCreadosProm; MostrarCreadosAccion) { }
+                actionref(OcultarCreadosProm; OcultarCreadosAccion) { }
                 actionref(CerrarPeriodoProm; CerrarPeriodo) { }
                 actionref(ReabrirPeriodoProm; ReabrirPeriodo) { }
             }
         }
     }
 
+    // Esta página es también el selector de período de las acciones y los lookups, así que el filtro
+    // se pone acá y lo heredan todos: un período Creado no aparece en ningún lado salvo que se pida.
+    trigger OnOpenPage()
+    begin
+        AplicarFiltroCreados();
+    end;
+
     trigger OnAfterGetRecord()
     begin
-        if Rec.Estado = Rec.Estado::Cerrado then
-            EstadoStyle := 'Subordinate'
+        case Rec.Estado of
+            Rec.Estado::Cerrado:
+                EstadoStyle := 'Subordinate';
+            Rec.Estado::Creado:
+                EstadoStyle := 'Standard';
+            else
+                EstadoStyle := 'Favorable';
+        end;
+    end;
+
+    // Para quien necesita elegir también entre los Creados —la hoja de novedades, que precarga por
+    // adelantado—. Se llama antes de Run/RunModal.
+    procedure SetMostrarCreados(Mostrar: Boolean)
+    begin
+        MostrarCreados := Mostrar;
+    end;
+
+    local procedure AplicarFiltroCreados()
+    begin
+        if MostrarCreados then
+            Rec.SetRange(Estado)
         else
-            EstadoStyle := 'Favorable';
+            Rec.SetFilter(Estado, '<>%1', Rec.Estado::Creado);
+    end;
+
+    // Devuelve el período a Creado si no tiene liquidaciones: con liquidaciones, esconderlo dejaría
+    // trabajo a la vista de nadie, así que se rechaza. Las novedades no cuentan, porque justamente se
+    // precargan en períodos Creados y se conservan al volver.
+    local procedure VolverACreado(var Periodo: Record "Período Liquidación"): Boolean
+    var
+        Liq: Record "Liquidación";
+    begin
+        Liq.SetRange("Cód. Período", Periodo.Código);
+        if not Liq.IsEmpty() then
+            exit(false);
+        Periodo.Estado := Periodo.Estado::Creado;
+        Periodo.Modify(true);
+        exit(true);
     end;
 
     var
+        MostrarCreados: Boolean;
+        ErrNoSePuedeOcultar: Label 'No se pasó ningún período a Creado. Sólo se pueden pasar los Abiertos que no tienen liquidaciones, y el %1 no cumple.', Comment = '%1 = código del período donde está el cursor';
+        MsgSeleccionParcial: Label '%1 período(s) pasaron a Creado. %2 quedaron como estaban porque tienen liquidaciones.', Comment = '%1 = pasados, %2 = con liquidaciones';
+        QstOcultarPosteriores: Label '¿Pasar a Creado los períodos Abiertos posteriores a %1 que no tengan liquidaciones?', Comment = '%1 = código de período';
+        MsgOcultados: Label '%1 período(s) posterior(es) a %2 pasaron a Creado.', Comment = '%1 = cantidad, %2 = código de período';
         EstadoStyle: Text;
         QstEliminarBorradores: Label '¿Eliminar %1 liquidación(es) en estado Borrador del período %2? Esta acción no se puede deshacer.';
         MsgSinBorradores: Label 'No hay liquidaciones en estado Borrador en este período.';
@@ -373,7 +615,10 @@ page 50110 "Períodos Liquidación"
         MsgPeriodoReabierto: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.';
         MsgPeriodoReabiertoBloqueadas: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.\\%3 quedaron con su estado original porque el empleado tiene liquidaciones posteriores: reabrirlas liberaría novedades y cuotas que la posterior volvería a tomar. Usá "Recalcular en cadena" sobre cada una.', Comment = '%1=período, %2=revertidas, %3=bloqueadas';
         QstCrearLiqs: Label '¿Crear liquidaciones para todos los empleados activos del período %1?';
+        QstCrearYCalcular: Label '¿Crear y calcular las liquidaciones de TODOS los tipos activos del período %1?\\Las que salgan sin ninguna línea con importe se descartan solas, y su número queda libre para la siguiente.', Comment = '%1 = código de período';
         QstCalcular: Label '¿Calcular todas las liquidaciones del período %1?';
+        QstCerrarPeriodos: Label '¿Confirma el cierre de %1 período(s)? Sólo se cierran los que están Abiertos, y la acción no se puede deshacer.', Comment = '%1 = cuántos períodos abiertos hay en la selección';
+        MsgCerrados: Label '%1 período(s) cerrado(s).', Comment = '%1 = cuántos se cerraron';
         MsgCreadas: Label '%1 liquidación(es) creada(s) en el período %2.';
-        MsgCalculadas: Label '%1 liquidación(es) calculada(s) en el período %2.';
+        MsgCalculadas: Label '%1 liquidación(es) calculada(s) en el período %2.\\Tiempo total: %3.', Comment = '%1=cantidad, %2=período, %3=duración del lote';
 }

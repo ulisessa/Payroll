@@ -28,6 +28,12 @@ page 110008 "Ficha Tipo Atributo"
                     end;
                 }
                 field("Tipo Entidad"; Rec."Tipo Entidad") { ApplicationArea = All; }
+                field("Publicar Última Marea"; Rec."Publicar Última Marea")
+                {
+                    ApplicationArea = All;
+                    Enabled = Rec."Tipo Entidad" = Rec."Tipo Entidad"::Buque;
+                    ToolTip = 'Publica ADEMÁS el valor de este atributo resuelto contra el buque de la última marea en la que el empleado estuvo embarcado, bajo el nombre de variable con el sufijo _ULT_MAREA. No cambia la variable original: el buque del proyecto que se liquida sigue siendo el correcto para el recibo, los precios y el coeficiente de pesquería. Lo necesita la decisión entre sueldo a órdenes y Artículo 48, que depende de la pesquería y la veda del buque en el que realmente navegó. Un empleado que nunca navegó queda sin valor.';
+                }
                 field("Cód. Clase"; Rec."Cód. Clase")
                 {
                     ApplicationArea = All;
@@ -83,7 +89,19 @@ page 110008 "Ficha Tipo Atributo"
                 SubPageLink = "Cód. Tipo Atributo" = field(Código);
                 UpdatePropagation = Both;
                 // Solo tiene sentido para los de tipo Lista: en los demás el valor es libre.
-                Visible = EsLista;
+                //
+                // ENABLED Y NO VISIBLE, y el motivo es el alto de la lista. Una part con visibilidad
+                // dinámica no la estira el cliente: queda con el alto mínimo y scroll propio, con
+                // media pantalla vacía debajo, que con CATEGORIA o PUESTO —101 valores cada uno— es
+                // inusable. La ficha de Parámetro, que tiene exactamente la misma estructura (Card,
+                // group General y la part suelta en el Content) pero NO lleva Visible, se abre con
+                // la lista a toda la altura. Esa es la única diferencia entre las dos.
+                //
+                // Deshabilitada en vez de oculta es además lo que ya hacen los otros cuatro
+                // controles de esta página, que usan Enabled = EsLista. El costo es que en los dos
+                // tipos que no son Lista aparece la grilla vacía y gris, lo cual dice bastante bien
+                // por qué no se puede cargar nada ahí.
+                Enabled = EsLista;
             }
         }
     }

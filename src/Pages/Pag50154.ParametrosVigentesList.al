@@ -51,6 +51,7 @@ page 50154 "Parámetros Vigentes"
                     Editable = not Rec."En Uso";
                 }
                 field(Moneda; Rec.Moneda) { ApplicationArea = All; }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC") { ApplicationArea = All; }
                 field("En Uso"; Rec."En Uso")
                 {
                     ApplicationArea = All;

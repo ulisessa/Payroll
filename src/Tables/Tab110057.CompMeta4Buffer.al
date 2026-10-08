@@ -83,6 +83,52 @@ table 110057 "Comp. Meta4 Buffer"
         }
         field(16; "Neto BC"; Decimal) { Caption = 'Neto BC'; DataClassification = CustomerContent; }
         field(17; "Dif. Neto"; Decimal) { Caption = 'Dif. Neto'; DataClassification = CustomerContent; }
+        field(18; "Contrib. Meta4"; Decimal)
+        {
+            Caption = 'Contribuciones Meta4';
+            DataClassification = CustomerContent;
+            // TOT_CONTRIB. Es el gemelo exacto de TOT_RETEN —por corrida, no acumulado como
+            // TOT_REMUN_27617— y en la corrida de anticipo (TP_IMPUT 4) viene nula, así que no hace
+            // falta excluirla como sí hay que hacerlo con el neto.
+        }
+        field(19; "Contrib. BC"; Decimal) { Caption = 'Contribuciones BC'; DataClassification = CustomerContent; }
+        field(20; "Dif. Contrib."; Decimal)
+        {
+            Caption = 'Dif. Contribuciones';
+            DataClassification = CustomerContent;
+            // BC menos Meta4. LAS CONTRIBUCIONES NO TOCAN EL NETO NI EL BRUTO: son costo patronal y
+            // viven fuera del recibo, así que una diferencia acá no explica ninguna de las otras
+            // tres columnas ni se explica por ellas. Se mira aparte.
+        }
+        field(22; "Liq. en Meta4"; Integer)
+        {
+            Caption = 'Corridas en Meta4';
+            DataClassification = CustomerContent;
+            // Cuántas corridas de Meta4 entraron en esta fila, con el mismo criterio de marea que el
+            // resto. El gemelo de "Liq. en BC", y lo que hace que "sólo en un sistema" se pueda ver
+            // y filtrar en vez de tener que deducirlo de un importe en cero: un empleado puede tener
+            // corrida en Meta4 con todos los totales en cero, y eso NO es lo mismo que no tenerla.
+        }
+        field(23; Presencia; Option)
+        {
+            Caption = 'Presencia';
+            OptionMembers = Ambos,"Sólo Meta4","Sólo BC";
+            OptionCaption = 'Ambos,Sólo Meta4,Sólo BC';
+            DataClassification = CustomerContent;
+            // Se deriva de los dos contadores, no de los importes.
+        }
+        field(21; "Hay Dif. Recibo"; Boolean)
+        {
+            Caption = 'Hay diferencia';
+            DataClassification = CustomerContent;
+            // Lo que mira "Sólo diferencias". Es un campo y no un filtro compuesto porque SetFilter
+            // no sabe hacer un OR entre campos distintos.
+            //
+            // CUBRE BRUTO, DESCUENTOS Y NETO, y NO las contribuciones: las tres primeras son el
+            // recibo —si alguna difiere, la persona cobra distinto— y las contribuciones son costo
+            // patronal. Metiéndolas, cualquier hueco sistemático en los conceptos de contribución
+            // dejaría la lista entera marcada y el filtro no serviría para lo que se usa.
+        }
         field(10; "Liq. en BC"; Integer)
         {
             Caption = 'Liq. BC';

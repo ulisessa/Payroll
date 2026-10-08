@@ -40,6 +40,11 @@ page 110014 "Ficha Valor Parámetro"
                     ApplicationArea = All;
                     ToolTip = 'Si se completa, el valor se considera cargado en moneda extranjera y la fórmula puede convertirlo con la bandera <VARIABLE>_ESFCY.';
                 }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Qué variable convierte este valor a pesos: TC_COMPRADOR, TC_VENDEDOR u otra. Va junto con la Moneda. El motor todavía no la lee: hoy el grossing-up convierte siempre con el vendedor.';
+                }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field(Notas; Rec.Notas) { ApplicationArea = All; MultiLine = true; }
                 field("En Uso"; Rec."En Uso")

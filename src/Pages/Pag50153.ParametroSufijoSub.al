@@ -75,6 +75,7 @@ page 50153 "Parámetro Sufijo Sub"
                     Editable = not Rec."En Uso";
                 }
                 field(Moneda; Rec.Moneda) { ApplicationArea = All; }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC") { ApplicationArea = All; }
                 field("En Uso"; Rec."En Uso")
                 {
                     ApplicationArea = All;
@@ -157,6 +158,7 @@ page 50153 "Parámetro Sufijo Sub"
             Nuevo."No. Empleado" := Rec."No. Empleado";
             Nuevo.Valor := Rec.Valor;
             Nuevo.Moneda := Rec.Moneda;
+            Nuevo."Cód. Variable TC" := Rec."Cód. Variable TC";
         end;
         Nuevo."Vigencia Desde" := WorkDate();
         Nuevo.RecalcularClave();

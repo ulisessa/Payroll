@@ -57,13 +57,6 @@ tableextension 52002 "Empleado Relativo Liq. Ext." extends "Employee Relative"
             Caption = 'Nro. Documento';
             DataClassification = CustomerContent;
         }
-        field(50216; "Adic. Obra Social"; Boolean)
-        {
-            Caption = 'Adic. Obra Social';
-            DataClassification = CustomerContent;
-            // Marca familiares a cargo por fuera del grupo habitual para calcular el
-            // adicional de obra social del trabajador (1,5% por cada uno).
-        }
     }
 
     local procedure TieneFechaAltaImpositiva(): Boolean
@@ -71,10 +64,11 @@ tableextension 52002 "Empleado Relativo Liq. Ext." extends "Employee Relative"
         RecRef: RecordRef;
     begin
         RecRef.GetTable(Rec);
-        // Canónica primero, legacy después: ver la cascada de Cod50016, que es la que manda.
-        exit((LeerFechaLegacy(RecRef, 50000) <> 0D) or
-               (LeerFechaLegacy(RecRef, 50010) <> 0D) or
-               (LeerFechaLegacy(RecRef, 50008) <> 0D));
+        // Sólo "Fecha alta impuesto" (50008), que es la única que habilita la deducción — ver la
+        // cascada de Cod50016, que es la que manda. NO se miran "Fecha inicial" (50000) ni "Fecha
+        // alta familiar a cargo" (50010): la primera está cargada para todo familiar y la segunda
+        // es de asignaciones familiares, así que cualquiera de las dos daba siempre true.
+        exit(LeerFechaLegacy(RecRef, 50008) <> 0D);
     end;
 
     local procedure LeerFechaLegacy(var RecRef: RecordRef; FieldNo: Integer): Date

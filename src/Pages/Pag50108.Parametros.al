@@ -32,6 +32,24 @@ page 50108 "Parámetros"
     {
         area(Processing)
         {
+            action(NombresDuplicados)
+            {
+                ApplicationArea = All;
+                Caption = 'Revisar Nombres de Variable Duplicados';
+                Image = CheckList;
+                ToolTip = 'Busca nombres de variable que ocupen dos cosas a la vez: dos parámetros, o un parámetro y una variable de sistema, una fuente de datos o un tipo de atributo. En una fórmula sólo puede ganar uno, y cuál gana depende del orden en que el motor arma el contexto.';
+                trigger OnAction()
+                var
+                    Nombres: Codeunit "Nombres Variables Liq.";
+                    Texto: Text;
+                begin
+                    Texto := Nombres.Duplicados();
+                    if Texto = '' then
+                        Message(MsgSinDuplicados)
+                    else
+                        Message(MsgDuplicados, Texto);
+                end;
+            }
             action(LiberarEnUso)
             {
                 ApplicationArea = All;
@@ -76,4 +94,6 @@ page 50108 "Parámetros"
     var
         MsgSinBloqueos: Label 'El parámetro ''%1'' no tiene valores vigentes bloqueados.';
         MsgLimpiados: Label '%1 bloqueo(s) liberado(s) del parámetro ''%2''.';
+        MsgSinDuplicados: Label 'Ningún nombre de variable está ocupado dos veces.';
+        MsgDuplicados: Label 'Estos nombres de variable los ocupa más de una cosa. En una fórmula gana uno solo, y cuál gana depende del orden en que el motor arma el contexto:\\%1', Comment = '%1 = lista de nombres duplicados, uno por línea';
 }

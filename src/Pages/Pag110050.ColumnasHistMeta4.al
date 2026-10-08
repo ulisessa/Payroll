@@ -36,6 +36,11 @@ page 110050 "Columnas Hist. Meta4"
                     ApplicationArea = All;
                     ToolTip = 'Para documentar a mano qué es esta columna. Es el único campo editable del archivo, y es una nota, no un mapeo: si hace falta que BC calcule con este dato, va como línea en Línea Liquidación con su código de concepto.';
                 }
+                field("Cód. Concepto Meta4"; Rec."Cód. Concepto Meta4")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'El ID_CONCEPTO que Meta4 le da a esta columna. Es el dato de Meta4, no una equivalencia nuestra: como los códigos de BC se copiaron de los suyos, lo normal es que coincida con el Concepto BC, y una fila donde difieren es una decisión que conviene mirar.';
+                }
                 field("Cód. Concepto BC"; Rec."Cód. Concepto BC")
                 {
                     ApplicationArea = All;

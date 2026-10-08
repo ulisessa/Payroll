@@ -25,3 +25,8 @@ desktop.ini
 # Libreta del modo RAD: su lista "Removed" dropea tablas con sus datos al publicar.
 # Es caché local, se regenera sola, y versionada reparte una foto desactualizada.
 .vscode/rad.json
+
+# Obsidian: estado local de la interfaz (el contenido del vault sí se versiona)
+Vault/.obsidian/workspace*.json
+Vault/.obsidian/cache
+Vault/.trash/

@@ -47,6 +47,34 @@ codeunit 50068 "Registro Procesos Liq."
         Clear(FSesion);
     end;
 
+    /// <summary>
+    /// Al terminar un proceso largo, muestra los avisos de la corrida como informe — pero sólo si
+    /// son suficientes como para que valga la pena. Se llama ANTES de CerrarSesion.
+    /// </summary>
+    /// <remarks>
+    /// Va acá y no en cada proceso porque la sesión vive acá: el llamador no tiene que acordarse de
+    /// qué Guid era. Devuelve si lo mostró, para que el proceso decida si además saca su resumen de
+    /// texto o si con el informe alcanza.
+    ///
+    /// EL COMMIT NO ES OPCIONAL. Un informe con página de solicitud no puede abrirse dentro de una
+    /// transacción de escritura: la plataforma corta con "No se permite Form.RunModal en
+    /// transacciones de escritura" y REVIERTE EL LOTE ENTERO. Acá es seguro porque se llama al final
+    /// del proceso, con todo calculado y las entradas del registro ya volcadas de la tabla temporal.
+    /// </remarks>
+    procedure MostrarAvisosDeLaSesion(): Boolean
+    var
+        Avisos: Report "Avisos del Cálculo";
+        Sesion: Guid;
+    begin
+        Sesion := FSesion;
+        if not Avisos.ValeLaPena(Sesion) then
+            exit(false);
+        Commit();
+        Avisos.SetSesion(Sesion);
+        Avisos.Run();
+        exit(true);
+    end;
+
     // ── Apertura y cierre ─────────────────────────────────────────────────────
 
     procedure Iniciar(TipoProceso: Enum "Tipo Proceso Liq."; Liq: Record "Liquidación")
