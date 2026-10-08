@@ -30,3 +30,19 @@ desktop.ini
 Vault/.obsidian/workspace*.json
 Vault/.obsidian/cache
 Vault/.trash/
+
+# Datos extraídos de la base real. Hacen a las pruebas, no al proyecto, y traen legajos,
+# nombres y CUIL. Van acá por el mismo motivo que los .xlsx y .csv de arriba, con una razón
+# de más: el historial de git no se deshace. Borrar el archivo en un commit posterior no lo
+# saca del historial, y que el repo sea privado no cambia eso.
+*.tsv
+*.msg
+
+# ConfigPackage de RapidStart: 355 MB descomprimidos, o sea datos de tablas y no un esquema.
+# Si hiciera falta versionar configuración, exportarla filtrada y sin datos de empleados.
+*.rapidstart
+
+# Artefactos locales: el perfil de CPU se regenera corriendo el profiler, y el redistribuible
+# de Oracle se restaura desde su paquete.
+*.alcpuprofile
+*.dll
