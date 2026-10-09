@@ -1,0 +1,100 @@
+﻿[
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "03664",
+    "Meta4BrutoAcum": 37034483.7,
+    "Meta4NetoCierre": 17952009.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "03772",
+    "Meta4BrutoAcum": 7940138.32,
+    "Meta4NetoCierre": 4936596.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "04105",
+    "Meta4BrutoAcum": 7940138.32,
+    "Meta4NetoCierre": 5563852.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "04913",
+    "Meta4BrutoAcum": 10433493.03,
+    "Meta4NetoCierre": 6908151.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "04914",
+    "Meta4BrutoAcum": 7824803.07,
+    "Meta4NetoCierre": 5340314.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-128-000059",
+    "Emp": "04915",
+    "Meta4BrutoAcum": 7824803.07,
+    "Meta4NetoCierre": 5340314.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-801-000006",
+    "Emp": "04830",
+    "Meta4BrutoAcum": 7369953.76,
+    "Meta4NetoCierre": 4437258.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-801-000006",
+    "Emp": "04836",
+    "Meta4BrutoAcum": 15277728.0,
+    "Meta4NetoCierre": 10051200.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-801-000006",
+    "Emp": "04839",
+    "Meta4BrutoAcum": 6757257.97,
+    "Meta4NetoCierre": 5059647.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-801-000006",
+    "Emp": "04840",
+    "Meta4BrutoAcum": 6757257.97,
+    "Meta4NetoCierre": 5059647.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-801-000006",
+    "Emp": "04841",
+    "Meta4BrutoAcum": 6306917.47,
+    "Meta4NetoCierre": 4763809.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-802-000006",
+    "Emp": "04586",
+    "Meta4BrutoAcum": 7625609.54,
+    "Meta4NetoCierre": 4600264.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-802-000006",
+    "Emp": "04826",
+    "Meta4BrutoAcum": 16148000.0,
+    "Meta4NetoCierre": 7568500.0,
+    "OtrasLiqBC": ""
+  },
+  {
+    "Proyecto": "PP-802-000006",
+    "Emp": "04838",
+    "Meta4BrutoAcum": 6250612.47,
+    "Meta4NetoCierre": 4725566.0,
+    "OtrasLiqBC": ""
+  }
+]

@@ -1,0 +1,23 @@
+Microsoft (R) AL Compiler version 17.0.34.45391
+Copyright (C) Microsoft Corporation. All rights reserved
+
+Compilation started for project 'Liquidación Sueldos Pesca' containing '310' files at '08:58:03.811'.
+
+src\Codeunits\Cod50016.ContextoLiquidacion.al(795,25): warning AL0640: XML comment has badly formed XML -- 'An identifier was expected.'
+src\Codeunits\Cod50016.ContextoLiquidacion.al(808,11): warning AL0640: XML comment has badly formed XML -- 'End tag 'remarks' does not match the start tag ''.'
+src\Codeunits\Cod50016.ContextoLiquidacion.al(809,1): warning AL0640: XML comment has badly formed XML -- 'Expected an end tag for element 'remarks'.'
+src\Pages\Pag110006.VersionesInactivasRevisar.al(22,29): warning AL0432: Field 'Activo' is marked for removal. Reason: Sin efecto en el cálculo: la baja de un concepto se expresa con "Vigencia Hasta". El campo se conserva solo para poder revisar las versiones que quedaron en false (ver la página "Versiones inactivas a revisar")..
+Translations\Liquidación Sueldos Pesca.g.es-ES.xlf(3,65): warning AL1029: Translation file 'C:\Users\ulises.sasovsky\OneDrive\Documentos\Proyectos\25.2\25.2 - Custom Extensiones\Payroll\Translations\Liquidación Sueldos Pesca.g.es-ES.xlf' has invalid target language 'en-EN'.
+src\Tables\Tab60015.FuenteDatosLiquidacion.al(49,17): warning AL0432: Field 'No. Filtro 1' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+src\Tables\Tab60015.FuenteDatosLiquidacion.al(50,17): warning AL0432: Field 'No. Filtro 2' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+src\Tables\Tab60015.FuenteDatosLiquidacion.al(51,17): warning AL0432: Field 'No. Filtro 3' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+src\Pages\Pag50141.FuenteDatosCard.al(43,29): warning AL0432: Field 'No. Filtro 1' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+src\Pages\Pag50141.FuenteDatosCard.al(44,29): warning AL0432: Field 'No. Filtro 2' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+src\Pages\Pag50141.FuenteDatosCard.al(45,29): warning AL0432: Field 'No. Filtro 3' is marked for removal. Reason: Reemplazado por tabla "Filtro Fuente Datos Liq." que permite filtros ilimitados..
+ConfigPackage_Payroll.xml(1,1): warning AL1025: The file at location 'C:\Users\ulises.sasovsky\OneDrive\Documentos\Proyectos\25.2\25.2 - Custom Extensiones\Payroll\ConfigPackage_Payroll.xml' does not match any definition.
+EJEMPLO_SIRADIG.xml(1,1): warning AL1025: The file at location 'C:\Users\ulises.sasovsky\OneDrive\Documentos\Proyectos\25.2\25.2 - Custom Extensiones\Payroll\EJEMPLO_SIRADIG.xml' does not match any definition.
+perf_hits.txt(1,1): warning AL1025: The file at location 'C:\Users\ulises.sasovsky\OneDrive\Documentos\Proyectos\25.2\25.2 - Custom Extensiones\Payroll\perf_hits.txt' does not match any definition.
+RESUMEN_IMPLEMENTACION.txt(1,1): warning AL1025: The file at location 'C:\Users\ulises.sasovsky\OneDrive\Documentos\Proyectos\25.2\25.2 - Custom Extensiones\Payroll\RESUMEN_IMPLEMENTACION.txt' does not match any definition.
+
+Compilation ended at '08:58:08.281'.
+

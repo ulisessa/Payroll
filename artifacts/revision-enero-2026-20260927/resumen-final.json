@@ -1,0 +1,16 @@
+﻿{
+  "BCliquidaciones": 517,
+  "BCempleados": 300,
+  "BCBruto": 1934067905.6365,
+  "M4BrutoMismosEmpleados": 1765897258.87,
+  "DifBruto": 168170646.7665,
+  "BCDesc": 623740488.5152,
+  "M4Desc": 580475444.44,
+  "DifDesc": 43265044.0752,
+  "BCNeto": 1310327417.1213,
+  "M4Neto": 1207406046.0,
+  "DifNeto": 102921371.1213,
+  "Neto14CierresAusentes": 92307127.0,
+  "ComparacionesTotalesOracle": 2043,
+  "DiferenciasTotalesOracle": 0
+}

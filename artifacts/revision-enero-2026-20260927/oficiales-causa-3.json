@@ -1,0 +1,86 @@
+[
+  {
+    "Liq": "LIQ-00029084",
+    "Variable": "DIAS_MAREA",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029084",
+    "Variable": "DIAS_PROYECTO",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029084",
+    "Variable": "PCT_PROD_CAPECA",
+    "Valor": 1.80000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029084",
+    "Variable": "TC_COMPRADOR",
+    "Valor": 1405.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029084",
+    "Variable": "USD_MAREA",
+    "Valor": 6900.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029092",
+    "Variable": "DIAS_MAREA",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029092",
+    "Variable": "DIAS_PROYECTO",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029092",
+    "Variable": "TC_COMPRADOR",
+    "Valor": 1405.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "DIAS_MAREA",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "DIAS_PROYECTO",
+    "Valor": 22.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "PCT_PROD",
+    "Valor": 2.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "PCT_PROD_CAPECA",
+    "Valor": 2.20000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "TC_COMPRADOR",
+    "Valor": 1405.00000000000000000000,
+    "Texto": ""
+  },
+  {
+    "Liq": "LIQ-00029096",
+    "Variable": "USD_MAREA",
+    "Valor": 6900.00000000000000000000,
+    "Texto": ""
+  }
+]

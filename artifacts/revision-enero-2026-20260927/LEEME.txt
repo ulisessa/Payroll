@@ -1,0 +1,19 @@
+Archivos de evidencia — revisión enero 2026
+
+Informe.md: conclusiones, alcance, prioridades y límites.
+resumen-final.json: agregado final del mismo universo de 300 empleados.
+comparacion-mensual-final.json: comparación final por empleado con importes BC actualizados.
+bc-verificacion-final.json: 517 cabeceras BC y sumas de líneas en la verificación final.
+comparacion-1.json: lectura inicial de esas 517 liquidaciones.
+comparacion-2.json: 681 corridas del histórico Meta4 importado en BC, incluidos deltas de bruto.
+comparacion-3.json: comparación mensual inicial, anterior al recálculo externo de 00291.
+cambios-durante-revision.json: cambio real de 00291 incorporado al resultado final.
+comparacion-mareas.json: 76 pares de cierre; reproduce la selección actual de la pantalla, incluidos los anticipos Meta4 en el neto. No usar como conciliación corregida.
+cierres-sin-bc.json: 14 cierres presentes en Meta4 sin cabecera enero BC.
+oracle-enero-totales.json: lectura de Oracle de los 681 registros y los tres totales de referencia.
+evidencia-cobertura-errores-fecha.json: errores de los 14 intentos con sus estados y cobertura.
+evidencia-cobertura-doble-mensual.json: 30 parejas Regular/Vacaciones con sueldo en ambos documentos.
+lineas-oficiales.json y oficiales-causa-1/2/3.json: conceptos, incidencias y parámetros usados en la revisión de tres oficiales.
+ConsultaComparacion.sql y ConsultaOracle.sql: consultas de lectura para repetir las extracciones. Los números de columna del catálogo se verificaron en esta base; volver a resolverlos si se ejecutan sobre otro archivo importado.
+
+Los importes SQL originales conservan su precisión en los archivos de extracción. Los resúmenes locales se utilizan a precisión monetaria; diferencias por debajo de 0,0001 entre serializaciones no se interpretaron como cambios de cálculo. Los archivos contienen datos salariales, sin contraseñas.
