@@ -61,3 +61,6 @@ Sin vigencia propia; cada liquidación cubre `[Cobertura Desde, Cobertura Hasta]
 - Un control agrupado por empleado miente con dos liquidaciones: [[dias-sumados-donde-van-pesos]].
 - El grossing-up tapa errores: comparar bruto y base, nunca el neto ([[grossing-up-tapa-errores]]).
 - Orden de cálculo del lote: [[orden-calculo-del-lote]].
+
+## Traza del contexto (campo 31, Blob, desde el 24/10/2026)
+`Traza Contexto` guarda **una sola vez** lo que el contexto resolvió para toda la liquidación (`GetParamLog()` de `Cod50016`: fuentes `FDS:`, deducciones `DED_FAM:`, variables que leyeron las de sistema). Lo escribe `FaseCerrar` del motor antes del `Modify`; se lee con `LeerTrazaContexto()` y se ve desde la acción "Traza del contexto" de la ficha. Antes iba delante de `Fuente Parámetros` en cada línea (ver [[Tabla - Línea Liquidación]]). Las liquidaciones calculadas antes no la tienen.

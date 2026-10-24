@@ -1,16 +1,16 @@
 ---
 tipo: referencia
 tags: [referencia, generado]
-actualizado: 2026-10-08
+actualizado: 2026-10-23
 ---
 
 # Objetos AL
 
 > [!note] Generado por `scripts/GenerarIndiceVault.ps1` — no editar a mano. El **ID declarado** dentro del archivo manda sobre el número del nombre de archivo (hay tablas renumeradas, ver [[rangos-licencia-objetos]]).
 
-Total: **331** objetos.
+Total: **376** objetos.
 
-## Tablas (72)
+## Tablas (78)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -86,6 +86,12 @@ Total: **331** objetos.
 | 110059 | Estado Tipo Liq. |  | `src/Tables/Tab110059.EstadoTipoLiq.al` |
 | 110060 | Mes Filtro Liq. |  | `src/Tables/Tab110060.MesFiltroLiq.al` |
 | 110061 | Tramo Cobertura Liq. |  | `src/Tables/Tab110061.TramoCoberturaLiq.al` |
+| 110062 | Vacaciones Buffer Liq. |  | `src/Tables/Tab110062.VacacionesBufferLiq.al` |
+| 110063 | Vac. Mes Buffer Liq. |  | `src/Tables/Tab110063.VacMesBufferLiq.al` |
+| 110064 | Uso Símbolo Liq. |  | `src/Tables/Tab110064.UsoSimboloLiq.al` |
+| 110065 | Movimiento Franco Liq. |  | `src/Tables/Tab110065.MovimientoFrancoLiq.al` |
+| 110066 | Árbol SIRADIG Buffer |  | `src/Tables/Tab110066.ArbolSiradigBuffer.al` |
+| 110080 | Control Previo Liq. Buffer |  | `src/Tables/Tab110080.ControlPrevioLiqBuffer.al` |
 
 ## Extensiones de tabla (7)
 
@@ -99,7 +105,7 @@ Total: **331** objetos.
 | 52005 | Clase en Dimension Value | Dimension Value | `src/TableExtensions/TabExt52005.ClaseEnDimensionValue.al` |
 | 110033 | Unidad Plural Liq. | Unit of Measure | `src/TableExtensions/TabExt110033.UnidadPluralExt.al` |
 
-## Codeunits (67)
+## Codeunits (91)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -170,8 +176,32 @@ Total: **331** objetos.
 | 110054 | Cobertura Tramos Liq. |  | `src/Codeunits/Cod110054.CoberturaTramosLiq.al` |
 | 110055 | Presentación Cálculo Liq. |  | `src/Codeunits/Cod110055.PresentacionCalculoLiq.al` |
 | 110056 | Test Detalle Calculo |  | `test/Codeunits/Cod110056.TestDetalleCalculo.al` |
+| 110057 | Análisis Vacaciones |  | `src/Codeunits/Cod110057.AnalisisVacaciones.al` |
+| 110058 | Buscar Usos Liq. |  | `src/Codeunits/Cod110058.BuscarUsosLiq.al` |
+| 110059 | Cuenta Corriente Francos |  | `src/Codeunits/Cod110059.CuentaCorrienteFrancos.al` |
+| 110060 | Orden Concepto Upgrade |  | `src/Codeunits/Cod110060.OrdenConceptoUpgrade.al` |
+| 110061 | Test Cuenta Francos |  | `test/Codeunits/Cod110061.TestCuentaFrancos.al` |
+| 110062 | Runner Cuenta Francos |  | `test/Codeunits/Cod110062.RunnerCuentaFrancos.al` |
+| 110063 | Migrar Matriz Francos |  | `src/Codeunits/Cod110063.MigrarMatrizFrancos.al` |
+| 110064 | Reporte SICOSS Liq. |  | `src/Codeunits/Cod110064.ReporteSicossLiq.al` |
+| 110066 | Unificar Antigüedad Liq. |  | `src/Codeunits/Cod110066.UnificarAntiguedadLiq.al` |
+| 110067 | Migrar Febrero Meta4 |  | `src/Codeunits/Cod110067.MigrarFebreroMeta4.al` |
+| 110068 | Deducción Familiar Histórica |  | `src/Codeunits/Cod110068.DeduccionFamiliarHistorica.al` |
+| 110069 | Test Claves Parámetro Liq. |  | `test/Codeunits/Cod110069.TestClavesParametro.al` |
+| 110070 | Runner Tests Liq. |  | `test/Codeunits/Cod110070.RunnerTestsLiq.al` |
+| 110071 | Abrir Ficha Fórmula Liq. |  | `src/Codeunits/Cod110071.AbrirFichaFormulaLiq.al` |
+| 110072 | Test Promedio Enfermedad |  | `test/Codeunits/Cod110072.TestPromedioEnfermedad.al` |
+| 110073 | Test Uso Parametros |  | `test/Codeunits/Cod110073.TestUsoParametros.al` |
+| 110074 | Corrección Orden Acum. |  | `src/Codeunits/Cod110074.CorreccionOrdenAcum.al` |
+| 110075 | Test Corrección Orden Acum. |  | `test/Codeunits/Cod110075.TestCorreccionOrdenAcum.al` |
+| 110076 | Árbol Importaciones SIRADIG |  | `src/Codeunits/Cod110076.ArbolImportacionesSiradig.al` |
+| 110080 | Control Previo Liq. |  | `src/Codeunits/Cod110080.ControlPrevioLiq.al` |
+| 110081 | Test Control Previo Liq. |  | `test/Codeunits/Cod110081.TestControlPrevioLiq.al` |
+| 110082 | Prevuelo Fuentes Liq. |  | `src/Codeunits/Cod110082.PrevueloFuentesLiq.al` |
+| 110090 | Cotizaciones BNA |  | `src/Codeunits/Cod110090.CotizacionesBNA.al` |
+| 110091 | Test Cotizaciones BNA |  | `test/Codeunits/Cod110091.TestCotizacionesBNA.al` |
 
-## Páginas (130)
+## Páginas (139)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -305,8 +335,17 @@ Total: **331** objetos.
 | 110057 | Pasos Cálculo Sub |  | `src/Pages/Pag110057.PasosCalculoSub.al` |
 | 110058 | Deducciones Aplicadas Liq. |  | `src/Pages/Pag110058.DeduccionesAplicadasLiq.al` |
 | 110059 | Moneda de Parámetro a Revisar |  | `src/Pages/Pag110059.MonedaParametroRevisar.al` |
+| 110060 | Vacaciones por Empleado |  | `src/Pages/Pag110060.VacacionesPorEmpleado.al` |
+| 110061 | Meses del Promedio |  | `src/Pages/Pag110061.MesesDelPromedio.al` |
+| 110062 | Dónde se Usa |  | `src/Pages/Pag110062.DondeSeUsa.al` |
+| 110063 | Reporte SICOSS |  | `src/Pages/Pag110063.ReporteSicoss.al` |
+| 110065 | Cuenta Corriente Francos |  | `src/Pages/Pag110065.CuentaCorrienteFrancos.al` |
+| 110066 | Usos Valor Parámetro |  | `src/Pages/Pag110066.UsosValorParametro.al` |
+| 110074 | Corregir Orden Acum. Dialog |  | `src/Pages/Pag110074.CorregirOrdenAcumDialog.al` |
+| 110075 | Árbol de Importaciones SIRADIG |  | `src/Pages/Pag110075.ArbolImportacionesSiradig.al` |
+| 110080 | Control Previo Liquidación |  | `src/Pages/Pag110080.ControlPrevioLiquidacion.al` |
 
-## Extensiones de página (10)
+## Extensiones de página (13)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -320,8 +359,11 @@ Total: **331** objetos.
 | 50357 | EmpFamilyExt | Employee Relatives | `src/PageExtensions/Pag-Ext50356.EmpFamilyExt.al` |
 | 50358 | Proyecto Pesca List Ext. | Job List | `src/PageExtensions/PagExt50358.JobListExt.al` |
 | 110032 | Unidades Medida Liq. Ext. | Units of Measure | `src/PageExtensions/PagExt110032.UnidadesMedidaExt.al` |
+| 110033 | Cal. Base Filtrable Ext. | Base Calendar Card | `src/PageExtensions/PagExt110033.CalendarioBaseFiltrableExt.al` |
+| 110034 | Cal. Base Lista Filtro Ext. | Base Calendar List | `src/PageExtensions/PagExt110034.CalendarioBaseListaFiltrableExt.al` |
+| 110035 | Cotizaciones BNA Ext. | Currency Exchange Rates | `src/PageExtensions/PagExt110035.CotizacionesBNAExt.al` |
 
-## Reportes (7)
+## Reportes (8)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -332,8 +374,9 @@ Total: **331** objetos.
 | 50045 | Asignar Atributo Masivo |  | `src/Reports/Rep50045.AsignarAtributoMasivo.al` |
 | 50046 | Migrar Convenio y Categoría |  | `src/Reports/Rep50046.MigrarConvenioCategoria.al` |
 | 50047 | Avisos del Cálculo |  | `src/Reports/Rep50047.AvisosDelCalculo.al` |
+| 110080 | Preparación de Liquidaciones |  | `src/Reports/Rep110080.PreparacionLiquidaciones.al` |
 
-## Enums (32)
+## Enums (33)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -369,6 +412,7 @@ Total: **331** objetos.
 | 50331 | Disparador Tipo Liq. |  | `src/Enums/Enum50331.DisparadorTipoLiq.al` |
 | 50332 | Modo Estado Tipo Liq. |  | `src/Enums/Enum50332.ModoEstadoTipoLiq.al` |
 | 50333 | Ventana Estado Tipo Liq. |  | `src/Enums/Enum50333.VentanaEstadoTipoLiq.al` |
+| 50334 | Columna SICOSS Liq. |  | `src/Enums/Enum50334.ColumnaSicossLiq.al` |
 
 ## Control add-ins (1)
 
@@ -390,4 +434,10 @@ Total: **331** objetos.
 |---|---|---|---|
 |  | DIRECTOR-TI |  | `src/Profiles/Prof50301.DirectorTI.al` |
 |  | PAYROLL-MANAGER |  | `src/Profiles/Prof50300.PayrollManager.al` |
+
+## Queries (1)
+
+| ID | Nombre | Base | Archivo |
+|---|---|---|---|
+| 110000 | Versiones Parámetro En Uso |  | `src/Queries/Qry110000.VersionesParametroEnUso.al` |
 

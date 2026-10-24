@@ -183,14 +183,18 @@ page 50100 "Lista Liquidaciones"
                 ApplicationArea = All;
                 Caption = 'Revertir Aprobación';
                 Image = Undo;
-                ToolTip = 'Devuelve la liquidación al estado Calculada para permitir su revisión o corrección.';
+                ToolTip = 'Devuelve a Calculada las liquidaciones marcadas que estén Aprobadas, para permitir su revisión o corrección.';
 
                 trigger OnAction()
                 var
-                    Gestion: Codeunit "Gestión Liquidación";
+                    LiqSel: Record "Liquidación";
+                    Lotes: Codeunit "Lotes Liquidación Liq.";
                 begin
-                    if Gestion.RevertirAprobacion(Rec) then
-                        CurrPage.Update(false);
+                    // Sin SetRange sobre Estado, por lo mismo que en Reabrir: la selección puede venir como los
+                    // filtros de la página y filtrar el mismo campo otra vez la ensancharía. El lote mira el estado.
+                    CurrPage.SetSelectionFilter(LiqSel);
+                    Lotes.RevertirAprobacion(LiqSel);
+                    CurrPage.Update(false);
                 end;
             }
         }

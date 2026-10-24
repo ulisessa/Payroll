@@ -59,6 +59,7 @@ A diferencia de `Gestión Liquidación`, que corta con `Error` si el estado no e
 |---|---|
 | Calcular | sólo `Borrador` (las demás se omiten) |
 | Reabrir | `Calculada` **sin posteriores** (las bloqueadas se cuentan) |
+| Revertir aprobación | sólo `Aprobada` → `Calculada`, con confirmación única (`Lotes.RevertirAprobacion`; desde la Lista y desde el Árbol). `Contabilizada` y el resto se omiten |
 | Aprobar | sólo `Calculada` |
 | Eliminar | sólo `Borrador`, con confirmación |
 

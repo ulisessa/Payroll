@@ -212,6 +212,28 @@ page 110017 "Árbol de Liquidaciones"
                     Cargar();
                 end;
             }
+            action(RevertirAprobacionNodo)
+            {
+                ApplicationArea = All;
+                Caption = 'Revertir Aprobación';
+                Image = Undo;
+                ToolTip = 'Devuelve a Calculada las liquidaciones de los nodos marcados que estén en estado Aprobada.';
+
+                trigger OnAction()
+                var
+                    Liq: Record "Liquidación";
+                    Nodos: Record "Árbol Liquidaciones Buffer" temporary;
+                    Lotes: Codeunit "Lotes Liquidación Liq.";
+                begin
+                    // Sin ConfirmarAlcance, como Eliminar: el lote ya pregunta e incluye el tamaño del alcance.
+                    if AlcanceSeleccion(Liq, Nodos) = 0 then begin
+                        Message(MsgNodoVacio);
+                        exit;
+                    end;
+                    Lotes.RevertirAprobacion(Liq);
+                    Cargar();
+                end;
+            }
             action(EliminarNodo)
             {
                 ApplicationArea = All;
@@ -269,6 +291,7 @@ page 110017 "Árbol de Liquidaciones"
                 actionref(CalcularProm; CalcularNodo) { }
                 actionref(AprobarProm; AprobarNodo) { }
                 actionref(ReabrirProm; ReabrirNodo) { }
+                actionref(RevertirAprobacionProm; RevertirAprobacionNodo) { }
                 actionref(EliminarProm; EliminarNodo) { }
             }
             group(Category_Report)

@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
 using Microsoft.Projects.Project.Job;
@@ -147,6 +147,15 @@ table 60011 "Liquidación"
             // Permite consultar este valor por mes/empleado vía Fuente Datos Liquidación
             // (ej. MEJOR_REM_SEM para el cálculo del SAC, que debe excluir extraordinarios).
         }
+        field(31; "Traza Contexto"; Blob)
+        {
+            Caption = 'Traza del contexto';
+            DataClassification = CustomerContent;
+            // Lo que el contexto resolvió para toda la liquidación (fuentes de datos FDS:, deducciones familiares DED_FAM:, variables
+            // que leyeron las de sistema), una sola vez. Antes iba al principio de "Fuente Parámetros" de CADA línea: el mismo texto
+            // repetido línea por línea (295 MB) y cortado en 2048, así que las variables del propio concepto quedaban afuera.
+            // Se escribe al cerrar el cálculo; ver GuardarTrazaContexto / LeerTrazaContexto.
+        }
     }
 
     keys
@@ -199,6 +208,36 @@ table 60011 "Liquidación"
     /// entre las liquidaciones de un mismo período. Dos definiciones de "qué días cubre" que se
     /// separaran harían que una novedad entrara en una liquidación que el control da por no cubierta.
     /// </remarks>
+    /// <summary>Guarda la traza del contexto de la liquidación (no hace Modify: lo hace quien cierra el cálculo).</summary>
+    procedure GuardarTrazaContexto(Texto: Text)
+    var
+        Salida: OutStream;
+    begin
+        Clear("Traza Contexto");
+        if Texto = '' then
+            exit;
+        "Traza Contexto".CreateOutStream(Salida, TextEncoding::UTF8);
+        Salida.WriteText(Texto);
+    end;
+
+    /// <summary>La traza del contexto de la liquidación, o '' si se calculó antes de que existiera el campo.</summary>
+    procedure LeerTrazaContexto(): Text
+    var
+        Entrada: InStream;
+        Texto: Text;
+        Parte: Text;
+    begin
+        CalcFields("Traza Contexto");
+        if not "Traza Contexto".HasValue() then
+            exit('');
+        "Traza Contexto".CreateInStream(Entrada, TextEncoding::UTF8);
+        while not Entrada.EOS() do begin
+            Entrada.ReadText(Parte);
+            Texto += Parte;
+        end;
+        exit(Texto);
+    end;
+
     procedure CalcularCobertura()
     var
         Desde: Date;
@@ -349,6 +388,7 @@ table 60011 "Liquidación"
 
     trigger OnDelete()
     var
+        CuentaFrancos: Codeunit "Cuenta Corriente Francos";
         LinLiq: Record "Línea Liquidación";
         Det: Record "Detalle Variable Línea Liq.";
         DetGan: Record "Detalle Ganancias Liq.";
@@ -361,6 +401,7 @@ table 60011 "Liquidación"
     begin
         if Estado <> Estado::Borrador then
             Error(ErrEstado);
+        CuentaFrancos.Revertir("No.");
         // Los detalles de TODAS las líneas se borran de una vez y las líneas sin disparar su OnDelete.
         // Ese trigger sólo borra los detalles de la línea; con DeleteAll(true) se pagaba un DeleteAll
         // por línea (243 hits en el perfil de borrado) y SQL no podía borrar el lote en una sentencia.

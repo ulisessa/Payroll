@@ -149,7 +149,6 @@ page 50117 "Ficha Liquidación"
             {
                 ApplicationArea = All;
                 Caption = 'Contexto del Cálculo';
-                SubPageLink = "No. Liquidación" = FIELD("No.");
             }
             part(Incidencias; "Incidencias Liquidación Sub")
             {
@@ -170,7 +169,6 @@ page 50117 "Ficha Liquidación"
             {
                 ApplicationArea = All;
                 Caption = 'Variables del Cálculo';
-                SubPageLink = "No. Liquidación" = FIELD("No.");
             }
             systempart(Control1; Links) { ApplicationArea = All; }
             systempart(Control2; Notes) { ApplicationArea = All; }
@@ -212,6 +210,27 @@ page 50117 "Ficha Liquidación"
                     // hay que esperar, leer y cerrar es más ceremonia que ayuda.
                     if Motor.GetAdvertencias() <> '' then
                         Message(MsgAdvertenciasParametros, Motor.GetAdvertencias());
+                end;
+            }
+            action(TrazaContexto)
+            {
+                ApplicationArea = All;
+                Caption = 'Traza del contexto';
+                Image = Log;
+                ToolTip = 'Lo que el contexto resolvió para toda la liquidación al calcularla: fuentes de datos, deducciones familiares y variables leídas por las de sistema. Lo que leyó cada concepto está en "Fuente Parámetros" de su línea.';
+
+                trigger OnAction()
+                var
+                    Traza: Text;
+                    SaltoLinea: Text[1];
+                begin
+                    Traza := Rec.LeerTrazaContexto();
+                    if Traza = '' then begin
+                        Message(MsgSinTrazaContexto);
+                        exit;
+                    end;
+                    SaltoLinea[1] := 10;
+                    Message('%1', Traza.Replace('|', SaltoLinea));
                 end;
             }
             action(RecalcularEnCadena)
@@ -347,6 +366,14 @@ page 50117 "Ficha Liquidación"
         SetEstadoStyle();
     end;
 
+    // El contexto se carga a mano y no con SubPageLink: el resumen guardado omite los parámetros que ya están en el uso del
+    // parámetro, y la subpágina los reconstruye ("Variables Guardadas Liq."), cosa que un enlace sobre la tabla real no puede.
+    trigger OnAfterGetCurrRecord()
+    begin
+        CurrPage.AcumuladoresAnuales.Page.Cargar(Rec."No.");
+        CurrPage.DetVariables.Page.Cargar(Rec."No.", 0);
+    end;
+
 
     local procedure SetEstadoStyle()
     begin
@@ -376,6 +403,7 @@ page 50117 "Ficha Liquidación"
         EstadoStyle: Text;
         MsgAdvertenciasParametros: Label 'Atención — parámetros posiblemente desactualizados:\%1';
         MsgSinPosteriores: Label 'Este empleado no tiene períodos posteriores liquidados. Alcanza con Calcular.';
+        MsgSinTrazaContexto: Label 'Esta liquidación se calculó antes de que se guardara la traza del contexto. Recalculala para verla.';
         QstCadena: Label 'Se van a rehacer esta liquidación y %1 período(s) posterior(es) del mismo empleado, en orden. ¿Continuar?', Comment = '%1=cantidad de posteriores';
         MsgCadena: Label '%1 liquidación(es) recalculada(s) en orden.';
         ErrCalculoConRegistro: Label 'No se pudo calcular la liquidación:\%1\\El detalle quedó guardado en el registro de proceso No. %2 (acción "Registros de proceso").';

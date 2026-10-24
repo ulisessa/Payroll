@@ -102,7 +102,7 @@ codeunit 50014 "Motor Liquidación"
 
         FechaRef := FasePrepararCabecera(Liq);
         FaseValidarFormulas(Liq, FechaRef, CtxBuilder, Evaluador);
-        FasePrepararDatos(Liq);
+        FasePrepararDatos(Liq, FechaRef);
         FaseArmarContexto(Liq, FechaRef, CtxBuilder, Evaluador, Ctx);
         FaseCorrerConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
         FaseConverger(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
@@ -118,8 +118,10 @@ codeunit 50014 "Motor Liquidación"
         EstadoMgt: Codeunit "Gestión Estado Empleado";
         CoberturaTramos: Codeunit "Cobertura Tramos Liq.";
         ParCCT: Codeunit "Convenio Categoría Liq.";
+        DiasPropios: Integer;
         ConvenioEntidad: Code[20];
         CategoriaEntidad: Code[20];
+        FechaAtributos: Date;
     begin
         if Liq.Estado = Liq.Estado::Contabilizada then
             Error(ErrEstadoInvalido);
@@ -149,7 +151,8 @@ codeunit 50014 "Motor Liquidación"
         // contar días son los tramos, que son los que permiten decir "del 1 al 4 y del 26 al 31".
         // Va ANTES de armar el contexto, porque el contexto los lee para acotar las variables de
         // período — si se recalcularan después, la liquidación se calcularía con el reparto viejo.
-        CoberturaTramos.Recalcular(Liq);
+        DiasPropios := CoberturaTramos.Recalcular(Liq);
+        ValidarDiasPropios(Liq, DiasPropios);
 
         ValidarOrdenCronologico(Liq, Periodo);
 
@@ -163,7 +166,12 @@ codeunit 50014 "Motor Liquidación"
         //
         // Sin atributos cargados a esa fecha se respeta lo que la liquidación ya traía: en una base a
         // medio migrar, eso es el par de la ficha o el de la asignación, que es lo que había antes.
-        if ParCCT.ParDeEntidad(Liq."No. Empleado", FechaRef, Periodo."Fecha Desde", Periodo."Fecha Hasta", ConvenioEntidad, CategoriaEntidad) then begin
+        FechaAtributos := FechaRef;
+        if (Liq."Cód. Tipo Liq." = 'LIQ_FINAL') and (Liq."Cobertura Hasta" <> 0D) and
+           (Liq."Cobertura Hasta" < FechaAtributos)
+        then
+            FechaAtributos := Liq."Cobertura Hasta";
+        if ParCCT.ParDeEntidad(Liq."No. Empleado", FechaAtributos, Periodo."Fecha Desde", FechaAtributos, ConvenioEntidad, CategoriaEntidad) then begin
             Liq."Cód. Convenio" := ConvenioEntidad;
             Liq."Cód. Categoría" := CategoriaEntidad;
         end;
@@ -171,7 +179,14 @@ codeunit 50014 "Motor Liquidación"
         // If the employee is enjoying francos and the balance runs out within this period, materialize the
         // transition to the next state (Francos → Órdenes) before reading states, so DIAS_FRANCOS_PERIODO
         // counts only the covered days and the rest falls into the next state.
-        EstadoMgt.AjustarEstadoFrancos(Liq."No. Empleado", FechaRef);
+        //
+        // EN UNA FINAL SE MIRA EL ÚLTIMO DÍA DE LA RELACIÓN Y NO EL FIN DEL PERÍODO. A quien se da de baja el
+        // 13/3 el estado de Francos termina ese día y a fin de mes ya figura la baja: con FechaRef = 31/3 el
+        // ajuste no encontraba ningún Francos que acotar, DIAS_FRANCOS_PERIODO contaba los 13 días del
+        // estado y la matriz pedía 13 con un saldo de 12 ("La matriz pide 13 días de franco y faltan 1").
+        // Meta4 paga los que cubre el saldo (12) y el resto como Órdenes. Es la misma fecha que ya se usa
+        // para los atributos de la final (FechaAtributos).
+        EstadoMgt.AjustarEstadoFrancos(Liq."No. Empleado", FechaAtributos);
 
         EstadoMgt.ValidarEstadoExiste(Liq."No. Empleado", FechaRef);
         ValidarAsignacionProyecto(Liq."No. Empleado", Liq."No. Proyecto");
@@ -189,7 +204,7 @@ codeunit 50014 "Motor Liquidación"
         CtxBuilder.Init(
             Liq."No. Empleado", Liq."No. Proyecto", Liq."Cód. Período",
             FechaRef, Liq."Cód. Convenio", Liq."Cód. Categoría",
-            '', Liq."Cód. Tipo Liq.", Liq."Cobertura Desde");
+            '', Liq."Cód. Tipo Liq.", Liq."Cobertura Desde", Liq."Cobertura Hasta");
         // Contexto de NOMBRES, sin resolver valores: la validación busca fórmulas mal escritas,
         // funciones inexistentes y variables no definidas, y nada de eso depende de cuánto vale cada
         // una. Construirlo entero acá era pagar una liquidación completa para descartarla, porque el
@@ -198,6 +213,7 @@ codeunit 50014 "Motor Liquidación"
         InjectGUVariables(ValidationCtx);
         InjectZonaDesfavorable(Liq, FechaRef, ValidationCtx);
         Evaluador.Init(ValidationCtx, FechaRef);
+        Evaluador.SetContextoLiquidacion(CtxBuilder);
         // Con valores ficticios, los errores que dependen del VALOR —dividir por una variable en
         // cero, pedir el tramo de un importe que todavía no existe— no dicen nada de la fórmula. Se
         // silencian solo durante esta fase; lo estructural se sigue reportando.
@@ -211,8 +227,20 @@ codeunit 50014 "Motor Liquidación"
     /// Sólo se llega acá si la validación pasó. Es la primera fase que ESCRIBE: de acá en adelante
     /// la liquidación anterior ya no existe.
     /// </remarks>
-    local procedure FasePrepararDatos(var Liq: Record "Liquidación")
+    local procedure FasePrepararDatos(var Liq: Record "Liquidación"; FechaRef: Date)
+    var
+        Concepto: Record "Concepto Liquidación";
     begin
+        // La historia se reconstruye ANTES de borrar el cálculo anterior. No se confirma por separado.
+        SelectConceptos(Concepto, TipoEmpleadoDe(Liq), FechaRef, Liq."Cód. Tipo Liq.");
+        Concepto.SetFilter("Fuente Matriz", '<>%1', '');
+        if Concepto.FindSet() then repeat
+            if CCTAplicaAConcepto(Concepto, Liq."Cód. Convenio", Liq."Cód. Categoría", FechaRef) then begin
+                FCuentaFrancos.Inicializar(Liq."No. Empleado");
+                break;
+            end;
+        until Concepto.Next() = 0;
+        FCuentaFrancos.Revertir(Liq."No.");
         // AplicarCuotasEnLiquidacion solo actúa si el estado es Borrador — pero un recálculo
         // por lote (CalcularPorPeriodo) puede llegar acá con una liquidación ya Calculada o
         // Aprobada. Sin esto, las cuotas de préstamo pendientes se saltean en silencio en
@@ -246,11 +274,12 @@ codeunit 50014 "Motor Liquidación"
         CtxBuilder.Init(
             Liq."No. Empleado", Liq."No. Proyecto", Liq."Cód. Período",
             FechaRef, Liq."Cód. Convenio", Liq."Cód. Categoría",
-            Liq."No.", Liq."Cód. Tipo Liq.", Liq."Cobertura Desde");
+            Liq."No.", Liq."Cód. Tipo Liq.", Liq."Cobertura Desde", Liq."Cobertura Hasta");
         CtxBuilder.BuildContext(Ctx);
         InjectGUVariables(Ctx);
         InjectZonaDesfavorable(Liq, FechaRef, Ctx);
         Evaluador.Init(Ctx, FechaRef);
+        Evaluador.SetContextoLiquidacion(CtxBuilder);
         CtxBuilder.GetCodigosAtributos(CodigosAtributos);
         Evaluador.SetCodigosAtributos(CodigosAtributos);
     end;
@@ -282,12 +311,20 @@ codeunit 50014 "Motor Liquidación"
 
     /// <summary>Fase 6: totales, resumen de variables, estado final y avisos.</summary>
     local procedure FaseCerrar(var Liq: Record "Liquidación"; var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
+    var
+        Gestion: Codeunit "Gestión Liquidación";
     begin
+        FCuentaFrancos.RegistrarLiquidacion(Liq);
         GuardarHaberesGravados(Liq, Ctx);
         UpdateTotals(Liq);
+        // Antes del resumen y con el mismo contexto: el detalle omitido se recupera de lo que el resumen guarda.
+        FlushDetalleDiferido(Liq."No.", Ctx);
         SaveResumenVariables(Liq."No.", Ctx, CtxBuilder);
+        // Lo que el contexto resolvió para toda la liquidación, una sola vez y entero. Cada línea guarda sólo lo que leyó su concepto.
+        Liq.GuardarTrazaContexto(CtxBuilder.GetParamLog());
         Liq.Estado := Liq.Estado::Calculada;
         Liq.Modify(true);
+        Gestion.ReconciliarEnUso(Liq."No. Empleado", Liq."No.");
         AcumularAdvertencias(Liq."No.", CtxBuilder.GetAdvertenciasParametros());
         // Avisos de la última pasada de RunConceptos (las intermedias de grossing-up se descartan
         // junto con sus líneas, ver el Clear al inicio del bucle).
@@ -354,6 +391,78 @@ codeunit 50014 "Motor Liquidación"
     /// acumuladores—. Si esas líneas consumían francos, el cálculo de la anterior ve esos lotes como
     /// tomados. Para eso está "Recalcular en cadena", que las borra antes de rehacer.
     /// </remarks>
+    /// <summary>
+    /// Falla si a esta liquidación no le queda ningún día porque otra del empleado ya los liquidó.
+    /// </summary>
+    /// <remarks>
+    /// Un día de estado se liquida UNA vez. Cuando el reparto de tramos le saca todos los días a una
+    /// liquidación, la cabecera igual conserva el período entero (sin tramos no se toca) y los
+    /// conceptos se calculan sobre esa ventana: se pagaba dos veces. Caso de marzo de 2026: una baja
+    /// el 31/3 tenía la Final y además una Regular que cubría los mismos 27 días de GP (1083 por
+    /// 1,96 M, dos veces).
+    ///
+    /// Sólo corre para los tipos que reclaman días del período: los de arribo traen su viaje recortado,
+    /// los que tienen calendario (Meses, el aguinaldo) se pagan ENCIMA de los días de otra, y los que
+    /// no entran en la corrida (anticipo, reliquidación, históricos) no discuten días con nadie. Y
+    /// necesita que otra liquidación haya reclamado días: sin fase de alta o sin estados, cero días
+    /// no es un solapamiento y no se bloquea acá.
+    /// </remarks>
+    local procedure ValidarDiasPropios(Liq: Record "Liquidación"; DiasPropios: Integer)
+    var
+        Detalle: Text;
+    begin
+        if NoLeQuedanDias(Liq, DiasPropios, Detalle) then
+            Error(ErrDiasYaLiquidados, Liq."No.", Liq."Cód. Período", Detalle);
+    end;
+
+    /// <summary>
+    /// ¿A esta liquidación no le queda ningún día porque otra del empleado ya los liquidó?
+    /// </summary>
+    /// <remarks>
+    /// La regla de ValidarDiasPropios en una pregunta, para que el control del cálculo y el lote de
+    /// "Crear y calcular" no puedan discrepar: el motor se niega a calcularla, y el lote la descarta
+    /// en vez de dejarla en Borrador como si se hubiera roto. Devuelve en Detalle quiénes reclamaron
+    /// los días.
+    /// </remarks>
+    local procedure NoLeQuedanDias(Liq: Record "Liquidación"; DiasPropios: Integer; var Detalle: Text): Boolean
+    var
+        TipoLiqRec: Record "Tipo Liquidación";
+        CoberturaTramos: Codeunit "Cobertura Tramos Liq.";
+    begin
+        if DiasPropios > 0 then
+            exit(false);
+        if not TipoLiqRec.Get(Liq."Cód. Tipo Liq.") then
+            exit(false);
+        if TipoLiqRec.EsArribo(Liq."Cód. Tipo Liq.") then
+            exit(false);
+        if TipoLiqRec.Meses <> '' then
+            exit(false);
+        if not TipoLiqRec."Entra en Corrida Completa" then
+            exit(false);
+        exit(CoberturaTramos.QuienReclamoLosDias(Liq, Detalle));
+    end;
+
+    /// <summary>
+    /// Recalcula el reparto de tramos de la liquidación y dice si se quedó sin días propios.
+    /// </summary>
+    /// <remarks>
+    /// Para "Crear y calcular": una liquidación recién creada a la que otra ya le sacó todos los días no
+    /// corresponde, y hay que descartarla antes de calcular (no hay nada que pagar y no es un error).
+    /// Modifica los tramos de la liquidación, como cualquier cálculo: sólo se la llama sobre una que se
+    /// va a calcular o a borrar.
+    /// </remarks>
+    procedure SinDiasPropios(var Liq: Record "Liquidación"): Boolean
+    var
+        CoberturaTramos: Codeunit "Cobertura Tramos Liq.";
+        DiasPropios: Integer;
+        Detalle: Text;
+    begin
+        // Mismo orden que el cálculo: primero la cobertura de la cabecera y después el reparto de tramos.
+        Liq.CalcularCobertura();
+        DiasPropios := CoberturaTramos.Recalcular(Liq);
+        exit(NoLeQuedanDias(Liq, DiasPropios, Detalle));
+    end;
+
     local procedure ValidarOrdenCronologico(var Liq: Record "Liquidación"; Periodo: Record "Período Liquidación")
     var
         LiqPosterior: Record "Liquidación";
@@ -377,7 +486,9 @@ codeunit 50014 "Motor Liquidación"
     /// </remarks>
     procedure LimpiarLineas(LiqNo: Code[20])
     begin
+        FSoloLimpiar := true;
         DeleteLineas(LiqNo, false);
+        FSoloLimpiar := false;
     end;
 
     local procedure ValidarAsignacionProyecto(EmployeeNo: Code[20]; JobNo: Code[20])
@@ -402,7 +513,10 @@ codeunit 50014 "Motor Liquidación"
         TipoEmpleado: Enum "Aplica A Liq.";
         Importe: Decimal;
         Errores: Text;
+        FilaValidacion: Record "Lote Franco Buffer Liq." temporary;
     begin
+        CargarVariablesFila(Ctx, FilaValidacion);
+        Evaluador.UpdateContext(Ctx);
         TipoEmpleado := TipoEmpleadoDe(Liq);
 
         SelectConceptos(Concepto, TipoEmpleado, FechaRef, Liq."Cód. Tipo Liq.");
@@ -415,11 +529,19 @@ codeunit 50014 "Motor Liquidación"
                ConceptoAplicaATipoLiq(Concepto, Liq."Cód. Tipo Liq.") and
                not Concepto."Es Acumulador" and
                (Concepto.Fórmula <> '')
-            then
+            then begin
+                if Concepto."Fuente Matriz" <> '' then begin
+                    Concepto.TestField("Cantidad Matriz");
+                    if not Evaluador.TryEvalFormula(Concepto."Cantidad Matriz", Importe) then begin
+                        if Errores <> '' then Errores += '\';
+                        Errores += StrSubstNo(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+                    end;
+                end;
                 if not Evaluador.TryEvalFormula(Concepto.Fórmula, Importe) then begin
                     if Errores <> '' then Errores += '\';
                     Errores += StrSubstNo(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
                 end;
+            end;
         until Concepto.Next() = 0;
 
         if Errores <> '' then
@@ -464,11 +586,37 @@ codeunit 50014 "Motor Liquidación"
         var CtxBuilder: Codeunit "Contexto Liquidación";
         var Evaluador: Codeunit "Evaluador Fórmula")
     var
-        Concepto: Record "Concepto Liquidación";
+        Concepto: Record "Concepto Liquidación" temporary;
+        Incid: Record "Incidencia Liquidación" temporary;
+        TipoEmpleado: Enum "Aplica A Liq.";
+        CodigosOrden: Dictionary of [Text, Text];
+    begin
+        FFilasFrancos.Reset();
+        FFilasFrancos.DeleteAll();
+        FMatrizPreparada := false;
+        CompartirIncidencias(Incid);
+        TipoEmpleado := TipoEmpleadoDe(Liq);
+
+        CtxBuilder.GetCodigosAtributos(CodigosOrden);
+        PrepararConceptosParaCalculo(Concepto, FechaRef, Liq."Cód. Tipo Liq.", Liq."Cód. Convenio", Ctx, CodigosOrden);
+        PrepararControlOrden(FechaRef);
+        RecorrerConceptosSeleccionados(Liq, FechaRef, Ctx, CtxBuilder, Evaluador, Concepto, Incid, TipoEmpleado);
+    end;
+
+    // La selección normal y sus efectos previos permanecen en RunConceptos. Este único recorrido
+    // admite una selección temporal para verificar el motor con datos sintéticos y reversión.
+    internal procedure RecorrerConceptosSeleccionados(
+        var Liq: Record "Liquidación";
+        FechaRef: Date;
+        var Ctx: Dictionary of [Text, Decimal];
+        var CtxBuilder: Codeunit "Contexto Liquidación";
+        var Evaluador: Codeunit "Evaluador Fórmula";
+        var Concepto: Record "Concepto Liquidación" temporary;
+        var Incid: Record "Incidencia Liquidación" temporary;
+        TipoEmpleado: Enum "Aplica A Liq.")
+    var
         LinLiq: Record "Línea Liquidación";
         DetGan: Record "Detalle Ganancias Liq.";
-        TipoEmpleado: Enum "Aplica A Liq.";
-        Incid: Record "Incidencia Liquidación" temporary;
         Importe: Decimal;
         ImporteConsumoFranco: Decimal;
         CantIncidencia: Decimal;
@@ -480,31 +628,15 @@ codeunit 50014 "Motor Liquidación"
         ConvenioEval: Code[20];
         CategoriaEval: Code[20];
         ConceptLog: Text;
+        LecturasLog: Text;
         FormulaEvaluadaFranco: Text;
         FullParamLog: Text;
     begin
-        CompartirIncidencias(Incid);
-        TipoEmpleado := TipoEmpleadoDe(Liq);
-
-        SelectConceptosParaCalculo(Concepto, FechaRef);
-
-        // Concept caches — memoized per FechaRef (see EnsureConceptCaches); reused across GU iterations
-        EnsureConceptCaches(FechaRef);
-
-        // Se reinicia por pasada: una convergencia de grossing-up vuelve a correr todo el bucle, y
-        // los avisos de la pasada anterior describirían líneas que ya se borraron. Queda vigente el
-        // de la última pasada, que es la que produce las líneas definitivas.
-        Clear(FAcumLeidoEnOrden);
-        Clear(FAcumLeidoPorConcepto);
-        Clear(FAcumAporteTardioOrden);
-        Clear(FAcumAporteTardioCodigo);
-        Clear(FAcumAportesTardios);
-        FAvisosOrden := '';
-
         if not Concepto.FindSet() then
             exit;
 
         repeat
+            IniciarTrazaConcepto(Evaluador);
             // Se lee primero la incidencia porque decide si el concepto se recorre: una incidencia
             // manual entra aunque el concepto no le aplique a este empleado ni a este convenio, y
             // tiene que hacerlo EN SU ORDEN CÁLCULO. Relegada al final —que es lo que hacía cuando
@@ -580,8 +712,14 @@ codeunit 50014 "Motor Liquidación"
                    ConceptoAplicaATipoLiq(Concepto, Liq."Cód. Tipo Liq.") and
                    CondicionOk(Evaluador, Concepto)
                 then begin
-                    if not Evaluador.TryEvalFormula(Concepto.Fórmula, Importe) then
-                        Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+                    if Concepto."Fuente Matriz" <> '' then begin
+                        Concepto.TestField("Cantidad Matriz");
+                        if Concepto."Fuente Matriz" <> 'FRANCOS_FIFO' then Error('Fuente de matriz no disponible: %1.', Concepto."Fuente Matriz");
+                        if not Evaluador.TryEvalFormula(Concepto."Cantidad Matriz", Importe) then
+                            Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+                    end else
+                        if not Evaluador.TryEvalFormula(Concepto.Fórmula, Importe) then
+                            Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
                     // El importe conserva el signo que da la fórmula. Ver la nota de cabecera de
                     // Línea Liquidación: el signo dejó de salir del Tipo Concepto.
                     CreateLine := true;
@@ -590,7 +728,7 @@ codeunit 50014 "Motor Liquidación"
                 if CreateLine then
                     // Franco consumption: expand into one valued line per lot category (FIFO), instead of a
                     // single line. The formula result (Importe) is the number of días to consume.
-                    if Concepto."Rol Franco" = Concepto."Rol Franco"::Consumo then begin
+                    if (Concepto."Rol Franco" = Concepto."Rol Franco"::Consumo) or (Concepto."Fuente Matriz" <> '') then begin
                         // Esta rama hacía SOLO las líneas y se salteaba todo el cierre del concepto.
                         // Cuatro consecuencias, de la más visible a la más cara:
                         //   · Las líneas quedaban sin Detalle Variable, sin Fórmula Evaluada y sin
@@ -606,38 +744,40 @@ codeunit 50014 "Motor Liquidación"
                         //
                         // BuildFormulaEvaluada va ANTES del Flush, por el mismo motivo que en la otra
                         // rama: es lo único que podría agregarle entradas al log del concepto.
-                        if not FIteracionGU then
+                        if (not FIteracionGU) and (Concepto."Fuente Matriz" = '') then
                             FormulaEvaluadaFranco := BuildFormulaEvaluada(Concepto.Fórmula, Ctx, Evaluador);
                         // El Flush va antes de generar las líneas porque es lo que cierra el concepto:
                         // el log ya está completo cuando la fórmula terminó de evaluarse.
                         ConceptLog := Evaluador.FlushConceptLog();
-                        RegistrarLecturasAcumuladores(ConceptLog, Concepto.Código, Concepto."Orden Cálculo");
+                        ImporteConsumoFranco :=
+                            GenerarLineasConsumoFranco(Liq, Concepto, Importe, ConceptLog, FormulaEvaluadaFranco, FechaRef, Ctx, CtxBuilder, Evaluador);
+                        RegistrarLecturasAcumuladores(ConceptLog, Concepto, ConvenioEval, true);
                         if not FIteracionGU then begin
                             if FullParamLog <> '' then FullParamLog += '|';
                             FullParamLog += ConceptLog;
                         end;
 
-                        ImporteConsumoFranco :=
-                            GenerarLineasConsumoFranco(Liq, Concepto, Importe, ConceptLog, FormulaEvaluadaFranco, FechaRef, Ctx, CtxBuilder, Evaluador);
                         if Ctx.ContainsKey(Concepto.Código) then
                             Ctx.Set(Concepto.Código, ImporteConsumoFranco)
                         else
                             Ctx.Add(Concepto.Código, ImporteConsumoFranco);
 
-                        VerificarOrdenAporte(Concepto.Código, Concepto."Orden Cálculo");
+                        VerificarOrdenAporte(Concepto.Código, Concepto."Orden Cálculo", ImporteConsumoFranco, ConvenioEval, Ctx);
                         // El importe EN PLATA, no el resultado de la fórmula: acá la fórmula devuelve
                         // días de franco y lo que aporta a las bases es lo que se paga por ellos.
                         UpdateAccumulatorsFromCache(
-                            Concepto.Código, ImporteConsumoFranco, FFracAccumList, FFracAccumPct, Ctx);
+                            Concepto.Código, ImporteConsumoFranco, ConvenioEval, FFracAccumList, FFracAccumPct, Ctx);
                         Evaluador.UpdateContext(Ctx);
                     end else begin
+                    // Cantidad/base de presentación se auditan, pero no son lecturas de la fórmula de importe.
+                    LecturasLog := Evaluador.GetParamLog();
                     PrepararLineaConcepto(LinLiq, Liq, Concepto, Incid, Importe, EsIncidencia, ConvenioEval, CategoriaEval, FechaRef, Ctx, Evaluador);
                     // El Flush corre SIEMPRE: resetea el log y los vars resueltos por concepto.
                     ConceptLog := Evaluador.FlushConceptLog();
                     // Se anota qué acumuladores leyó este concepto ANTES de que aporte a los suyos:
                     // el orden importa, y una lectura previa a un aporte posterior es justamente el
                     // error que se quiere detectar.
-                    RegistrarLecturasAcumuladores(ConceptLog, Concepto.Código, Concepto."Orden Cálculo");
+                    RegistrarLecturasAcumuladores(LecturasLog, Concepto, ConvenioEval, true);
                     if not FIteracionGU then begin
                         if FullParamLog <> '' then FullParamLog += '|';
                         FullParamLog += ConceptLog;
@@ -645,7 +785,7 @@ codeunit 50014 "Motor Liquidación"
                         // Ganancias ya venía largo y las entradas de TRAMO —que ahora describen el
                         // tramo aplicado— lo estiran más. Pasarse de los 2048 sería un error de
                         // ejecución en pleno cálculo por un campo que es de auditoría.
-                        LinLiq."Fuente Parámetros" := CopyStr(CtxBuilder.GetParamLog() + '|' + ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
+                        LinLiq."Fuente Parámetros" := CopyStr(ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
                     end;
                     InsertarLineaLiquidacion(LinLiq);
 
@@ -674,11 +814,14 @@ codeunit 50014 "Motor Liquidación"
                         WriteVariableDetail(Liq."No.", LinLiq."No. Línea", ConceptLog, Ctx, Evaluador);
                     end;
 
-                    VerificarOrdenAporte(Concepto.Código, Concepto."Orden Cálculo");
+                    VerificarOrdenAporte(Concepto.Código, Concepto."Orden Cálculo", Importe, ConvenioEval, Ctx);
                     UpdateAccumulatorsFromCache(
-                        Concepto.Código, Importe, FFracAccumList, FFracAccumPct, Ctx);
+                        Concepto.Código, Importe, ConvenioEval, FFracAccumList, FFracAccumPct, Ctx);
                     Evaluador.UpdateContext(Ctx);
                 end;
+
+                if not CreateLine then
+                    RegistrarLecturasAcumuladores(Evaluador.GetParamLog(), Concepto, ConvenioEval, false);
 
                 // Deja el contexto como estaba para el concepto siguiente. Va acá, al cierre del
                 // cuerpo del bucle, y no pegado a la evaluación: entre medio hay caminos que se
@@ -843,7 +986,7 @@ codeunit 50014 "Motor Liquidación"
         var Liq: Record "Liquidación";
         Concepto: Record "Concepto Liquidación";
         DiasSolicitados: Decimal;
-        ConceptLog: Text;
+        var ConceptLog: Text;
         FormulaEvaluada: Text;
         FechaRef: Date;
         var Ctx: Dictionary of [Text, Decimal];
@@ -858,11 +1001,17 @@ codeunit 50014 "Motor Liquidación"
         Saldo: Decimal;
         EtiquetaCat: Text;
         Distribucion: Text;
+        FactorImporte: Decimal;
+        PrecisionImporte: Decimal;
+        ErrFactorConsumo: Label 'El factor de importe de consumo del concepto %1 debe ser mayor que cero y menor o igual a uno. Valor: %2.';
+        FactorLog: Text;
     begin
         // Esta es OTRA instancia de Gestión Francos, local a este procedimiento: no ve lo que el
         // contexto le publicó a la suya. Sin esto, el desglose por lote valuaría un precio en divisa
         // como si fueran pesos —o cortaría, que es lo que hace desde que la conversión es
         // obligatoria—. Las cotizaciones ya están resueltas; sólo hay que pedírselas.
+        if Concepto."Fuente Matriz" <> '' then
+            exit(GenerarLineasMatrizFrancos(Liq, Concepto, DiasSolicitados, FechaRef, Ctx, CtxBuilder, Evaluador, ConceptLog));
         CtxBuilder.GetTiposCambioFrancos(TiposCambioFrancos);
         FrancosMgt.PublicarTiposCambio(TiposCambioFrancos);
 
@@ -880,12 +1029,27 @@ codeunit 50014 "Motor Liquidación"
         // AjustarEstadoFrancos (Cod50017) ya cortó el estado de Francos el día que se le acabaron,
         // así que DIAS_FRANCOS_PERIODO llega acotado. Si aun así se pide de más, o la fórmula
         // devuelve otra cosa, o el saldo inicial no está cargado.
-        Saldo := FrancosMgt.SaldoFrancos(Liq."No. Empleado", Liq."No.");
+        Saldo := FrancosMgt.SaldoFrancos(Liq."No. Empleado", Liq."No.", Liq."Fecha Liquidación");
         if DiasSolicitados > Saldo then
             Error(ErrConsumoMayorQueSaldo, Concepto.Código, DiasSolicitados, Saldo, Liq."No. Empleado", Concepto.Fórmula);
 
         FrancosMgt.CalcularConsumoDesglosado(Liq."No. Empleado", DiasSolicitados, Liq."Fecha Liquidación", Liq."No.", TempSlice);
         if not TempSlice.FindSet() then exit;
+
+        // La fórmula principal sigue devolviendo DÍAS. El factor opera sólo sobre los pesos,
+        // después del FIFO: no cambia el saldo consumido ni la valuación original de los lotes.
+        FactorImporte := 1;
+        if Concepto."Factor Importe Consumo" <> '' then begin
+            if not Evaluador.TryEvalFormula(Concepto."Factor Importe Consumo", FactorImporte) then
+                Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+            if (FactorImporte <= 0) or (FactorImporte > 1) then
+                Error(ErrFactorConsumo, Concepto.Código, FactorImporte);
+            PrecisionImporte := Ctx.Get('PRECISION_REDONDEO');
+            FactorLog := Evaluador.FlushConceptLog();
+            if FactorLog <> '' then
+                ConceptLog += '|' + FactorLog;
+            FormulaEvaluada += StrSubstNo(' | Factor importe FIFO: %1 = %2', Concepto."Factor Importe Consumo", FactorImporte);
+        end;
 
         // La auditoría es la MISMA para todas las tajadas —una sola fórmula, un solo contexto—, así
         // que se arma una vez y se copia. Cada línea la lleva igual porque el liquidador abre la que
@@ -916,9 +1080,13 @@ codeunit 50014 "Motor Liquidación"
             // The lot's own convenio/categoría (may differ from the employee's current) → shows the price basis.
             LinLiq."Cód. Convenio" := TempSlice."Cód. Convenio";
             LinLiq."Cód. Categoría" := TempSlice."Cód. Categoría";
+            LinLiq."No. Lote Franco" := TempSlice."No. Lote Franco";
+            LinLiq."Id. Selección Francos" := TempSlice."Id. Selección Francos";
             LinLiq.Cantidad := TempSlice.Cantidad;
             LinLiq."Unidad Cantidad" := Concepto."Unidad Cantidad";
             LinLiq.Importe := TempSlice.Importe;
+            if FactorImporte <> 1 then
+                LinLiq.Importe := Round(TempSlice.Importe * FactorImporte, PrecisionImporte);
             LinLiq."Orden Cálculo" := Concepto."Orden Cálculo";
             LinLiq."Fórmula Aplicada" := Concepto.Fórmula;
             LinLiq."Vigencia Concepto" := Concepto."Vigencia Desde";
@@ -927,13 +1095,121 @@ codeunit 50014 "Motor Liquidación"
             if not FIteracionGU then begin
                 LinLiq."Fórmula Evaluada" := CopyStr(FormulaEvaluada, 1, MaxStrLen(LinLiq."Fórmula Evaluada"));
                 LinLiq."Vigencias Distribución" := CopyStr(Distribucion, 1, MaxStrLen(LinLiq."Vigencias Distribución"));
-                LinLiq."Fuente Parámetros" := CopyStr(CtxBuilder.GetParamLog() + '|' + ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
+                LinLiq."Fuente Parámetros" := CopyStr(ConceptLog, 1, MaxStrLen(LinLiq."Fuente Parámetros"));
             end;
             InsertarLineaLiquidacion(LinLiq);
             if not FIteracionGU then
                 WriteVariableDetail(Liq."No.", LinLiq."No. Línea", ConceptLog, Ctx, Evaluador);
-            ImporteTotal += TempSlice.Importe;
+            ImporteTotal += LinLiq.Importe;
         until TempSlice.Next() = 0;
+    end;
+
+    local procedure GenerarLineasMatrizFrancos(var Liq: Record "Liquidación"; Concepto: Record "Concepto Liquidación"; Dias: Decimal; Fecha: Date; var Ctx: Dictionary of [Text, Decimal]; var Builder: Codeunit "Contexto Liquidación"; var Eval: Codeunit "Evaluador Fórmula"; var ConceptLog: Text) Total: Decimal
+    var
+        Lin: Record "Línea Liquidación";
+        Francos: Codeunit "Gestión Francos";
+        TC: Dictionary of [Text, Decimal];
+        FilaCtx: Dictionary of [Text, Decimal];
+        Codigos: Dictionary of [Text, Text];
+        CodigosFila: Dictionary of [Text, Text];
+        Clave: Text;
+        Valor: Decimal;
+        Codigo: Text;
+        LogFila: Text;
+    begin
+        if not FMatrizPreparada then begin
+            FCuentaFrancos.Matriz(Liq."No. Empleado", Liq."Fecha Liquidación", Liq."No.", Dias, true, FFilasFrancos);
+            FCantidadMatriz := Dias;
+            FMatrizPreparada := true;
+        end else
+            if FCantidadMatriz <> Dias then Error('Los conceptos de FRANCOS_FIFO deben seleccionar la misma cantidad de días en el recibo.');
+        Builder.GetTiposCambioFrancos(TC);
+        Francos.PublicarTiposCambio(TC);
+        Francos.ValuarMatriz(FFilasFrancos, Liq."No.", Liq."Fecha Liquidación");
+        Eval.GetCodigosAtributos(Codigos);
+        if FFilasFrancos.FindSet() then
+            repeat
+                Clear(FilaCtx);
+                foreach Clave in Ctx.Keys() do begin
+                    Ctx.Get(Clave, Valor);
+                    FilaCtx.Add(Clave, Valor);
+                end;
+                CargarVariablesFila(FilaCtx, FFilasFrancos);
+                Clear(CodigosFila);
+                foreach Clave in Codigos.Keys() do begin
+                    Codigos.Get(Clave, Codigo);
+                    CodigosFila.Add(Clave, Codigo);
+                end;
+                CodigosFila.Set('FILA_CONVENIO', FFilasFrancos."Cód. Convenio");
+                CodigosFila.Set('FILA_CATEGORIA', FFilasFrancos."Cód. Categoría");
+                CodigosFila.Set('FILA_PUESTO', FFilasFrancos."Cód. Puesto");
+                CodigosFila.Set('FILA_ESTADO', FFilasFrancos."Cód. Estado");
+                CodigosFila.Set('FILA_PROYECTO', FFilasFrancos."No. Proyecto");
+                CodigosFila.Set('FILA_EMPLEADO', FFilasFrancos."No. Empleado");
+                CodigosFila.Set('FILA_PERIODO', FFilasFrancos."Cód. Período");
+                CodigosFila.Set('FILA_PESQUERIA', FFilasFrancos."Tipo Buque");
+                Eval.UpdateContext(FilaCtx);
+                Eval.SetCodigosAtributos(CodigosFila);
+                Lin.Init();
+                Lin."No. Línea" := 0;
+                Lin."No. Liquidación" := Liq."No.";
+                Lin."No. Empleado" := Liq."No. Empleado";
+                Lin."Cód. Período" := Liq."Cód. Período";
+                Lin."No. Proyecto" := Liq."No. Proyecto";
+                Lin."Cód. Tipo Liq." := Liq."Cód. Tipo Liq.";
+                Lin.Estado := Lin.Estado::Calculada;
+                Lin."Fecha Liquidación" := Liq."Fecha Liquidación";
+                Lin."Cód. Concepto" := Concepto.Código;
+                Lin."Descripción Concepto" := Concepto.Descripción;
+                Lin."Nombre Impresión" := Concepto."Nombre Impresión";
+                Lin."Tipo Concepto" := Concepto."Tipo Concepto";
+                Lin."Grupo Costo Laboral" := Concepto."Grupo Costo Laboral";
+                Lin."Imprime en Recibo" := Concepto."Imprime en Recibo";
+                Lin."Es Devengo" := Concepto."Es Devengo";
+                Lin."Cód. Convenio" := FFilasFrancos."Cód. Convenio";
+                Lin."Cód. Categoría" := FFilasFrancos."Cód. Categoría";
+                Lin.Cantidad := FFilasFrancos."Días Tomados";
+                Lin."Unidad Cantidad" := Concepto."Unidad Cantidad";
+                Lin."No. Lote Franco" := FFilasFrancos."No. Lote";
+                Lin."Id. Selección Francos" := FFilasFrancos."Id. Selección";
+                Lin."Orden Cálculo" := Concepto."Orden Cálculo";
+                Lin."Vigencia Concepto" := Concepto."Vigencia Desde";
+                Lin."Fórmula Aplicada" := Concepto.Fórmula;
+                if not Eval.TryEvalFormula(Concepto.Fórmula, Lin.Importe) then Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+                if Concepto."Variable Base" <> '' then
+                    Lin."Base Cálculo" := ResolverExpresionLinea(Concepto."Variable Base", FilaCtx, Fecha, Eval);
+                if not FIteracionGU then begin
+                    Lin."Fórmula Evaluada" := CopyStr(BuildFormulaEvaluada(Concepto.Fórmula, FilaCtx, Eval), 1, MaxStrLen(Lin."Fórmula Evaluada"));
+                    Lin."Vigencias Distribución" := CopyStr(DescribirDistribucion(Concepto.Código), 1, MaxStrLen(Lin."Vigencias Distribución"));
+                end;
+                LogFila := Eval.FlushConceptLog();
+                if not FIteracionGU then Lin."Fuente Parámetros" := CopyStr(LogFila, 1, MaxStrLen(Lin."Fuente Parámetros"));
+                InsertarLineaLiquidacion(Lin);
+                if not FIteracionGU then WriteVariableDetail(Liq."No.", Lin."No. Línea", LogFila, FilaCtx, Eval);
+                if ConceptLog <> '' then ConceptLog += '|';
+                ConceptLog += LogFila;
+                Total += Lin.Importe;
+            until FFilasFrancos.Next() = 0;
+        Eval.UpdateContext(Ctx);
+        Eval.SetCodigosAtributos(Codigos);
+    end;
+
+    local procedure CargarVariablesFila(var Ctx: Dictionary of [Text, Decimal]; Fila: Record "Lote Franco Buffer Liq." temporary)
+    begin
+        Ctx.Set('FILA_CANTIDAD', Fila."Días Tomados");
+        Ctx.Set('FILA_SALDO', Fila."Días Disponibles");
+        Ctx.Set('FILA_DEVENGADO', Fila."Días del Lote");
+        Ctx.Set('FILA_VALOR_FRANCO', Fila."Valor Franco");
+        Ctx.Set('FILA_COEFICIENTE', Fila.Coeficiente);
+        Ctx.Set('FILA_LOTE', Fila."No. Lote");
+        Ctx.Set('FILA_EMPLEADO', 0);
+        Ctx.Set('FILA_CONVENIO', 0);
+        Ctx.Set('FILA_CATEGORIA', 0);
+        Ctx.Set('FILA_PUESTO', 0);
+        Ctx.Set('FILA_ESTADO', 0);
+        Ctx.Set('FILA_PROYECTO', 0);
+        Ctx.Set('FILA_PERIODO', 0);
+        Ctx.Set('FILA_PESQUERIA', 0);
     end;
 
     local procedure WriteIncidenciasRestantes(
@@ -962,10 +1238,11 @@ codeunit 50014 "Motor Liquidación"
                 ExistingLine.SetRange("No. Liquidación", Liq."No.");
                 ExistingLine.SetRange("Cód. Concepto", Incid."Cód. Concepto");
                 if ExistingLine.IsEmpty() then
-                    Registro.AdvertirVariable(
-                        "Categoría Registro Liq."::General,
-                        StrSubstNo(RegIncidSinLineaTxt, Incid."Cód. Concepto", Incid.Cantidad),
-                        '', Incid."Cód. Concepto");
+                    if not EsCantidadInformativaDeFuente(Incid, Ctx) then
+                        Registro.AdvertirVariable(
+                            "Categoría Registro Liq."::General,
+                            StrSubstNo(RegIncidSinLineaTxt, Incid."Cód. Concepto", Incid.Cantidad),
+                            '', Incid."Cód. Concepto");
             end;
 
             if Incid.Importe <> 0 then begin
@@ -1008,13 +1285,101 @@ codeunit 50014 "Motor Liquidación"
                         // tarde por definición, sin importar el Orden Cálculo que diga el concepto.
                         // Se registra explícitamente porque el control normal compara órdenes y acá
                         // el orden miente: la línea dice 165 y el aporte entró último.
-                        RegistrarAporteFueraDeOrden(Concepto.Código, FracAccumList);
+                        RegistrarAporteFueraDeOrden(Concepto.Código, LinLiq.Importe, LinLiq."Cód. Convenio", Ctx);
                         UpdateAccumulatorsFromCache(
-                            Concepto.Código, LinLiq.Importe, FracAccumList, FracAccumPct, Ctx);
+                            Concepto.Código, LinLiq.Importe, LinLiq."Cód. Convenio", FracAccumList, FracAccumPct, Ctx);
                     end;
                 end;
             end;
         until Incid.Next() = 0;
+    end;
+
+    /// Una cantidad de entrada puede alimentar una fuente sin ser un haber pendiente de pago.
+    /// Sólo se reconoce el caso declarado por completo: catálogo puramente informativo y una
+    /// fuente de cantidades con alcance exacto al empleado, período y concepto de la novedad.
+    /// Se revisan TODAS las versiones: una versión informativa futura no debe ocultar un haber
+    /// histórico sin vigencia. Un catálogo homogéneo sí describe un indicador cuyo alta formal
+    /// haya sido posterior a las novedades que ya lee la fuente.
+    internal procedure EsCantidadInformativaDeFuente(Incid: Record "Incidencia Liquidación"; var Ctx: Dictionary of [Text, Decimal]): Boolean
+    var
+        Concepto: Record "Concepto Liquidación";
+        Fuente: Record "Fuente Datos Liquidación";
+        Novedad: Record "Novedad Liquidación";
+        ValorFuente: Decimal;
+    begin
+        if not Incid."Desde Novedad" or (Incid.Importe <> 0) or (Incid.Cantidad = 0) or
+           (Incid."Valor Unitario" <> 0) or (Incid."Unidad Cantidad" <> '')
+        then
+            exit(false);
+        Concepto.SetRange(Código, Incid."Cód. Concepto");
+        if not Concepto.FindSet() then
+            exit(false);
+        repeat
+            if (Concepto."Tipo Concepto" <> Concepto."Tipo Concepto"::Informativo) or
+               (Concepto.Fórmula.Trim() <> '') or Concepto."Es Acumulador" or Concepto."Es Devengo" or
+               (Concepto."Rol Franco" <> Concepto."Rol Franco"::Ninguno) or (Concepto."Fuente Matriz" <> '')
+            then
+                exit(false);
+        until Concepto.Next() = 0;
+
+        Fuente.SetRange(Activo, true);
+        Fuente.SetRange("Id. Tabla", Database::"Novedad Liquidación");
+        Fuente.SetRange("No. Campo Valor", Novedad.FieldNo(Cantidad));
+        Fuente.SetRange("Tipo Dato", Fuente."Tipo Dato"::Decimal);
+        Fuente.SetRange("Función Agregado", Fuente."Función Agregado"::SUM);
+        if Fuente.FindSet() then
+            repeat
+                if (Fuente."No. Campo Fecha Inicio" = 0) and (Fuente."No. Campo Fecha Fin" = 0) and
+                   not Fuente."Fin Efectivo"
+                then
+                    if Ctx.Get(Fuente."Nombre Variable", ValorFuente) then
+                        if ValorFuente <> 0 then
+                            if FuenteTieneAlcanceEntrada(Fuente."Nombre Variable", Incid."Cód. Concepto") then
+                                exit(true);
+            until Fuente.Next() = 0;
+        exit(false);
+    end;
+
+    local procedure FuenteTieneAlcanceEntrada(NombreFuente: Code[30]; CodigoConcepto: Code[20]): Boolean
+    var
+        Filtro: Record "Filtro Fuente Datos Liq.";
+        Novedad: Record "Novedad Liquidación";
+        TieneEmpleado: Boolean;
+        TienePeriodo: Boolean;
+        TieneConcepto: Boolean;
+    begin
+        // La igualdad textual sólo identifica un literal si el código no contiene operadores de filtro.
+        if (DelChr(CodigoConcepto, '=', '&|()<>=*?@''"') <> CodigoConcepto) or (StrPos(CodigoConcepto, '..') > 0) then
+            exit(false);
+        Filtro.SetRange("Nombre Variable", NombreFuente);
+        // Otros alcances o filtros se conservan como caso pendiente; no se supone que la fuente
+        // haya leído esta incidencia sólo porque nombre el mismo concepto.
+        if Filtro.Count() <> 3 then
+            exit(false);
+        if not Filtro.FindSet() then
+            exit(false);
+        repeat
+            case Filtro."No. Campo" of
+                Novedad.FieldNo("No. Empleado"):
+                    begin
+                        if Filtro."Filtro Valor" <> '{EMP_NO}' then exit(false);
+                        TieneEmpleado := true;
+                    end;
+                Novedad.FieldNo("Cód. Período"):
+                    begin
+                        if Filtro."Filtro Valor" <> '{PERIODO}' then exit(false);
+                        TienePeriodo := true;
+                    end;
+                Novedad.FieldNo("Cód. Concepto"):
+                    begin
+                        if Filtro."Filtro Valor" <> CodigoConcepto then exit(false);
+                        TieneConcepto := true;
+                    end;
+                else
+                    exit(false);
+            end;
+        until Filtro.Next() = 0;
+        exit(TieneEmpleado and TienePeriodo and TieneConcepto);
     end;
 
     local procedure WriteAccumulatorLines(
@@ -1133,6 +1498,200 @@ codeunit 50014 "Motor Liquidación"
         Concepto.SetCurrentKey("Orden Cálculo", Código);
     end;
 
+    local procedure PrepararConceptosParaCalculo(var Destino: Record "Concepto Liquidación" temporary; FechaRef: Date; TipoLiq: Code[20]; Convenio: Code[20]; var ContextoEstable: Dictionary of [Text, Decimal]; var CodigosEstables: Dictionary of [Text, Text])
+    var
+        Origen: Record "Concepto Liquidación";
+        CtxOrden: Dictionary of [Text, Decimal];
+        CodigosOrden: Dictionary of [Text, Text];
+        NoPermitidos: Dictionary of [Text, Boolean];
+    begin
+        Destino.Reset();
+        Destino.DeleteAll();
+        PrepararContextoOrden(ContextoEstable, CodigosEstables, TipoLiq, Convenio, CtxOrden, CodigosOrden, NoPermitidos);
+        SelectConceptosParaCalculo(Origen, FechaRef);
+        if Origen.FindSet() then
+            repeat
+                Destino := Origen;
+                Destino."Orden Cálculo" := EvaluarOrdenEfectivo(Origen, FechaRef, CtxOrden, CodigosOrden, NoPermitidos);
+                Destino.Insert(false);
+            until Origen.Next() = 0;
+        Destino.SetCurrentKey("Orden Cálculo", Código);
+    end;
+
+    internal procedure FormulaOrdenConfigurada(Concepto: Record "Concepto Liquidación"): Text
+    var
+        Condicion: Text;
+        TipoTexto: Text;
+        ConvenioTexto: Text;
+    begin
+        if Concepto."Fórmula Orden Cálculo" <> '' then
+            exit(Concepto."Fórmula Orden Cálculo");
+        // Compatibilidad con columnas ya publicadas: no se dropean ni reutilizan sus IDs.
+        if Concepto."Tipo Liq. Orden Alternativo" = '' then
+            exit(Format(Concepto."Orden Cálculo", 0, 9));
+        Concepto.TestField("Orden Cálculo Alternativo");
+        TipoTexto := Concepto."Tipo Liq. Orden Alternativo";
+        ConvenioTexto := Concepto."Convenio Orden Alternativo";
+        Condicion := 'TIPO_LIQ = ''' + TipoTexto.Replace('''', '''''') + '''';
+        if Concepto."Convenio Orden Alternativo" <> '' then
+            Condicion += ' AND CONVENIO = ''' + ConvenioTexto.Replace('''', '''''') + '''';
+        exit('IF(' + Condicion + ', ' + Format(Concepto."Orden Cálculo Alternativo", 0, 9) + ', ' + Format(Concepto."Orden Cálculo", 0, 9) + ')');
+    end;
+
+    internal procedure OrdenEfectivo(Concepto: Record "Concepto Liquidación"; TipoLiq: Code[20]; Convenio: Code[20]): Integer
+    begin
+        exit(OrdenEfectivo(Concepto, TipoLiq, Convenio, WorkDate()));
+    end;
+
+    local procedure OrdenEfectivo(Concepto: Record "Concepto Liquidación"; TipoLiq: Code[20]; Convenio: Code[20]; FechaRef: Date): Integer
+    var
+        Ctx: Dictionary of [Text, Decimal];
+        Codigos: Dictionary of [Text, Text];
+    begin
+        // Compatibilidad para llamadas que sólo necesitan tipo, convenio y orden base.
+        exit(OrdenEfectivo(Concepto, TipoLiq, Convenio, FechaRef, Ctx, Codigos));
+    end;
+
+    internal procedure OrdenEfectivo(Concepto: Record "Concepto Liquidación"; TipoLiq: Code[20]; Convenio: Code[20]; FechaRef: Date; var ContextoEstable: Dictionary of [Text, Decimal]; var CodigosEstables: Dictionary of [Text, Text]): Integer
+    var
+        CtxOrden: Dictionary of [Text, Decimal];
+        CodigosOrden: Dictionary of [Text, Text];
+        NoPermitidos: Dictionary of [Text, Boolean];
+    begin
+        PrepararContextoOrden(ContextoEstable, CodigosEstables, TipoLiq, Convenio, CtxOrden, CodigosOrden, NoPermitidos);
+        exit(EvaluarOrdenEfectivo(Concepto, FechaRef, CtxOrden, CodigosOrden, NoPermitidos));
+    end;
+
+    local procedure PrepararContextoOrden(var ContextoEstable: Dictionary of [Text, Decimal]; var CodigosEstables: Dictionary of [Text, Text]; TipoLiq: Code[20]; Convenio: Code[20]; var CtxOrden: Dictionary of [Text, Decimal]; var CodigosOrden: Dictionary of [Text, Text]; var NoPermitidos: Dictionary of [Text, Boolean])
+    var
+        Concepto: Record "Concepto Liquidación";
+        Tipo: Record "Tipo Liquidación";
+        Nombre: Text;
+        OrdenTipo: Integer;
+    begin
+        Clear(CtxOrden);
+        Clear(CodigosOrden);
+        Clear(NoPermitidos);
+        // El contexto completo siembra los conceptos y acumuladores en cero. Ese cero no los hace
+        // estables: cambian durante el recorrido y no pueden decidir el orden que lo organiza.
+        Concepto.SetLoadFields(Código);
+        if Concepto.FindSet() then
+            repeat
+                NoPermitidos.Set(Concepto.Código, true);
+            until Concepto.Next() = 0;
+        NoPermitidos.Set(VarCantIncidenciaTok, true);
+        NoPermitidos.Set(VarComplementoGU(), true);
+        foreach Nombre in ContextoEstable.Keys() do
+            if Nombre.StartsWith('FILA_') then
+                NoPermitidos.Set(Nombre, true);
+        foreach Nombre in ContextoEstable.Keys() do
+            if not NoPermitidos.ContainsKey(Nombre) then
+                CtxOrden.Add(Nombre, ContextoEstable.Get(Nombre));
+        foreach Nombre in CodigosEstables.Keys() do
+            if not NoPermitidos.ContainsKey(Nombre) then
+                CodigosOrden.Add(Nombre, CodigosEstables.Get(Nombre));
+        if Tipo.Get(TipoLiq) then
+            OrdenTipo := Tipo.Orden;
+        CtxOrden.Set('TIPO_LIQ', OrdenTipo);
+        CtxOrden.Set('CONVENIO', 0);
+        CodigosOrden.Set('TIPO_LIQ', TipoLiq);
+        CodigosOrden.Set('CONVENIO', Convenio);
+    end;
+
+    local procedure EvaluarOrdenEfectivo(Concepto: Record "Concepto Liquidación"; FechaRef: Date; var CtxOrden: Dictionary of [Text, Decimal]; var CodigosOrden: Dictionary of [Text, Text]; var NoPermitidos: Dictionary of [Text, Boolean]): Integer
+    var
+        Eval: Codeunit "Evaluador Fórmula";
+        Formula: Text;
+        Valor: Decimal;
+        Orden: Integer;
+    begin
+        Formula := FormulaOrdenConfigurada(Concepto);
+        if Formula = '' then
+            exit(Concepto."Orden Cálculo");
+        ValidarDependenciasOrden(Concepto.Código, Formula, NoPermitidos);
+        CtxOrden.Set('ORDEN_BASE', Concepto."Orden Cálculo");
+        Eval.Init(CtxOrden, FechaRef);
+        Eval.SetCodigosAtributos(CodigosOrden);
+        if not Eval.TryEvalFormula(Formula, Valor) then
+            Error('No se pudo evaluar el orden del concepto %1: %2', Concepto.Código, GetLastErrorText());
+        if (Valor < 0) or (Valor > 2147483647) or (Valor <> Round(Valor, 1)) then
+            Error('El orden del concepto %1 debe ser un entero entre 0 y 2147483647. Resultado: %2.', Concepto.Código, Valor);
+        Orden := Valor;
+        exit(Orden);
+    end;
+
+    local procedure ValidarDependenciasOrden(CodConcepto: Code[20]; Formula: Text; var NoPermitidos: Dictionary of [Text, Boolean])
+    var
+        Texto: Text;
+        Token: Text;
+        Posicion: Integer;
+        Inicio: Integer;
+        Siguiente: Integer;
+    begin
+        if Formula.Contains('#') or Formula.Contains('@') then
+            Error('El orden del concepto %1 no puede depender de conceptos calculados (# o @).', CodConcepto);
+        // Revisar también las ramas no elegidas de IF: una referencia circular no se vuelve válida
+        // porque hoy su condición sea falsa. Los códigos entre comillas son texto, no variables.
+        Texto := UpperCase(Formula);
+        Posicion := 1;
+        while Posicion <= StrLen(Texto) do begin
+            if CopyStr(Texto, Posicion, 1) = '''' then begin
+                Posicion += 1;
+                while Posicion <= StrLen(Texto) do begin
+                    if CopyStr(Texto, Posicion, 1) = '''' then begin
+                        if CopyStr(Texto, Posicion, 2) <> '''''' then
+                            break;
+                        Posicion += 1;
+                    end;
+                    Posicion += 1;
+                end;
+                Posicion += 1;
+            end else
+                if EsInicioTokenOrden(CopyStr(Texto, Posicion, 1)) then begin
+                    Inicio := Posicion;
+                    while EsCaracterOrden(CopyStr(Texto, Posicion, 1)) do
+                        Posicion += 1;
+                    Token := CopyStr(Texto, Inicio, Posicion - Inicio);
+                    // El paréntesis agrupa el operando de AND/OR/NOT; no los convierte en funciones.
+                    if not (Token in ['AND', 'OR', 'NOT']) then begin
+                        Siguiente := Posicion;
+                        while EsEspacioOrden(CopyStr(Texto, Siguiente, 1)) do
+                            Siguiente += 1;
+                        if CopyStr(Texto, Siguiente, 1) = '(' then begin
+                            if not (Token in ['MAX', 'MIN', 'ROUND', 'REDONDEAR', 'PISO', 'TECHO', 'ABS', 'IF', 'IFZERO', 'CASE', 'DIV', 'ERROR']) then
+                                Error('El orden del concepto %1 no puede consultar la función %2: debe usar valores ya resueltos del contexto.', CodConcepto, Token);
+                        end else
+                            if NoPermitidos.ContainsKey(Token) then
+                                Error('El orden del concepto %1 no puede depender del concepto, acumulador o valor de cálculo %2.', CodConcepto, Token);
+                    end;
+                end else
+                    Posicion += 1;
+        end;
+    end;
+
+    local procedure EsCaracterOrden(Caracter: Text): Boolean
+    begin
+        if Caracter = '' then
+            exit(false);
+        exit(IsIdentChar(Caracter[1]));
+    end;
+
+    local procedure EsInicioTokenOrden(Caracter: Text): Boolean
+    begin
+        if Caracter = '' then
+            exit(false);
+        exit(IsIdentStartChar(Caracter[1]));
+    end;
+
+    local procedure EsEspacioOrden(Caracter: Text): Boolean
+    var
+        C: Char;
+    begin
+        if Caracter = '' then
+            exit(false);
+        C := Caracter[1];
+        exit((C = ' ') or (C = 9) or (C = 10) or (C = 13));
+    end;
     local procedure AplicaAlTipoEmpleado(Concepto: Record "Concepto Liquidación"; TipoEmpleado: Enum "Aplica A Liq."): Boolean
     begin
         // Misma regla que el SetFilter de SelectConceptos: "Todos" de cualquiera de los dos lados no
@@ -1196,6 +1755,7 @@ codeunit 50014 "Motor Liquidación"
         Clear(FLatestVersionMap);
         Clear(FFracAccumList);
         Clear(FFracAccumPct);
+        Clear(FFracFiltroConvenio);
         Clear(FFracAccumVig);
         Clear(FAccumCodes);
         BuildLatestVersionCache(FechaRef, FLatestVersionMap);
@@ -1399,27 +1959,23 @@ codeunit 50014 "Motor Liquidación"
         Fraccion: Record "Fracción Acumulador";
         AccumKey: Text;
         PctConSigno: Decimal;
-        BestVig: Dictionary of [Text, Date];
+        Superada: Boolean;
     begin
-        Fraccion.SetLoadFields("Cód. Concepto", "Cód. Acumulador", "Vigencia Desde", Porcentaje, "Invertir Signo");
+        Fraccion.SetLoadFields("Cód. Concepto", "Cód. Acumulador", "Vigencia Desde", Porcentaje, "Invertir Signo", "Filtro Convenio");
         Fraccion.SetFilter("Vigencia Desde", '<=%1', FechaRef);
         if not Fraccion.FindSet() then exit;
 
-        // Pass 1: find the latest vigencia per (concept, accumulator) pair
+        // UNA SOLA LECTURA. Antes eran dos recorridos de la tabla: uno para hallar la vigencia más
+        // nueva de cada par y otro para armar los mapas. Acá cada fila pisa a la anterior del mismo
+        // par si no es más vieja, y AccumVig ya guarda la vigencia que va ganando. La lista de
+        // acumuladores por concepto no depende de cuál vigencia gane, sólo de que el par exista.
         repeat
             AccumKey := Fraccion."Cód. Concepto" + '~' + Fraccion."Cód. Acumulador";
-            if not BestVig.ContainsKey(AccumKey) then
-                BestVig.Add(AccumKey, Fraccion."Vigencia Desde")
-            else
-                if Fraccion."Vigencia Desde" > BestVig.Get(AccumKey) then
-                    BestVig.Set(AccumKey, Fraccion."Vigencia Desde");
-        until Fraccion.Next() = 0;
-
-        // Pass 2: build caches using only the latest vigencia per pair
-        Fraccion.FindSet();
-        repeat
-            AccumKey := Fraccion."Cód. Concepto" + '~' + Fraccion."Cód. Acumulador";
-            if Fraccion."Vigencia Desde" = BestVig.Get(AccumKey) then begin
+            Superada := false;
+            if AccumVig.ContainsKey(AccumKey) then
+                Superada := Fraccion."Vigencia Desde" < AccumVig.Get(AccumKey);
+            if not Superada then begin
+                FFracFiltroConvenio.Set(AccumKey, Fraccion."Filtro Convenio");
                 PctConSigno := Fraccion.Porcentaje;
                 if Fraccion."Invertir Signo" then PctConSigno := -PctConSigno;
                 if AccumPct.ContainsKey(AccumKey) then
@@ -1445,161 +2001,275 @@ codeunit 50014 "Motor Liquidación"
         until Fraccion.Next() = 0;
     end;
 
-    // ── Control de orden de cálculo (red de seguridad en tiempo de cálculo) ────
-    //
-    // El acumulador se suma a medida que los conceptos corren en Orden Cálculo, así que quien lo lee
-    // ve el subtotal acumulado hasta su punto, no el total. Configurado al revés, la liquidación
-    // sale con un importe menor SIN ningún error y sin nada visible: el drill-down del acumulador se
-    // arma al final, con todos los aportes, así que ni siquiera se nota la diferencia.
-    //
-    // El control estático (Cod50067) encuentra esto sin liquidar, leyendo las fórmulas. Acá se cubre
-    // lo que ese análisis no puede ver: una lectura indirecta vía @CÓDIGO, que reevalúa otro
-    // concepto y resuelve el acumulador sin nombrarlo en la fórmula propia.
+    // Diagnóstico de lecturas efectivas. Una precedencia posterior no prueba por sí sola que
+    // haya un error económico: el subtotal puede ser una etapa intencional de la fórmula.
+    internal procedure PrepararControlOrden(FechaRef: Date)
+    begin
+        EnsureConceptCaches(FechaRef);
+        Clear(FAcumLeidoEnOrden);
+        Clear(FAcumLeidoPorConcepto);
+        Clear(FAcumDeLectura);
+        Clear(FAcumLecturaPorEtapas);
+        Clear(FReferenciasCalculadas);
+        Clear(FAcumContribuyentes);
+        Clear(FLectoresConEfecto);
+        Clear(FAcumAporteTardioOrden);
+        Clear(FAcumAporteTardioCodigo);
+        Clear(FAcumAportesTardios);
+        FAvisosOrden := '';
+    end;
 
-    local procedure RegistrarLecturasAcumuladores(ConceptLog: Text; CodConcepto: Code[20]; Orden: Integer)
+    internal procedure IniciarTrazaConcepto(var Evaluador: Codeunit "Evaluador Fórmula")
+    begin
+        // Flush sólo limpia FParamLog/FResolvedVars: no cambia contexto, memo de @ ni escalas.
+        Evaluador.FlushConceptLog();
+    end;
+
+    local procedure RegistrarLecturasAcumuladores(ConceptLog: Text; Concepto: Record "Concepto Liquidación"; CodConvenio: Code[20]; GeneraLinea: Boolean)
     var
         Entries: List of [Text];
         Entry: Text;
         VarName: Text;
+        CodigoLeido: Code[20];
+        Clave: Text;
+        Contribuyentes: Text;
+        CodigosContribuyentes: List of [Text];
+        Contribuyente: Text;
+        Porcentaje: Decimal;
+        EsReferenciaCalculada: Boolean;
     begin
         if FIteracionGU or (ConceptLog = '') then
             exit;
+        if GeneraLinea and
+           ((Concepto."Tipo Concepto" <> Concepto."Tipo Concepto"::Informativo) or
+            Concepto."Es Devengo" or (Concepto."Rol Franco" = Concepto."Rol Franco"::Devengo))
+        then
+            if not FLectoresConEfecto.Contains(Concepto.Código) then
+                FLectoresConEfecto.Add(Concepto.Código);
         Entries := ConceptLog.Split('|');
         foreach Entry in Entries do
             if Entry.StartsWith('VAR:') then begin
                 VarName := CopyStr(Entry, 5);
-                // @CÓDIGO/#CÓDIGO se registran con prefijo en el log; el acumulador vive bajo el
-                // código pelado (ver WriteVariableDetail).
-                if VarName.StartsWith('@') or VarName.StartsWith('#') then
-                    VarName := CopyStr(VarName, 2);
-                if FAccumCodes.Contains(CopyStr(VarName, 1, 20)) then
-                    if not FAcumLeidoEnOrden.ContainsKey(VarName) then begin
-                        // Solo la PRIMERA lectura: es la que marca hasta dónde tienen que haber
-                        // llegado los aportes.
-                        FAcumLeidoEnOrden.Add(VarName, Orden);
-                        FAcumLeidoPorConcepto.Add(VarName, CodConcepto);
+                // @ACUM no lee su subtotal. Si @CONCEPTO lee otro acumulador, el evaluador
+                // también registra esa lectura con el nombre o con #ACUM.
+                if not VarName.StartsWith('@') then begin
+                    EsReferenciaCalculada := VarName.StartsWith('#');
+                    if EsReferenciaCalculada then
+                        VarName := CopyStr(VarName, 2);
+                    CodigoLeido := CopyStr(VarName, 1, MaxStrLen(CodigoLeido));
+                    if VarName = CodigoLeido then begin
+                        // Un nombre de concepto sin # también lee el resultado almacenado en Ctx.
+                        // El cache distingue esos nombres de parámetros/atributos con otros códigos.
+                        EsReferenciaCalculada := EsReferenciaCalculada or FUltimaVersionMap.ContainsKey(CodigoLeido);
+                        if EsReferenciaCalculada then
+                            RegistrarReferenciaCalculada(Concepto.Código, CodigoLeido);
+                        if FAccumCodes.Contains(CodigoLeido) then begin
+                            // Copia los aportantes que este lector recibió, no los que se agregarán después.
+                            // Así un informativo puede llegar a dinero mediante otra fracción/acumulador.
+                            if FAcumContribuyentes.Get(CodigoLeido, Contribuyentes) then begin
+                                CodigosContribuyentes := Contribuyentes.Split('|');
+                                foreach Contribuyente in CodigosContribuyentes do
+                                    RegistrarReferenciaCalculada(Concepto.Código, CopyStr(Contribuyente, 1, 20));
+                            end;
+                            Clave := CodigoLeido + '~' + Concepto.Código;
+                            if not FAcumLeidoEnOrden.ContainsKey(Clave) then begin
+                                FAcumLeidoEnOrden.Add(Clave, Concepto."Orden Cálculo");
+                                FAcumLeidoPorConcepto.Add(Clave, Concepto.Código);
+                                FAcumDeLectura.Add(Clave, CodigoLeido);
+                                FAcumLecturaPorEtapas.Add(Clave, FraccionVigenteAplicable(Concepto.Código, CodigoLeido, CodConvenio, Porcentaje));
+                            end;
+                        end;
                     end;
+                end;
             end;
     end;
 
-    local procedure VerificarOrdenAporte(CodConcepto: Code[20]; Orden: Integer)
+    local procedure RegistrarReferenciaCalculada(Consumidor: Code[20]; Proveedor: Code[20])
+    var
+        Referencias: Text;
+    begin
+        if not FReferenciasCalculadas.Get(Consumidor, Referencias) then
+            Referencias := '';
+        if not ('|' + Referencias + '|').Contains('|' + Proveedor + '|') then begin
+            if Referencias <> '' then
+                Referencias += '|';
+            FReferenciasCalculadas.Set(Consumidor, Referencias + Proveedor);
+        end;
+    end;
+
+    local procedure RegistrarContribuyente(CodAcumulador: Text; CodConcepto: Code[20])
+    var
+        Contribuyentes: Text;
+    begin
+        if not FAcumContribuyentes.Get(CodAcumulador, Contribuyentes) then
+            Contribuyentes := '';
+        if not ('|' + Contribuyentes + '|').Contains('|' + CodConcepto + '|') then begin
+            if Contribuyentes <> '' then
+                Contribuyentes += '|';
+            FAcumContribuyentes.Set(CodAcumulador, Contribuyentes + CodConcepto);
+        end;
+    end;
+
+    local procedure FraccionVigenteAplicable(CodConcepto: Code[20]; CodAcumulador: Text; CodConvenio: Code[20]; var Porcentaje: Decimal): Boolean
+    var
+        Clave: Text;
+        FiltroConvenio: Text;
+        Fraccion: Record "Fracción Acumulador";
+    begin
+        // El cache ya eligió la misma vigencia y signo que utiliza UpdateAccumulatorsFromCache.
+        Porcentaje := 0;
+        Clave := CodConcepto + '~' + CodAcumulador;
+        if not FFracAccumPct.Get(Clave, Porcentaje) then
+            exit(false);
+        if Porcentaje = 0 then
+            exit(false);
+        Fraccion.Init();
+        if FFracFiltroConvenio.Get(Clave, FiltroConvenio) then
+            Fraccion."Filtro Convenio" := CopyStr(FiltroConvenio, 1, MaxStrLen(Fraccion."Filtro Convenio"));
+        exit(Fraccion.AplicaAConvenio(CodConvenio));
+    end;
+
+    local procedure VerificarOrdenAporte(CodConcepto: Code[20]; Orden: Integer; Importe: Decimal; CodConvenio: Code[20]; var Ctx: Dictionary of [Text, Decimal])
     var
         AccumCodes: List of [Text];
         AccumCode: Text;
+        Clave: Text;
+        Porcentaje: Decimal;
     begin
-        if FIteracionGU then
+        if FIteracionGU or (Importe = 0) then
             exit;
         if not FFracAccumList.ContainsKey(CodConcepto) then
             exit;
         AccumCodes := FFracAccumList.Get(CodConcepto).Split('|');
         foreach AccumCode in AccumCodes do
-            if FAcumLeidoEnOrden.ContainsKey(AccumCode) then
-                if AporteLlegaTarde(AccumCode, CodConcepto, Orden) then
-                    RegistrarAporteTardio(AccumCode, CodConcepto, Orden);
+            if Ctx.ContainsKey(AccumCode) then
+                if FraccionVigenteAplicable(CodConcepto, AccumCode, CodConvenio, Porcentaje) then begin
+                    RegistrarContribuyente(AccumCode, CodConcepto);
+                    foreach Clave in FAcumDeLectura.Keys() do
+                        if FAcumDeLectura.Get(Clave) = AccumCode then
+                            if AporteLlegaTarde(Clave, CodConcepto, Orden) then
+                                RegistrarAporteTardio(Clave, CodConcepto, Orden);
+                end;
     end;
 
-    // Con el mismo Orden Cálculo el motor resuelve por Código (SelectConceptos ordena por
-    // "Orden Cálculo", Código), así que un empate NO es necesariamente un problema: depende de si el
-    // código del que aporta cae antes o después del que lee. Comparar solo el orden marcaba como
-    // conflicto la mitad de los empates que en realidad corren bien, y además marcaba al concepto
-    // que lee y aporta al mismo acumulador contra sí mismo.
-    local procedure AporteLlegaTarde(AccumCode: Text; CodConcepto: Code[20]; Orden: Integer): Boolean
+    local procedure AporteLlegaTarde(ClaveLectura: Text; CodConcepto: Code[20]; Orden: Integer): Boolean
     var
         OrdenLectura: Integer;
     begin
-        OrdenLectura := FAcumLeidoEnOrden.Get(AccumCode);
+        if CodConcepto = FAcumLeidoPorConcepto.Get(ClaveLectura) then
+            exit(false);
+        OrdenLectura := FAcumLeidoEnOrden.Get(ClaveLectura);
         if Orden > OrdenLectura then
             exit(true);
         if Orden < OrdenLectura then
             exit(false);
-        exit(CodConcepto > FAcumLeidoPorConcepto.Get(AccumCode));
+        exit(CodConcepto > FAcumLeidoPorConcepto.Get(ClaveLectura));
     end;
 
-    // Se acumula por ACUMULADOR, no por aporte. Un acumulador leído temprano suele tener una decena
-    // de aportes posteriores, y un aviso por cada uno sepulta al resto: son todos el mismo problema
-    // y se resuelven con la misma decisión de orden.
-    /// <summary>
-    /// Marca como tardío el aporte de un concepto escrito fuera del bucle, para cada acumulador que
-    /// alimente y que alguien ya haya leído.
-    /// </summary>
-    /// <remarks>
-    /// El orden que se registra es deliberadamente altísimo: no representa un Orden Cálculo real,
-    /// representa "después de todo". Sin eso, la comparación normal de órdenes daría que el aporte
-    /// llegó temprano —el concepto puede estar configurado en el orden 165— y el aviso no saldría,
-    /// que es exactamente lo que hacía que este caso pasara inadvertido.
-    /// </remarks>
-    local procedure RegistrarAporteFueraDeOrden(CodConcepto: Code[20]; var AccumList: Dictionary of [Code[20], Text])
+    local procedure RegistrarAporteFueraDeOrden(CodConcepto: Code[20]; Importe: Decimal; CodConvenio: Code[20]; var Ctx: Dictionary of [Text, Decimal])
+    begin
+        // La incidencia se escribió después del recorrido, independientemente del orden configurado.
+        VerificarOrdenAporte(CodConcepto, 999999999, Importe, CodConvenio, Ctx);
+    end;
+
+    local procedure RegistrarAporteTardio(ClaveLectura: Text; CodConcepto: Code[20]; Orden: Integer)
+    begin
+        if not FAcumAporteTardioOrden.ContainsKey(ClaveLectura) then begin
+            FAcumAporteTardioOrden.Add(ClaveLectura, Orden);
+            FAcumAporteTardioCodigo.Add(ClaveLectura, CodConcepto);
+            FAcumAportesTardios.Add(ClaveLectura, 1);
+            exit;
+        end;
+        FAcumAportesTardios.Set(ClaveLectura, FAcumAportesTardios.Get(ClaveLectura) + 1);
+        if (Orden > FAcumAporteTardioOrden.Get(ClaveLectura)) or
+           ((Orden = FAcumAporteTardioOrden.Get(ClaveLectura)) and (CodConcepto > FAcumAporteTardioCodigo.Get(ClaveLectura)))
+        then begin
+            FAcumAporteTardioOrden.Set(ClaveLectura, Orden);
+            FAcumAporteTardioCodigo.Set(ClaveLectura, CodConcepto);
+        end;
+    end;
+
+    local procedure LecturaTieneConsumidor(ClaveLectura: Text): Boolean
     var
-        AccumCodes: List of [Text];
-        AccumCode: Text;
+        Lector: Code[20];
+        Financiero: Code[20];
+        Visitados: List of [Code[20]];
     begin
-        if FIteracionGU then
-            exit;
-        if not AccumList.ContainsKey(CodConcepto) then
-            exit;
-        AccumCodes := AccumList.Get(CodConcepto).Split('|');
-        foreach AccumCode in AccumCodes do
-            if FAcumLeidoEnOrden.ContainsKey(AccumCode) then
-                RegistrarAporteTardio(AccumCode, CodConcepto, 999999999);
+        Lector := FAcumLeidoPorConcepto.Get(ClaveLectura);
+        if FLectoresConEfecto.Contains(Lector) then
+            exit(true);
+        // Un informativo sin uso ni devengo (o una condición descartada) no produce un aviso.
+        // Una línea efectiva puede consumir su resultado por # o por nombre, incluso siendo cero.
+        foreach Financiero in FLectoresConEfecto do begin
+            Clear(Visitados);
+            if ConsumeResultado(Financiero, Lector, Visitados) then
+                exit(true);
+        end;
+        exit(false);
     end;
 
-    local procedure RegistrarAporteTardio(AccumCode: Text; CodConcepto: Code[20]; Orden: Integer)
+    local procedure ConsumeResultado(Consumidor: Code[20]; Buscado: Code[20]; var Visitados: List of [Code[20]]): Boolean
+    var
+        Referencias: Text;
+        Referencia: Text;
+        Codigos: List of [Text];
     begin
-        if not FAcumAporteTardioOrden.ContainsKey(AccumCode) then begin
-            FAcumAporteTardioOrden.Add(AccumCode, Orden);
-            FAcumAporteTardioCodigo.Add(AccumCode, CodConcepto);
-            FAcumAportesTardios.Add(AccumCode, 1);
-            exit;
-        end;
-        FAcumAportesTardios.Set(AccumCode, FAcumAportesTardios.Get(AccumCode) + 1);
-        // Se guarda el último aporte: es el que marca hasta dónde hay que mover la lectura.
-        if Orden > FAcumAporteTardioOrden.Get(AccumCode) then begin
-            FAcumAporteTardioOrden.Set(AccumCode, Orden);
-            FAcumAporteTardioCodigo.Set(AccumCode, CodConcepto);
-        end;
+        if Consumidor = Buscado then
+            exit(true);
+        if Visitados.Contains(Consumidor) then
+            exit(false);
+        Visitados.Add(Consumidor);
+        if not FReferenciasCalculadas.Get(Consumidor, Referencias) then
+            exit(false);
+        Codigos := Referencias.Split('|');
+        foreach Referencia in Codigos do
+            if ConsumeResultado(CopyStr(Referencia, 1, 20), Buscado, Visitados) then
+                exit(true);
+        exit(false);
     end;
 
-    // Las mismas advertencias que el texto del Message, pero como entradas con el acumulador y el
-    // concepto en sus propios campos: en el registro son columnas filtrables, y el mensaje se acorta
-    // porque no tiene que repetir lo que ya dice cada columna.
-    //
-    // Se registra desde LiquidarRecord y no desde ConstruirAvisosOrden: RunConceptos corre dos veces
-    // con auditoría activa cuando hay grossing-up (la pasada inicial y la final), y anotar en cada
-    // una duplicaría todas las advertencias.
+    local procedure TextoAvisoOrden(ClaveLectura: Text): Text
+    var
+        Texto: Text;
+    begin
+        Texto := StrSubstNo(AvisoOrdenCortoTxt,
+            FAcumLeidoEnOrden.Get(ClaveLectura), FAcumAportesTardios.Get(ClaveLectura),
+            FAcumAporteTardioCodigo.Get(ClaveLectura), FAcumAporteTardioOrden.Get(ClaveLectura));
+        if FAcumLecturaPorEtapas.Get(ClaveLectura) then
+            Texto += AvisoLecturaEtapasTxt;
+        exit(Texto);
+    end;
+
     local procedure RegistrarAvisosOrdenEnLog()
     var
-        AccumCode: Text;
+        Clave: Text;
     begin
-        foreach AccumCode in FAcumAporteTardioOrden.Keys() do
-            Registro.AdvertirVariable(
-                "Categoría Registro Liq."::"Orden Cálculo",
-                StrSubstNo(
-                    AvisoOrdenCortoTxt,
-                    FAcumLeidoEnOrden.Get(AccumCode),
-                    FAcumAportesTardios.Get(AccumCode),
-                    FAcumAporteTardioCodigo.Get(AccumCode),
-                    FAcumAporteTardioOrden.Get(AccumCode)),
-                CopyStr(AccumCode, 1, 30),
-                FAcumLeidoPorConcepto.Get(AccumCode));
+        foreach Clave in FAcumAporteTardioOrden.Keys() do
+            if LecturaTieneConsumidor(Clave) then
+                // Se observa una lectura parcial, no una diferencia de importe demostrada. Se
+                // conserva visible como control, incluidas las lecturas de condición y los ceros.
+                Registro.InfoVariable(
+                    "Categoría Registro Liq."::"Orden Cálculo", TextoAvisoOrden(Clave),
+                    CopyStr(FAcumDeLectura.Get(Clave), 1, 30), FAcumLeidoPorConcepto.Get(Clave));
     end;
 
     local procedure ConstruirAvisosOrden()
     var
-        AccumCode: Text;
+        Clave: Text;
     begin
         FAvisosOrden := '';
-        foreach AccumCode in FAcumAporteTardioOrden.Keys() do begin
-            if FAvisosOrden <> '' then
-                FAvisosOrden += '\';
-            FAvisosOrden += StrSubstNo(
-                AvisoOrdenTxt,
-                AccumCode,
-                FAcumLeidoPorConcepto.Get(AccumCode),
-                FAcumLeidoEnOrden.Get(AccumCode),
-                FAcumAportesTardios.Get(AccumCode),
-                FAcumAporteTardioCodigo.Get(AccumCode),
-                FAcumAporteTardioOrden.Get(AccumCode));
-        end;
+        foreach Clave in FAcumAporteTardioOrden.Keys() do
+            if LecturaTieneConsumidor(Clave) then begin
+                if FAvisosOrden <> '' then
+                    FAvisosOrden += '\';
+                FAvisosOrden += StrSubstNo(AvisoOrdenTxt, FAcumDeLectura.Get(Clave),
+                    FAcumLeidoPorConcepto.Get(Clave), TextoAvisoOrden(Clave));
+            end;
+    end;
+
+    internal procedure AvisosOrdenCalculados(): Text
+    begin
+        exit(FAvisosOrden);
     end;
 
     /// <summary>
@@ -1634,6 +2304,7 @@ codeunit 50014 "Motor Liquidación"
     local procedure UpdateAccumulatorsFromCache(
         CodConcepto: Code[20];
         Importe: Decimal;
+        CodConvenio: Code[20];
         var AccumList: Dictionary of [Code[20], Text];
         var AccumPct: Dictionary of [Text, Decimal];
         var Ctx: Dictionary of [Text, Decimal])
@@ -1642,6 +2313,8 @@ codeunit 50014 "Motor Liquidación"
         AccumCode: Text;
         AccumKey: Text;
         UpdCurrList: Text;
+        Fraccion: Record "Fracción Acumulador";
+        FiltroConvenio: Text;
     begin
         if not AccumList.ContainsKey(CodConcepto) then exit;
         UpdCurrList := AccumList.Get(CodConcepto);
@@ -1649,8 +2322,13 @@ codeunit 50014 "Motor Liquidación"
         AccumCodes := UpdCurrList.Split('|');
         foreach AccumCode in AccumCodes do begin
             AccumKey := CodConcepto + '~' + AccumCode;
-            if AccumPct.ContainsKey(AccumKey) and Ctx.ContainsKey(AccumCode) then
-                Ctx.Set(AccumCode, Ctx.Get(AccumCode) + Importe * AccumPct.Get(AccumKey) / 100);
+            if AccumPct.ContainsKey(AccumKey) and Ctx.ContainsKey(AccumCode) then begin
+                Fraccion.Init();
+                if FFracFiltroConvenio.Get(AccumKey, FiltroConvenio) then
+                    Fraccion."Filtro Convenio" := CopyStr(FiltroConvenio, 1, 250);
+                if Fraccion.AplicaAConvenio(CodConvenio) then
+                    Ctx.Set(AccumCode, Ctx.Get(AccumCode) + Importe * AccumPct.Get(AccumKey) / 100);
+            end;
         end;
     end;
 
@@ -1716,12 +2394,17 @@ codeunit 50014 "Motor Liquidación"
         BorrarResumenVariables(LiqNo);
         BorrarDetalleGanancias(LiqNo, ConservarDeducciones);
         BorrarLineasLiquidacion(LiqNo);
+        // Lo que se escriba desde acá es de un cálculo: el detalle de las variables que no cambian se resuelve al cerrarlo.
+        // LimpiarLineas lo apaga: ahí no hay cálculo que lo cierre.
+        FDiferirDetalle := not FSoloLimpiar;
     end;
 
     local procedure BorrarDetalleVariables(LiqNo: Code[20])
     var
         Det: Record "Detalle Variable Línea Liq.";
     begin
+        FDetalleDif.Reset();
+        FDetalleDif.DeleteAll();
         Det.SetRange("No. Liquidación", LiqNo);
         Det.DeleteAll();
     end;
@@ -1810,6 +2493,7 @@ codeunit 50014 "Motor Liquidación"
         CtxKey: Text;
         Valor: Decimal;
         Tramos: Dictionary of [Text, Boolean];
+        AcumuladosParametros: Dictionary of [Text, Boolean];
         CodigosGuardados: Dictionary of [Text, Text];
         CodigoGuardado: Text;
     begin
@@ -1819,6 +2503,8 @@ codeunit 50014 "Motor Liquidación"
         foreach Entry in Entries do begin
             if Entry.StartsWith('TRAMO:') then
                 WriteTramoDetail(LiqNo, LineNo, Entry, Tramos, Det);
+            if Entry.StartsWith('ACUMCCT:') then
+                WriteAcumParametroCCTDetail(LiqNo, LineNo, Entry, AcumuladosParametros, Det);
             if Entry.StartsWith('VAR:') then begin
                 VarName := CopyStr(Entry, 5);
                 // @CÓDIGO y #CÓDIGO no viven en Ctx bajo su nombre con prefijo — el prefijo solo
@@ -1861,7 +2547,13 @@ codeunit 50014 "Motor Liquidación"
                     Det.Valor := Valor;
                     if CodigosGuardados.Get(VarName, CodigoGuardado) then
                         Det."Código Atributo" := CopyStr(CodigoGuardado, 1, MaxStrLen(Det."Código Atributo"));
-                    if Det.Insert() then;
+                    // Una variable que no es de concepto, de tramo ni de atributo se repite igual en todas las líneas que la leen: su
+                    // valor ya está en el resumen de la liquidación. Se resuelve al cerrar, comparando con el valor final.
+                    if FDiferirDetalle and EsDetalleDiferible(VarName, Det."Código Atributo") then begin
+                        FDetalleDif := Det;
+                        if FDetalleDif.Insert() then;
+                    end else
+                        if Det.Insert() then;
                 end;
             end;
         end;
@@ -1872,6 +2564,138 @@ codeunit 50014 "Motor Liquidación"
                 DetPersistido := Det;
                 DetPersistido.Insert();
             until Det.Next() = 0;
+    end;
+
+    // Qué variables pueden quedar sin fila en la línea. Las que no: las referencias a otro concepto (#/@) y los conceptos que no son
+    // acumuladores —su valor es el importe de otra línea y el resumen no los guarda—, los tramos y las de nombre largo, que el resumen
+    // normaliza a 30 caracteres y podrían chocar. El código de atributo (TIPO_LIQ = 'REGULAR') viaja en la fila ~USO como NOMBRE=CÓDIGO;
+    // sólo se queda en su fila si trae alguno de los dos separadores.
+    local procedure EsDetalleDiferible(VarName: Text; CodigoAtributo: Text): Boolean
+    begin
+        if VarName = '' then
+            exit(false);
+        if CodigoAtributo.Contains('|') or CodigoAtributo.Contains('=') then
+            exit(false);
+        if VarName.StartsWith('@') or VarName.StartsWith('#') or VarName.StartsWith('TRAMO(') then
+            exit(false);
+        if StrLen(VarName) > 30 then
+            exit(false);
+        exit(not EsConceptoNoAcumulador(VarName));
+    end;
+
+    /// <summary>
+    /// Escribe el detalle de variables que quedó en espera: las filas cuyo valor coincide con el valor FINAL de la variable no se
+    /// escriben y sus nombres van en una sola fila por línea (~USO); el resto se escribe como siempre.
+    /// </summary>
+    /// <remarks>
+    /// Compara contra el contexto final, que es el mismo que SaveResumenVariables guarda, así que el valor se recupera del resumen
+    /// (o del uso del parámetro) sin pérdida. Una variable en cero no está en el resumen y se lee como cero, que es lo que valía. Si
+    /// el valor que vio la línea difiere del final —un par alterno de convenio, una variable que cambió— la fila se escribe: es la
+    /// única fuente de lo que esa línea leyó. Lo lee "Variables Guardadas Liq." (CargarDetalle).
+    /// </remarks>
+    local procedure FlushDetalleDiferido(LiqNo: Code[20]; var Ctx: Dictionary of [Text, Decimal])
+    var
+        DetPersistido: Record "Detalle Variable Línea Liq.";
+        Nombres: List of [Text];
+        LineaActual: Integer;
+        Final: Decimal;
+        Hay: Boolean;
+    begin
+        FDetalleDif.Reset();
+        if FDetalleDif.FindSet() then
+            repeat
+                if Hay and (FDetalleDif."No. Línea" <> LineaActual) then begin
+                    EscribirUsoDeLinea(LiqNo, LineaActual, Nombres);
+                    Clear(Nombres);
+                end;
+                Hay := true;
+                LineaActual := FDetalleDif."No. Línea";
+                Final := 0;
+                if Ctx.ContainsKey(FDetalleDif."Nombre Variable") then
+                    Final := Ctx.Get(FDetalleDif."Nombre Variable");
+                if Final = FDetalleDif.Valor then begin
+                    if FDetalleDif."Código Atributo" <> '' then
+                        Nombres.Add(FDetalleDif."Nombre Variable" + '=' + FDetalleDif."Código Atributo")
+                    else
+                        Nombres.Add(FDetalleDif."Nombre Variable");
+                end else begin
+                    DetPersistido := FDetalleDif;
+                    DetPersistido.Insert();
+                end;
+            until FDetalleDif.Next() = 0;
+        if Hay then
+            EscribirUsoDeLinea(LiqNo, LineaActual, Nombres);
+        FDetalleDif.DeleteAll();
+        FDiferirDetalle := false;
+    end;
+
+    // Los nombres de las variables que la línea leyó y cuyo valor está en el resumen, en filas ~USO1, ~USO2…: "|" entre nombres y
+    // lo que entre en Detalle (250). Una línea común lee unas cinco: entra en una sola fila.
+    local procedure EscribirUsoDeLinea(LiqNo: Code[20]; LineNo: Integer; Nombres: List of [Text])
+    var
+        Uso: Record "Detalle Variable Línea Liq.";
+        Nombre: Text;
+        Texto: Text;
+        Indice: Integer;
+    begin
+        if Nombres.Count() = 0 then
+            exit;
+        foreach Nombre in Nombres do
+            if (Texto <> '') and (StrLen(Texto) + 1 + StrLen(Nombre) > MaxStrLen(Uso.Detalle)) then begin
+                Indice += 1;
+                InsertarUsoDeLinea(LiqNo, LineNo, Indice, Texto);
+                Texto := Nombre;
+            end else
+                if Texto = '' then
+                    Texto := Nombre
+                else
+                    Texto += '|' + Nombre;
+        Indice += 1;
+        InsertarUsoDeLinea(LiqNo, LineNo, Indice, Texto);
+    end;
+
+    local procedure InsertarUsoDeLinea(LiqNo: Code[20]; LineNo: Integer; Indice: Integer; Texto: Text)
+    var
+        Uso: Record "Detalle Variable Línea Liq.";
+    begin
+        Uso.Init();
+        Uso."No. Liquidación" := LiqNo;
+        Uso."No. Línea" := LineNo;
+        Uso."Nombre Variable" := '~USO' + Format(Indice);
+        Uso.Detalle := CopyStr(Texto, 1, MaxStrLen(Uso.Detalle));
+        Uso.Insert();
+    end;
+
+    local procedure WriteAcumParametroCCTDetail(LiqNo: Code[20]; LineNo: Integer; Entry: Text; var Consultas: Dictionary of [Text, Boolean]; var Det: Record "Detalle Variable Línea Liq." temporary)
+    var
+        Campos: List of [Text];
+        Clave: Text;
+        Nombre: Text;
+        Valor: Decimal;
+        Intento: Integer;
+    begin
+        Campos := CopyStr(Entry, StrLen('ACUMCCT:') + 1).Split('~');
+        if Campos.Count() <> 5 then
+            exit;
+        if not Evaluate(Valor, Campos.Get(5), 9) then
+            exit;
+        Clave := StrSubstNo('ACUMCCT:%1~%2~%3~%4', Campos.Get(1), Campos.Get(2), Campos.Get(3), Campos.Get(4));
+        if Consultas.ContainsKey(Clave) then
+            exit;
+        Consultas.Add(Clave, true);
+        // La clave conserva los argumentos para sembrar el resultado al reconstruir el recibo.
+        // La reconstrucción histórica no debe consultar los parámetros y tipos de cambio de hoy.
+        Nombre := StrSubstNo('ACUM_PARAM_CCT(%1)', Campos.Get(1));
+        Det.Init();
+        Det."No. Liquidación" := LiqNo;
+        Det."No. Línea" := LineNo;
+        Det."Nombre Variable" := CopyStr(Nombre, 1, MaxStrLen(Det."Nombre Variable"));
+        Det.Valor := Valor;
+        Det.Detalle := CopyStr(Clave, 1, MaxStrLen(Det.Detalle));
+        while not Det.Insert() do begin
+            Intento += 1;
+            Det."Nombre Variable" := CopyStr(Nombre + ' #' + Format(Intento + 1), 1, MaxStrLen(Det."Nombre Variable"));
+        end;
     end;
 
     /// <summary>
@@ -2045,7 +2869,7 @@ codeunit 50014 "Motor Liquidación"
         // el evaluador desde antes y acá nunca se agregaron. Hoy el efecto es inocuo —el nombre no
         // está en Ctx, así que cae en el else y se imprime tal cual— pero deja de serlo el día que
         // alguien nombre una variable igual que una función.
-        exit(Token in ['MAX', 'MIN', 'ROUND', 'REDONDEAR', 'PISO', 'TECHO', 'ABS', 'IF', 'IFZERO', 'CASE', 'DIV', 'TRAMO', 'ERROR', 'AND', 'OR', 'NOT']);
+        exit(Token in ['MAX', 'MIN', 'ROUND', 'REDONDEAR', 'PISO', 'TECHO', 'ABS', 'IF', 'IFZERO', 'CASE', 'DIV', 'TRAMO', 'ACUM_PARAM_CCT', 'ERROR', 'AND', 'OR', 'NOT']);
     end;
 
     local procedure FormatVarValue(Val: Decimal): Text
@@ -2074,13 +2898,22 @@ codeunit 50014 "Motor Liquidación"
     var
         Resumen: Record "Resumen Variable Liq." temporary;
         ResumenPersistido: Record "Resumen Variable Liq.";
+        VariablesGuardadas: Codeunit "Variables Guardadas Liq.";
         ValoresTexto: Dictionary of [Text, Text];
+        Omitibles: Dictionary of [Text, Decimal];
         VarName: Text;
         Valor: Decimal;
         Texto: Text;
         MostrarEnRecibo: Boolean;
+        Omitir: Boolean;
+        FechaCotizacion: Date;
     begin
         CtxBuilder.GetValoresTexto(ValoresTexto);
+        // Un parámetro cuya versión quedó registrada en el uso de esta liquidación, en pesos y con el mismo valor que el
+        // contexto, no se repite acá: se recupera de Parámetro Vigente (ver "Variables Guardadas Liq."). Es el 40 % de las filas.
+        // Cualquier otro caso se guarda como siempre.
+        VariablesGuardadas.CargarOmitibles(LiqNo, Omitibles);
+        FechaCotizacion := CtxBuilder.FechaTipoCambio();
         foreach VarName in Ctx.Keys() do begin
             Valor := Ctx.Get(VarName);
             Texto := '';
@@ -2099,8 +2932,17 @@ codeunit 50014 "Motor Liquidación"
                 Resumen."Valor Texto" := CopyStr(Texto, 1, MaxStrLen(Resumen."Valor Texto"));
                 Resumen.Etiqueta := CopyStr(ResolveEtiquetaResumen(VarName, MostrarEnRecibo), 1, MaxStrLen(Resumen.Etiqueta));
                 Resumen."Mostrar en Recibo" := MostrarEnRecibo;
-                if not Resumen.Insert() then
-                    Resumen.Modify();
+                // La cotización lleva su moneda y su fecha: sin ellas el número solo no dice con qué se calculó.
+                if EsCotizacion(VarName) then begin
+                    Resumen.Moneda := CtxBuilder.GetMoneda();
+                    Resumen."Fecha Cotización" := FechaCotizacion;
+                end;
+                Omitir := false;
+                if Omitibles.ContainsKey(VarName) and not MostrarEnRecibo and (Texto = '') and not EsCotizacion(VarName) then
+                    Omitir := Omitibles.Get(VarName) = Valor;
+                if not Omitir then
+                    if not Resumen.Insert() then
+                        Resumen.Modify();
             end;
         end;
         // La clave Code[30] normaliza y trunca nombres: ante colisiones gana el último,
@@ -2110,6 +2952,16 @@ codeunit 50014 "Motor Liquidación"
                 ResumenPersistido := Resumen;
                 ResumenPersistido.Insert();
             until Resumen.Next() = 0;
+    end;
+
+    // Una cotización es una Fuente de Datos TC_*: la misma regla con la que el contexto las resuelve para el ledger de francos.
+    local procedure EsCotizacion(VarName: Text): Boolean
+    var
+        Fuente: Record "Fuente Datos Liquidación";
+    begin
+        if not VarName.StartsWith('TC_') then
+            exit(false);
+        exit(Fuente.Get(CopyStr(VarName, 1, MaxStrLen(Fuente."Nombre Variable"))));
     end;
 
     // Los códigos de concepto NO acumulador quedan en Ctx solo para que #CÓDIGO pueda leerlos
@@ -2174,7 +3026,7 @@ codeunit 50014 "Motor Liquidación"
         // nombre más largo corta con "the length of the string is 23, but it must be less than or
         // equal to 20". Y un nombre de más de 20 no es un caso raro — cualquier parámetro cuyo
         // nombre pase de 14 caracteres lo produce solo, porque el motor le arma el compañero
-        // <VAR>_ESFCY. PRECIO_PUERTO_LAN son 17, y su _ESFCY son 23.
+        // <VAR>_ESFCY. VALOR_PUERTO_EMP_LAN son 20, y su _ESFCY son 26.
         //
         // Se saltea en vez de recortar: un nombre de 23 no puede ser el código de un concepto de 20,
         // así que recortarlo sólo lograría encontrar OTRO concepto y devolver su descripción como
@@ -2381,9 +3233,10 @@ codeunit 50014 "Motor Liquidación"
         if not HRSetup."Convertir Param. por TC" then
             MonedaGU := CtxBuilder.GetMoneda();
         if MonedaGU <> '' then begin
-            TipoCambio := TipoCambioVendedor(MonedaGU, FechaRef);
+            // La fecha de la cotización puede estar forzada por una novedad FECHA_TC; si no, es FechaRef.
+            TipoCambio := TipoCambioVendedor(MonedaGU, CtxBuilder.FechaTipoCambio());
             if TipoCambio = 0 then
-                Error(ErrSinCotizacionGU, Liq."No.", MonedaGU, FechaRef);
+                Error(ErrSinCotizacionGU, Liq."No.", MonedaGU, CtxBuilder.FechaTipoCambio());
             NetoObjetivo := Round(NetoObjetivo * TipoCambio, 0.01);
         end;
         // Las iteraciones intermedias se descartan enteras en el DeleteLineas de la vuelta
@@ -2438,7 +3291,7 @@ codeunit 50014 "Motor Liquidación"
             if NuevoComplemento < 0 then NuevoComplemento := 0;
             Ctx.Set(VarComplementoGU(), NuevoComplemento);
             Evaluador.UpdateContext(Ctx);
-            ResetAccumuladores(Ctx);
+            ResetAccumuladores(Ctx, CtxBuilder);
             DeleteLineas(Liq."No.", true);
             RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
             PasadasSinAuditoria += 1;
@@ -2506,7 +3359,7 @@ codeunit 50014 "Motor Liquidación"
         if PasadasSinAuditoria > 0 then begin
             Progreso.Paso(TxtPasoGUFinal);
             Evaluador.UpdateContext(Ctx);
-            ResetAccumuladores(Ctx);
+            ResetAccumuladores(Ctx, CtxBuilder);
             DeleteLineas(Liq."No.", true);
             RunConceptos(Liq, FechaRef, Ctx, CtxBuilder, Evaluador);
         end;
@@ -2677,13 +3530,22 @@ codeunit 50014 "Motor Liquidación"
     // early in iteration 2+ could see a stale Importe left over from iteration 1, before that
     // concept's line is rebuilt in the current pass. Uses the caches from EnsureConceptCaches to
     // avoid a table scan per iteration.
-    local procedure ResetAccumuladores(var Ctx: Dictionary of [Text, Decimal])
+    local procedure ResetAccumuladores(var Ctx: Dictionary of [Text, Decimal]; var CtxBuilder: Codeunit "Contexto Liquidación")
     var
         ConceptCode: Code[20];
+        ValorVariable: Decimal;
     begin
         foreach ConceptCode in FLatestVersionMap.Keys() do
             if Ctx.ContainsKey(ConceptCode) then
-                Ctx.Set(ConceptCode, 0);
+                // Un concepto con el MISMO NOMBRE que una variable de sistema (AÑOS_ANTIGUEDAD) comparte la
+                // entrada del diccionario con ella: ponerla en cero borraba la variable, no el importe del
+                // concepto. En cada vuelta del grossing-up la antigüedad quedaba en cero y el concepto
+                // 1053 pagaba cero (04724 y 04163 en el devengado de febrero de 2026). La variable se
+                // vuelve a calcular; sólo el importe del concepto vuelve a cero.
+                if CtxBuilder.ValorVariableSistemaHomonima(ConceptCode, ValorVariable) then
+                    Ctx.Set(ConceptCode, ValorVariable)
+                else
+                    Ctx.Set(ConceptCode, 0);
     end;
 
     var
@@ -2692,6 +3554,11 @@ codeunit 50014 "Motor Liquidación"
         // GU convergence iteration AND across every employee in a same-period batch
         // (CalcularPorPeriodo reuses one Motor instance). Rebuilt only when FechaRef changes.
         FIncidencias: Record "Incidencia Liquidación" temporary;
+        // Detalle de variables por línea que todavía no se escribió: se decide al cerrar la liquidación, cuando se conoce el valor
+        // final de cada variable (ver FlushDetalleDiferido). Sólo se usa dentro de un cálculo completo (FDiferirDetalle).
+        FDetalleDif: Record "Detalle Variable Línea Liq." temporary;
+        FDiferirDetalle: Boolean;
+        FSoloLimpiar: Boolean;
         FCCTAplicabilidad: Dictionary of [Text, Boolean];
         FParPuestoCargado: Boolean;
         FParPuestoExiste: Boolean;
@@ -2705,19 +3572,26 @@ codeunit 50014 "Motor Liquidación"
         FUltimaVersionMap: Dictionary of [Code[20], Date];
         FFracAccumList: Dictionary of [Code[20], Text];
         FFracAccumPct: Dictionary of [Text, Decimal];
+        FFracFiltroConvenio: Dictionary of [Text, Text];
         FFracAccumVig: Dictionary of [Text, Date];
         FAccumCodes: List of [Code[20]];
-        // Control de orden de cálculo: primera lectura de cada acumulador en la pasada actual.
+        // Lecturas por pareja acumulador/lector y consumidores de resultados almacenados.
         FAcumLeidoEnOrden: Dictionary of [Text, Integer];
         FAcumLeidoPorConcepto: Dictionary of [Text, Code[20]];
+        FAcumDeLectura: Dictionary of [Text, Text];
+        FAcumLecturaPorEtapas: Dictionary of [Text, Boolean];
+        FReferenciasCalculadas: Dictionary of [Code[20], Text];
+        FAcumContribuyentes: Dictionary of [Text, Text];
+        FLectoresConEfecto: List of [Code[20]];
         FAcumAporteTardioOrden: Dictionary of [Text, Integer];
         FAcumAporteTardioCodigo: Dictionary of [Text, Code[20]];
         FAcumAportesTardios: Dictionary of [Text, Integer];
         FAvisosOrden: Text;
-        AvisoOrdenTxt: Label 'Orden de cálculo: %2 lee %1 en el orden %3, pero %1 todavía recibe %4 aporte(s) más tarde (el último es %5, en el orden %6). El importe de %2 quedó calculado sobre un acumulador incompleto. Corré el Control de Orden de Cálculo para ver la lista completa.';
-        // Versión corta para el registro: el acumulador y el concepto que lee van en sus columnas.
-        AvisoOrdenCortoTxt: Label 'Leído en el orden %1, pero recibe %2 aporte(s) más tarde (el último, %3, en el orden %4). Quedó calculado sobre un acumulador incompleto.';
+        AvisoOrdenTxt: Label 'Control de bases y orden: %2 lee %1. %3';
+        AvisoOrdenCortoTxt: Label 'Lectura parcial en %1 con %2 aporte(s) efectivo(s) posterior(es); último: %3 (%4). Revisar si esos aportes integran esta base; la precedencia observada no demuestra una diferencia de importe.';
+        AvisoLecturaEtapasTxt: Label ' El lector también aporta a la base; esto no confirma que el subtotal sea intencional.';
         ErrEstadoInvalido: Label 'No se puede recalcular una liquidación contabilizada.';
+        ErrDiasYaLiquidados: Label 'No se puede calcular %1 (período %2): no le queda ningún día propio porque ya los liquidaron %3.\\Un día de estado se liquida una sola vez. Calcularla pagaría de nuevo lo que esa liquidación ya pagó. Si es una Regular de alguien que se dio de baja o que tiene su marea cerrada, no corresponde: eliminala.', Comment = '%1=liq actual, %2=período, %3=liquidaciones que reclamaron los días';
         ErrOrdenCronologico: Label 'No se puede calcular %1 (período %2) porque el empleado ya tiene líquidado el período %4 en la liquidación %3, del %5.\\El cálculo mira hacia atrás: francos, acumuladores anuales y Ganancias leen todo lo que ya esté liquidado, sin importar la fecha. Si se recalcula este período con los posteriores hechos, sale un número distinto del que habría dado en su momento.\\Usá "Recalcular en cadena" para rehacer éste y todos los posteriores en orden.', Comment = '%1=liq actual, %2=período actual, %3=liq posterior, %4=período posterior, %5=fecha';
         Progreso: Codeunit "Progreso Liq.";
         TxtTramoVar: Label 'TRAMO(%1)', Locked = true;
@@ -2748,6 +3622,10 @@ codeunit 50014 "Motor Liquidación"
         FGUVarComp: Code[60];
         FGUMaxIter: Integer;
         FGUTolerancia: Decimal;
+        FCuentaFrancos: Codeunit "Cuenta Corriente Francos";
+        FFilasFrancos: Record "Lote Franco Buffer Liq." temporary;
+        FCantidadMatriz: Decimal;
+        FMatrizPreparada: Boolean;
         GestionPrestamos: Codeunit "Gestión Préstamos";
         GestionNovedades: Codeunit "Gestión Novedades Liq.";
         Registro: Codeunit "Registro Procesos Liq.";

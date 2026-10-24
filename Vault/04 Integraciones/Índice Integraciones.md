@@ -2,7 +2,7 @@
 tipo: guia
 tags: [indice, integracion-nav, migracion-meta4, siradig, firma-recibos]
 fuente: [scripts/SincronizarNAV_2013R2.sql, METODO_COMPARACION_META4_BC.md, ADR_001_FIRMA_DIGITAL_RECIBOS.md]
-actualizado: 2026-10-04
+actualizado: 2026-10-16
 ---
 
 # Índice Integraciones
@@ -35,6 +35,8 @@ Unidireccional NAV -> BC, por **staging**, con dos transportes (SQL por linked s
 | Nota | Para qué |
 |---|---|
 | [[Migración desde Meta4 - mapa y orden de ejecución]] | Qué se trajo de dónde, en qué orden, reglas transversales. **Empezar acá.** |
+| [[Preparar un mes contra Meta4]] | Procedimiento reutilizable: fuentes, precios, proyectos, producción, entradas originales y conservación histórica. |
+| [[febrero-2026-netos-contribuciones-aplicados]] | Correcciones de febrero, conservación de enero y validación de netos, promedios y contribuciones. |
 | [[Migración Meta4 - estados y fases]] | `M4T_FASES_ALTA` y `M4T_HIST_ESTADOS_EMPL`. |
 | [[Migración Meta4 - atributos CCT, puestos y ausentismos]] | Convenio/categoría, puestos, ausentismos de tierra, `ACT`, asignaciones. |
 | [[Migración Meta4 - correcciones y auditorías]] | Lo que hubo que arreglar después y cómo se audita. |
@@ -79,3 +81,4 @@ Verificados leyendo el código; ninguno ejecutado. Detalle en cada nota.
 8. Firma de recibos: sólo el ADR; el ADR dice que no hay `HttpClient` en el repo y ya lo hay (`Cod110040`).
 9. `meta4-es-oracle` (memoria) está desactualizada frente a `meta4-conectar-desde-powershell`; el índice de memoria dice que `M4T_HIST_PUESTOS` no se migró pero el script y su nota dicen que sí (18/9/2026).
 10. El mecanismo de carga del archivo literal de Meta4, `HIST_REMUN`, novedades y anticipos **no está versionado** en el repo.
+- [[Cotizaciones del BNA - carga automática]]

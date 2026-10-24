@@ -59,14 +59,14 @@ codeunit 110055 "Presentación Cálculo Liq."
 
     procedure CargarDatos(Linea: Record "Línea Liquidación"; var Datos: Record "Paso Cálculo Línea" temporary)
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        Guardadas: Codeunit "Variables Guardadas Liq.";
         Constructor: Codeunit "Detalle Cálculo Línea";
         Nombre: Text;
     begin
         Datos.Reset();
         Datos.DeleteAll();
-        Det.SetRange("No. Liquidación", Linea."No. Liquidación");
-        Det.SetRange("No. Línea", Linea."No. Línea");
+        Guardadas.CargarDetalle(Linea."No. Liquidación", Linea."No. Línea", Det);
         if Det.FindSet() then
             repeat
                 if not Det."Nombre Variable".StartsWith('TRAMO(') then begin

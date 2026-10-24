@@ -88,11 +88,12 @@ codeunit 110044 "Detalle Cálculo Línea"
     /// </summary>
     local procedure CargarContexto(LinLiq: Record "Línea Liquidación"; var Ctx: Dictionary of [Text, Decimal])
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        Guardadas: Codeunit "Variables Guardadas Liq.";
         Clave: Text;
     begin
-        Det.SetRange("No. Liquidación", LinLiq."No. Liquidación");
-        Det.SetRange("No. Línea", LinLiq."No. Línea");
+        // Con las variables que el motor no repite por línea ya repuestas desde el resumen de la liquidación.
+        Guardadas.CargarDetalle(LinLiq."No. Liquidación", LinLiq."No. Línea", Det);
         if not Det.FindSet() then exit;
         repeat
             Clave := Det."Nombre Variable";
@@ -105,17 +106,29 @@ codeunit 110044 "Detalle Cálculo Línea"
 
     local procedure SembrarReferencias(LinLiq: Record "Línea Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula")
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        Guardadas: Codeunit "Variables Guardadas Liq.";
         Clave: Text;
         Codigos: Dictionary of [Text, Text];
+        CamposAcumCCT: List of [Text];
+        DivisorAcumCCT: Decimal;
     begin
-        Det.SetRange("No. Liquidación", LinLiq."No. Liquidación");
-        Det.SetRange("No. Línea", LinLiq."No. Línea");
+        // Por el cargador y no directo: el código de atributo de una variable que el motor no repite por línea viaja en la fila ~USO
+        // (TIPO_LIQ=REGULAR), y sin él la condición por código no se puede comprobar.
+        Guardadas.CargarDetalle(LinLiq."No. Liquidación", LinLiq."No. Línea", Det);
         if not Det.FindSet() then exit;
         repeat
             Clave := Det."Nombre Variable";
             if Det."Snapshot Tramo" then
                 Evaluador.SembrarTramoGuardado(Det."Tabla Tramo", Det."Base Tramo", Det.Valor);
+            if Det.Detalle.StartsWith('ACUMCCT:') then begin
+                CamposAcumCCT := CopyStr(Det.Detalle, StrLen('ACUMCCT:') + 1).Split('~');
+                if CamposAcumCCT.Count() <> 4 then
+                    Error('El resultado histórico ACUM_PARAM_CCT de la línea %1 tiene una clave inválida.', LinLiq."No. Línea");
+                if not Evaluate(DivisorAcumCCT, CamposAcumCCT.Get(4), 9) then
+                    Error('El divisor histórico ACUM_PARAM_CCT de la línea %1 no es válido.', LinLiq."No. Línea");
+                Evaluador.SembrarAcumParametroCCTGuardado(CamposAcumCCT.Get(1), CamposAcumCCT.Get(2), CamposAcumCCT.Get(3), DivisorAcumCCT, Det.Valor);
+            end;
             if Det."Código Atributo" <> '' then
                 Codigos.Set(Clave, Det."Código Atributo");
         until Det.Next() = 0;

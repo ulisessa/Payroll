@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.Foundation.UOM;
 using Microsoft.HumanResources.Setup;
@@ -284,11 +284,11 @@ table 60007 "Concepto Liquidación"
         // nombre del parámetro, de dónde sale el sufijo de pesquería y por cuánto se divide. Están
         // acá y no en el motor porque son decisiones del CCT, y el CCT cambia sin que cambie el
         // código. Vacíos, el concepto se valúa como siempre: parámetro por convenio y categoría.
-        field(26; "Cód. Parámetro Valor"; Code[30])
+        field(26; "Cód. Parámetro Valor"; Code[250])
         {
             Caption = 'Parámetro del valor';
             DataClassification = CustomerContent;
-            ToolTip = 'Parámetro base del que sale el valor unitario. El motor le agrega el convenio y la categoría del lote, y el sufijo del atributo de precio si hay: VALOR_FRANCO_LAN_729/15_MR05. Vacío = el concepto no se valúa por parámetro.';
+            ToolTip = 'Fórmula del valor unitario, cuyos nombres son parámetros. El motor busca cada uno con el convenio y la categoría del lote, y el sufijo del atributo de precio si hay: VALOR_FRANCO_LAN_729/15_MR05. Un nombre solo (VALOR_FRANCO) vale lo de siempre; también admite IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO) o IF(TIPO_LIQ = ''LIQ_FINAL'', IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO), VALOR_FRANCO). Vacío = el concepto no se valúa por parámetro.';
         }
         field(27; "Cód. Tipo Atributo Precio"; Code[20])
         {
@@ -297,12 +297,110 @@ table 60007 "Concepto Liquidación"
             DataClassification = CustomerContent;
             ToolTip = 'Atributo cuyo valor aporta un sufijo al código del parámetro, tomado de la entidad del lote y a su fecha. Con TIPOACTIVIDAD del buque, el franco se valúa distinto según la pesquería en que se devengó. Vacío = un solo precio por convenio y categoría.';
         }
+        field(34; "Fuente Matriz"; Code[20])
+        {
+            DataClassification = CustomerContent;
+            ToolTip = 'FRANCOS_FIFO arma una matriz por lote. La fórmula principal devuelve el importe de cada fila.';
+            trigger OnValidate()
+            begin
+                if ("Fuente Matriz" <> '') and ("Fuente Matriz" <> 'FRANCOS_FIFO') then
+                    Error('Fuente de matriz no disponible: %1.', "Fuente Matriz");
+            end;
+        }
+        field(35; "Cantidad Matriz"; Text[2048])
+        {
+            DataClassification = CustomerContent;
+            ToolTip = 'Fórmula de días a seleccionar. Los componentes del mismo recibo comparten la selección y consumen los días una sola vez.';
+        }
+        field(33; "Fórmula Orden Cálculo"; Text[2048])
+        {
+            Caption = 'Orden de cálculo';
+            DataClassification = CustomerContent;
+            ToolTip = 'Número fijo (455) o fórmula, por ejemplo IF(TIPO_LIQ = ''LIQ_FINAL'', 667, 455). No admite referencias # ni @ a conceptos.';
+            trigger OnValidate()
+            var
+                Eval: Codeunit "Evaluador Fórmula";
+                Ctx: Dictionary of [Text, Decimal];
+                Valor: Decimal;
+            begin
+                if "Fórmula Orden Cálculo" = '' then
+                    exit;
+                if Evaluate(Valor, "Fórmula Orden Cálculo", 9) then begin
+                    if (Valor < 0) or (Valor > 2147483647) or (Valor <> Round(Valor, 1)) then
+                        Error('El orden fijo debe ser un entero entre 0 y 2147483647.');
+                    "Orden Cálculo" := Valor;
+                end;
+                if "Fórmula Orden Cálculo".Contains('#') or "Fórmula Orden Cálculo".Contains('@') then
+                    Error('El orden no puede depender de conceptos calculados (# o @).');
+                Ctx.Add('ORDEN_BASE', "Orden Cálculo");
+                Eval.Init(Ctx, Today());
+                Eval.SetLenientMode(true);
+                Eval.SetModoValidacion(true);
+                if not Eval.TryEvalFormula("Fórmula Orden Cálculo", Valor) then
+                    Error(ErrSintaxisFormula, GetLastErrorText());
+            end;
+        }
+        field(32; "Convenio Orden Alternativo"; Code[20])
+        {
+            Caption = 'Convenio del orden alternativo';
+            DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por Fórmula Orden Cálculo. Se conserva para leer configuración publicada anteriormente.';
+            TableRelation = "Convenio Colectivo".Código;
+        }
+        field(30; "Tipo Liq. Orden Alternativo"; Code[20])
+        {
+            Caption = 'Tipo de liquidación con orden alternativo';
+            DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por Fórmula Orden Cálculo. Se conserva para leer configuración publicada anteriormente.';
+            TableRelation = "Tipo Liquidación".Código;
+        }
+        field(31; "Orden Cálculo Alternativo"; Integer)
+        {
+            Caption = 'Orden de cálculo alternativo';
+            DataClassification = CustomerContent;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Reemplazado por Fórmula Orden Cálculo. Se conserva para leer configuración publicada anteriormente.';
+            MinValue = 0;
+        }
+        field(29; "Factor Importe Consumo"; Text[2048])
+        {
+            Caption = 'Factor del importe de consumo';
+            DataClassification = CustomerContent;
+            ToolTip = 'Fórmula que multiplica el importe de cada lote consumido, después de determinar los días FIFO. Vacío conserva el importe completo. No modifica los días ni el precio del lote.';
+            trigger OnValidate()
+            var
+                Eval: Codeunit "Evaluador Fórmula";
+                KnownCtx: Dictionary of [Text, Decimal];
+                Dummy: Decimal;
+            begin
+                if Rec."Factor Importe Consumo" = '' then
+                    exit;
+                Eval.Init(KnownCtx, Today());
+                Eval.SetLenientMode(true);
+                Eval.SetModoValidacion(true);
+                if not Eval.TryEvalFormula(Rec."Factor Importe Consumo", Dummy) then
+                    Error(ErrSintaxisFormula, GetLastErrorText());
+            end;
+        }
         field(28; "Divisor Valor"; Integer)
         {
             Caption = 'Divisor del valor';
             DataClassification = CustomerContent;
             MinValue = 0;
             ToolTip = 'Por cuánto se divide el parámetro para llevarlo a valor por unidad. 30 cuando el parámetro está expresado por mes y el concepto paga por día. Cero o vacío = el parámetro ya está en la unidad del concepto.';
+        }
+        // No se valida contra el Tipo Concepto a propósito. Sería tentador exigir que una columna de
+        // contribución sólo se asigne a un Tipo Concepto 3, pero el Tipo Concepto está versionado
+        // junto con la fórmula y la columna no: una corrección de tipo en una vigencia nueva dejaría
+        // la versión vieja sin poder editarse. El reporte agrupa por columna y no mira el tipo, así
+        // que un mapeo inconsistente se ve en el total de la hoja, que es donde se nota.
+        field(36; "Columna SICOSS"; Enum "Columna SICOSS Liq.")
+        {
+            Caption = 'Columna SICOSS';
+            DataClassification = CustomerContent;
+            ToolTip = 'En qué columna del reporte mensual de SICOSS entra el importe de este concepto. En blanco el concepto no se declara; si aun así liquida importe y es un descuento, una contribución, una retención o seguridad social, el reporte lo lista en su hoja de Avisos para que no quede afuera en silencio.';
         }
     }
 
@@ -336,6 +434,7 @@ table 60007 "Concepto Liquidación"
     var
         HistorialMgt: Codeunit "Historial Fórmulas Liq.";
     begin
+        if "Fórmula Orden Cálculo" = '' then "Fórmula Orden Cálculo" := Format("Orden Cálculo", 0, 9);
         ValidarIntervalo();
         ValidarNoSuperponeConAnterior();
         // Va ANTES de ValidarNoPisaSiguiente: al intercalar una versión entre otras dos, la fecha
@@ -838,6 +937,23 @@ table 60007 "Concepto Liquidación"
         Acum: Record "Concepto Liquidación";
     begin
         Clear(Ctx);
+        if "Fuente Matriz" <> '' then begin
+            Ctx.Set('FILA_CANTIDAD', 0);
+            Ctx.Set('FILA_SALDO', 0);
+            Ctx.Set('FILA_DEVENGADO', 0);
+            Ctx.Set('FILA_VALOR_FRANCO', 0);
+            Ctx.Set('FILA_COEFICIENTE', 0);
+            Ctx.Set('FILA_LOTE', 0);
+            Ctx.Set('FILA_EMPLEADO', 0);
+            Ctx.Set('FILA_CONVENIO', 0);
+            Ctx.Set('FILA_CATEGORIA', 0);
+            Ctx.Set('FILA_PUESTO', 0);
+            Ctx.Set('FILA_ESTADO', 0);
+            Ctx.Set('FILA_PROYECTO', 0);
+            Ctx.Set('FILA_PERIODO', 0);
+            Ctx.Set('FILA_PESQUERIA', 0);
+        end;
+
         Param.SetFilter("Nombre Variable", '<>%1', '');
         if Param.FindSet() then
             repeat

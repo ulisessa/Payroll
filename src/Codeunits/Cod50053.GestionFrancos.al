@@ -15,15 +15,22 @@ codeunit 50053 "Gestión Francos"
     // parameter VALOR_FRANCO, looked up as VALOR_FRANCO_<CONVENIO>_<CATEGORÍA> at the pay date.
 
     var
+        FCuenta: Codeunit "Cuenta Corriente Francos";
         FCfgCargada: Boolean;
-        FParamValor: Code[30];
+        FFechaConfig: Date;
+        FParamValor: Code[250];
+        FIdentificadores: List of [Text];
+        FCacheValor: Dictionary of [Text, Decimal];
+        FTipoPorDocumento: Dictionary of [Code[20], Code[20]];
+        FEvaluador: Codeunit "Evaluador Fórmula";
         FTipoAtrPrecio: Code[20];
         FDivisorValor: Integer;
         FConceptoConsumo: Code[20];
         FCtxTC: Dictionary of [Text, Decimal];
         ErrSinParametroValor: Label 'El concepto %1 paga francos pero no tiene cargado "Parámetro del valor", así que el motor no sabe de dónde sacar el precio del franco.\\El precio de un franco NO sale de la fórmula del concepto —que devuelve días—: lo pone el motor, con el convenio y la categoría de cada lote.\\En la ficha del concepto, cargá "Parámetro del valor" (por ejemplo VALOR_FRANCO). Si además el precio depende de dónde se devengó el franco, cargá "Atributo que afina el precio" y "Divisor del valor".', Comment = '%1 = código del concepto de consumo de francos';
         ErrSinConceptoConsumo: Label 'No hay ningún concepto con Rol Franco = Consumo, así que no se puede valuar un pago de francos.';
-        ErrSinPrecioFranco: Label 'No hay precio para un franco de %3 / %4 al %5, así que valdría cero.\\El motor buscó %1_%2_%3_%4 —por pesquería— y después %1_%3_%4, y ninguno tiene un valor vigente a esa fecha.\\Cargá el valor que falte en el parámetro %1.', Comment = '%1 = parámetro base; %2 = sufijo de pesquería; %3 = convenio del lote; %4 = categoría del lote; %5 = fecha de pago';
+        ErrSinPrecioFranco: Label 'No hay precio para un franco de %3 / %4 al %5, así que valdría cero.\\La fórmula del valor (%1) da cero. Cada nombre se busca como NOMBRE_%2_%3_%4 —por pesquería— y después como NOMBRE_%3_%4, y ninguno tiene un valor vigente a esa fecha.\\Cargá el valor que falte en el parámetro que nombra %1.', Comment = '%1 = fórmula del valor; %2 = sufijo de pesquería; %3 = convenio del lote; %4 = categoría del lote; %5 = fecha de pago';
+        ErrFormulaValor: Label 'La fórmula del "Parámetro del valor" del concepto %1 (%2) no se pudo evaluar: %3', Comment = '%1 = concepto de consumo de francos; %2 = fórmula; %3 = detalle del error';
         ErrFrancoSinVariableTC: Label 'El precio del franco %1 está en %2 pero su fila no declara "Variable Tipo de Cambio", así que el motor no sabe a cuánto convertirlo.\\Cargá la variable en esa fila de Parámetro Vigente —normalmente TC_COMPRADOR—, o sacale la Moneda si el valor ya está en pesos.', Comment = '%1 = código del parámetro; %2 = moneda de la fila';
         ErrFrancoTCInexistente: Label 'El precio del franco %2 pide la cotización %1, que no existe en el contexto de la liquidación.\\Las cotizaciones del franco se toman de las variables TC_*: revisá que %1 esté definida como Fuente de Datos y que el nombre coincida.', Comment = '%1 = nombre de la variable de tipo de cambio; %2 = código del parámetro';
         ErrFrancoTCEnCero: Label 'La cotización %1 vale cero el día en que se paga el franco %2, así que el precio quedaría en cero.\\Cargá la cotización de esa fecha antes de liquidar.', Comment = '%1 = nombre de la variable de tipo de cambio; %2 = código del parámetro';
@@ -53,12 +60,69 @@ codeunit 50053 "Gestión Francos"
     // Pending franco balance (accrued − consumed) for the employee, excluding LiqActual.
     procedure SaldoFrancos(EmployeeNo: Code[20]; LiqActual: Code[20]): Decimal
     begin
-        exit(TotalDevengado(EmployeeNo, LiqActual) - TotalConsumido(EmployeeNo, LiqActual));
+        exit(SaldoFrancos(EmployeeNo, LiqActual, DMY2Date(31, 12, 9999)));
+    end;
+
+    // El cálculo histórico debe pedir el mismo corte que la matriz: un lote posterior todavía
+    // no está disponible, aunque su liquidación ya haya sido calculada. La sobrecarga anterior
+    // conserva la consulta global de la cuenta para los llamadores sin fecha.
+    procedure SaldoFrancos(EmployeeNo: Code[20]; LiqActual: Code[20]; FechaCorte: Date): Decimal
+    begin
+        exit(TotalDevengado(EmployeeNo, LiqActual, FechaCorte) - TotalConsumido(EmployeeNo, LiqActual, FechaCorte));
     end;
 
     // Francos available to enjoy starting on Fecha: accrued on/before Fecha minus consumed strictly before
     // Fecha. Stable across the consumption that happens during the Francos period itself (it excludes it),
     // so it gives a fixed duration for the state — the day the francos run out is Fecha + this balance.
+    /// <summary>
+    /// El precio de UN día de franco para el par que paga esta liquidación.
+    /// </summary>
+    /// <remarks>
+    /// Para valorizar francos que todavía NO tienen lote: el devengo del último tramo antes de una
+    /// baja se calcula en la fórmula, no se lee del ledger, porque las variables de sistema se
+    /// precalculan en LoadScalars —antes del bucle de conceptos— y para entonces el lote del 1062 ni
+    /// existe. Ése fue el error que costó tres publicaciones: el código estaba bien y lo que estaba
+    /// mal era CUÁNDO se evaluaba.
+    ///
+    /// Los francos CON lote siguen saliendo del FIFO a su propio precio. Esto es sólo para los que
+    /// se devengan en el mismo documento que los paga, y su precio es el de hoy porque se devengaron
+    /// hoy.
+    ///
+    /// No corta si falta el precio. Se evalúa para TODAS las liquidaciones —es una variable de
+    /// sistema y se precalculan todas—, así que un Error acá voltearía la liquidación de cualquiera
+    /// que no tenga nada que ver con los francos.
+    /// </remarks>
+    procedure ValorFrancoDiaDeLaLiquidacion(EmployeeNo: Code[20]; LiqActual: Code[20]; FechaPago: Date): Decimal
+    var
+        UltimoLote: Record "Línea Liquidación";
+        Convenio: Code[20];
+        Categoria: Code[20];
+    begin
+        EstablecerFechaConfig(FechaPago);
+        if (EmployeeNo = '') or (FechaPago = 0D) then
+            exit(0);
+
+        // EL SUFIJO SALE DEL ÚLTIMO LOTE REAL, no de una línea armada al vuelo. SufijoDelLote
+        // necesita la ENTIDAD —el buque o el proyecto— para buscar el atributo de precio, y una
+        // liquidación final no tiene proyecto: el sufijo queda vacío, el parámetro cae a un nivel
+        // que no existe y el precio da CERO. Medido: el término del devengo se anulaba entero
+        // porque VALOR_FRANCO_DIA valía 0 mientras los lotes del FIFO se valuaban bien a 53.158,67.
+        //
+        // Se excluye la liquidación actual a propósito: su propio lote tampoco tiene proyecto, y es
+        // justo el que no sirve para resolver el sufijo. El anterior —el del cierre de marea— sí lo
+        // tiene.
+        //
+        // El PAR, en cambio, sale de la liquidación actual: el franco se paga al convenio y la
+        // categoría de hoy, aunque se haya devengado embarcado en otra.
+        FiltrarLotes(UltimoLote, EmployeeNo, LiqActual);
+        UltimoLote.SetFilter("Fecha Liquidación", '<=%1', FechaPago);
+        if not UltimoLote.FindLast() then
+            exit(0);
+
+        ParQuePagaElFranco(LiqActual, UltimoLote, Convenio, Categoria);
+        exit(ResolverValorFrancoDia(SufijoDelLote(UltimoLote), Convenio, Categoria, FechaPago, false, TipoDeLaLiquidacion(LiqActual), EmployeeNo));
+    end;
+
     procedure SaldoFrancosAFecha(EmployeeNo: Code[20]; Fecha: Date): Decimal
     begin
         exit(TotalPorRolHasta(EmployeeNo, "Rol Franco Liq."::Devengo, Fecha, true) -
@@ -73,6 +137,7 @@ codeunit 50053 "Gestión Francos"
         Codigos: List of [Code[20]];
         Total: Decimal;
     begin
+        if FCuenta.Activa(EmployeeNo) then exit(FCuenta.Total(EmployeeNo, Rol, '', Fecha, Inclusivo));
         if not CodigosPorRol(Codigos, Rol) then exit(0);
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.SetRange("No. Empleado", EmployeeNo);
@@ -80,7 +145,7 @@ codeunit 50053 "Gestión Francos"
         // —todos sus años, todos sus conceptos— para sumar las de dos, y el descarte se hacía con un
         // Contains adentro del bucle, que además es otro barrido lineal por fila. El predicado es
         // exactamente el mismo; lo único que cambia es dónde se evalúa. FiltrarLotes ya lo hacía así.
-        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        FiltrarCodigos(Lin, Codigos);
         if Inclusivo then
             Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha)
         else
@@ -126,7 +191,7 @@ codeunit 50053 "Gestión Francos"
         if not CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo) then
             exit;
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
-        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        FiltrarCodigos(Lin, Codigos);
         Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha);
         if FiltroEmpleado <> '' then
             Lin.SetFilter("No. Empleado", FiltroEmpleado);
@@ -146,6 +211,8 @@ codeunit 50053 "Gestión Francos"
 
     local procedure AcumularFrancosEmpleado(var Buffer: Record "Francos Buffer Liq." temporary; EmployeeNo: Code[20]; Fecha: Date)
     var
+        LoteCuenta: Record "Movimiento Franco Liq.";
+        SaldoCuenta: Decimal;
         Lin: Record "Línea Liquidación";
         Emp: Record Employee;
         CatCCT: Record "Categoría CCT";
@@ -153,6 +220,39 @@ codeunit 50053 "Gestión Francos"
         PorConsumir: Decimal;
         DelLote: Decimal;
     begin
+        EstablecerFechaConfig(Fecha);
+        if FCuenta.Activa(EmployeeNo) then begin
+            Emp.Get(EmployeeNo);
+            LoteCuenta.SetRange("No. Empleado", EmployeeNo);
+            LoteCuenta.SetRange(Tipo, LoteCuenta.Tipo::Devengo);
+            LoteCuenta.SetFilter("Fecha Devengamiento", '<=%1', Fecha);
+            if LoteCuenta.FindSet() then repeat
+                // El control conserva la semántica anterior: consumo estrictamente anterior al corte.
+                SaldoCuenta := FCuenta.SaldoAlInicio(LoteCuenta."No. Lote", Fecha);
+                if SaldoCuenta > 0 then begin
+                    if not Buffer.Get(EmployeeNo, LoteCuenta."Cód. Convenio", LoteCuenta."Cód. Categoría") then begin
+                        Buffer.Init();
+                        Buffer."No. Empleado" := EmployeeNo;
+                        Buffer."Cód. Convenio" := LoteCuenta."Cód. Convenio";
+                        Buffer."Cód. Categoría" := LoteCuenta."Cód. Categoría";
+                        Buffer."Nombre Empleado" := CopyStr(Emp.FullName(), 1, MaxStrLen(Buffer."Nombre Empleado"));
+                        if CatCCT.Get(LoteCuenta."Cód. Convenio", LoteCuenta."Cód. Categoría") then Buffer."Descripción Categoría" := CatCCT.Descripción;
+                        Buffer."Lote Más Antiguo" := LoteCuenta."Fecha Devengamiento";
+                        Buffer.Insert();
+                    end;
+                    Buffer.Devengados += LoteCuenta.Cantidad;
+                    Buffer.Consumidos += LoteCuenta.Cantidad - SaldoCuenta;
+                    Buffer.Saldo += SaldoCuenta;
+                    Buffer.Lotes += 1;
+                    Buffer."Lote Más Reciente" := LoteCuenta."Fecha Devengamiento";
+                    Buffer."Valor Franco" := ValorFrancoDiaParaMostrar('', Buffer."Cód. Convenio", Buffer."Cód. Categoría", Fecha);
+                    Buffer."Importe Saldo" := Round(Buffer.Saldo * Buffer."Valor Franco", 0.01);
+                    Buffer.Modify();
+                end;
+            until LoteCuenta.Next() = 0;
+            exit;
+        end;
+
         if not CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo) then
             exit;
         if not Emp.Get(EmployeeNo) then
@@ -165,7 +265,7 @@ codeunit 50053 "Gestión Francos"
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.Ascending(true);
         Lin.SetRange("No. Empleado", EmployeeNo);
-        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        FiltrarCodigos(Lin, Codigos);
         Lin.SetFilter("Fecha Liquidación", '<=%1', Fecha);
         if not Lin.FindSet() then
             exit;
@@ -204,17 +304,48 @@ codeunit 50053 "Gestión Francos"
         if Buffer.FindSet() then
             repeat
                 Buffer.Saldo := Buffer.Devengados - Buffer.Consumidos;
-                Buffer."Valor Franco" := ValorFrancoDia('', Buffer."Cód. Convenio", Buffer."Cód. Categoría", Fecha);
+                Buffer."Valor Franco" := ValorFrancoDiaParaMostrar('', Buffer."Cód. Convenio", Buffer."Cód. Categoría", Fecha);
                 Buffer."Importe Saldo" := Round(Buffer.Saldo * Buffer."Valor Franco", 0.01);
                 Buffer.Modify();
             until Buffer.Next() = 0;
         Buffer.Reset();
     end;
 
+    procedure ValuarMatriz(var Filas: Record "Lote Franco Buffer Liq." temporary; Documento: Code[20]; Fecha: Date)
+    var
+        Lin: Record "Línea Liquidación";
+        Convenio: Code[20];
+        Categoria: Code[20];
+        Pleno: Decimal;
+    begin
+        EstablecerFechaConfig(Fecha);
+        if Filas.FindSet() then
+            repeat
+                Lin.Init();
+                Lin."No. Empleado" := Filas."No. Empleado";
+                Lin."No. Liquidación" := Filas."No. Liquidación Origen";
+                Lin."Fecha Liquidación" := Filas."Fecha Lote";
+                Lin."No. Proyecto" := Filas."No. Proyecto";
+                Lin."Cód. Convenio" := Filas."Cód. Convenio";
+                Lin."Cód. Categoría" := Filas."Cód. Categoría";
+                Filas."Tipo Buque" := SufijoDelLote(Lin);
+                ParQuePagaElFranco(Documento, Lin, Convenio, Categoria);
+                Filas."Valor Franco" := ValorFrancoDia(Filas."Tipo Buque", Convenio, Categoria, Fecha, Documento, Filas."No. Empleado");
+                Pleno := ValorFrancoDiaParaMostrar('', Convenio, Categoria, Fecha);
+                Filas.Coeficiente := 1;
+                if Pleno <> 0 then Filas.Coeficiente := Filas."Valor Franco" / Pleno;
+                Filas.Importe := Filas."Días Tomados" * Filas."Valor Franco";
+                Filas.Modify();
+            until Filas.Next() = 0;
+        Filas.Reset();
+    end;
+
     // Walks the accrual lots oldest-first, skips the already-consumed days, then consumes up to
     // DiasSolicitados more, accumulating amount valued at each lot's category.
     local procedure CaminarFIFO(EmployeeNo: Code[20]; DiasSolicitados: Decimal; FechaPago: Date; LiqActual: Code[20]; var Monto: Decimal; var DiasConsumidos: Decimal)
     var
+        MatrizFilas: Record "Lote Franco Buffer Liq." temporary;
+        SaldoCuenta: Decimal;
         Lin: Record "Línea Liquidación";
         YaConsumido: Decimal;
         Saltar: Decimal;
@@ -226,15 +357,32 @@ codeunit 50053 "Gestión Francos"
         ConvPago: Code[20];
         CatPago: Code[20];
     begin
+        EstablecerFechaConfig(FechaPago);
+        if FCuenta.Activa(EmployeeNo) then begin
+            Monto := 0;
+            DiasConsumidos := 0;
+            SaldoCuenta := SaldoFrancos(EmployeeNo, LiqActual, FechaPago);
+            if DiasSolicitados > SaldoCuenta then DiasSolicitados := SaldoCuenta;
+            if DiasSolicitados <= 0 then exit;
+            FCuenta.Matriz(EmployeeNo, FechaPago, LiqActual, DiasSolicitados, false, MatrizFilas);
+            ValuarMatriz(MatrizFilas, LiqActual, FechaPago);
+            if MatrizFilas.FindSet() then repeat
+                Monto += MatrizFilas.Importe;
+                DiasConsumidos += MatrizFilas."Días Tomados";
+            until MatrizFilas.Next() = 0;
+            exit;
+        end;
+
         Monto := 0;
         DiasConsumidos := 0;
         if DiasSolicitados <= 0 then exit;
 
-        YaConsumido := TotalConsumido(EmployeeNo, LiqActual);
+        YaConsumido := TotalConsumido(EmployeeNo, LiqActual, FechaPago);
         Saltar := YaConsumido;
         Restantes := DiasSolicitados;
 
         FiltrarLotes(Lin, EmployeeNo, LiqActual);
+        Lin.SetFilter("Fecha Liquidación", '<=%1', FechaPago);
         if not Lin.FindSet() then exit;
         repeat
             DiasLote := Lin.Cantidad;
@@ -251,7 +399,7 @@ codeunit 50053 "Gestión Francos"
                 // antes. La CATEGORÍA, en cambio, es la de la liquidación que paga (ver
                 // ParQuePagaElFranco).
                 ParQuePagaElFranco(LiqActual, Lin, ConvPago, CatPago);
-                ValorDia := ValorFrancoDia(SufijoDelLote(Lin), ConvPago, CatPago, FechaPago);
+                ValorDia := ValorFrancoDia(SufijoDelLote(Lin), ConvPago, CatPago, FechaPago, LiqActual, EmployeeNo);
                 Monto += Tomar * ValorDia;
                 DiasConsumidos += Tomar;
                 Restantes -= Tomar;
@@ -266,6 +414,8 @@ codeunit 50053 "Gestión Francos"
     // FechaPago. Lets the recibo show one line per category/price. Capped at the available balance.
     procedure CalcularConsumoDesglosado(EmployeeNo: Code[20]; DiasSolicitados: Decimal; FechaPago: Date; LiqActual: Code[20]; var TempSlice: Record "Línea Liquidación" temporary)
     var
+        MatrizFilas: Record "Lote Franco Buffer Liq." temporary;
+        SaldoCuenta: Decimal;
         Lin: Record "Línea Liquidación";
         Saltar: Decimal;
         Restantes: Decimal;
@@ -276,14 +426,36 @@ codeunit 50053 "Gestión Francos"
         ConvPago: Code[20];
         CatPago: Code[20];
     begin
+        EstablecerFechaConfig(FechaPago);
+        if FCuenta.Activa(EmployeeNo) then begin
+            TempSlice.Reset();
+            TempSlice.DeleteAll();
+            if DiasSolicitados <= 0 then exit;
+            FCuenta.Matriz(EmployeeNo, FechaPago, LiqActual, DiasSolicitados, false, MatrizFilas);
+            ValuarMatriz(MatrizFilas, LiqActual, FechaPago);
+            if MatrizFilas.FindSet() then repeat
+                TempSlice.Init();
+                TempSlice."No. Línea" := MatrizFilas."No. Línea";
+                TempSlice."Cód. Convenio" := MatrizFilas."Cód. Convenio";
+                TempSlice."Cód. Categoría" := MatrizFilas."Cód. Categoría";
+                TempSlice.Cantidad := MatrizFilas."Días Tomados";
+                TempSlice.Importe := MatrizFilas.Importe;
+                TempSlice."No. Lote Franco" := MatrizFilas."No. Lote";
+                TempSlice."Id. Selección Francos" := MatrizFilas."Id. Selección";
+                TempSlice.Insert();
+            until MatrizFilas.Next() = 0;
+            exit;
+        end;
+
         TempSlice.Reset();
         TempSlice.DeleteAll();
         if DiasSolicitados <= 0 then exit;
 
-        Saltar := TotalConsumido(EmployeeNo, LiqActual);
+        Saltar := TotalConsumido(EmployeeNo, LiqActual, FechaPago);
         Restantes := DiasSolicitados;
 
         FiltrarLotes(Lin, EmployeeNo, LiqActual);
+        Lin.SetFilter("Fecha Liquidación", '<=%1', FechaPago);
         if Lin.FindSet() then
             repeat
                 if Restantes > 0 then begin
@@ -305,7 +477,7 @@ codeunit 50053 "Gestión Francos"
                         // de la liquidación que paga (ver ParQuePagaElFranco).
                         ParQuePagaElFranco(LiqActual, Lin, ConvPago, CatPago);
                         AcumularSlice(TempSlice, Lin."Cód. Convenio", Lin."Cód. Categoría", Tomar,
-                            Tomar * ValorFrancoDia(SufijoDelLote(Lin), ConvPago, CatPago, FechaPago),
+                            Tomar * ValorFrancoDia(SufijoDelLote(Lin), ConvPago, CatPago, FechaPago, LiqActual, EmployeeNo),
                             Linea);
                         Restantes -= Tomar;
                     end;
@@ -326,6 +498,8 @@ codeunit 50053 "Gestión Francos"
     /// </remarks>
     procedure DetallePorLote(EmployeeNo: Code[20]; DiasSolicitados: Decimal; FechaPago: Date; LiqActual: Code[20]; var Buffer: Record "Lote Franco Buffer Liq." temporary)
     var
+        MatrizFilas: Record "Lote Franco Buffer Liq." temporary;
+        SaldoCuenta: Decimal;
         Lin: Record "Línea Liquidación";
         Cat: Record "Categoría CCT";
         Saltar: Decimal;
@@ -338,15 +512,23 @@ codeunit 50053 "Gestión Francos"
         ConvPago: Code[20];
         CatPago: Code[20];
     begin
+        EstablecerFechaConfig(FechaPago);
+        if FCuenta.Activa(EmployeeNo) then begin
+            FCuenta.Matriz(EmployeeNo, FechaPago, LiqActual, DiasSolicitados, false, Buffer);
+            ValuarMatriz(Buffer, LiqActual, FechaPago);
+            exit;
+        end;
+
         Buffer.Reset();
         Buffer.DeleteAll();
         if DiasSolicitados <= 0 then
             exit;
 
-        Saltar := TotalConsumido(EmployeeNo, LiqActual);
+        Saltar := TotalConsumido(EmployeeNo, LiqActual, FechaPago);
         Restantes := DiasSolicitados;
 
         FiltrarLotes(Lin, EmployeeNo, LiqActual);
+        Lin.SetFilter("Fecha Liquidación", '<=%1', FechaPago);
         if not Lin.FindSet() then
             exit;
         repeat
@@ -379,11 +561,11 @@ codeunit 50053 "Gestión Francos"
                     // La categoría del precio es la de la liquidación que paga; el lote conserva la
                     // suya en Cód. Categoría, que es lo que el desglose muestra.
                     ParQuePagaElFranco(LiqActual, Lin, ConvPago, CatPago);
-                    Buffer."Valor Franco" := ValorFrancoDia(Buffer."Tipo Buque", ConvPago, CatPago, FechaPago);
+                    Buffer."Valor Franco" := ValorFrancoDia(Buffer."Tipo Buque", ConvPago, CatPago, FechaPago, LiqActual, EmployeeNo);
                     // El coeficiente ya no multiplica nada: el valor viene resuelto por la terna. Se
                     // muestra igual, como la proporción contra el valor pleno de la categoría, porque
                     // es la pregunta que se hace quien mira el recibo — "¿por qué éste cobra menos?".
-                    ValorPleno := ValorFrancoDia('', ConvPago, CatPago, FechaPago);
+                    ValorPleno := ValorFrancoDiaParaMostrar('', ConvPago, CatPago, FechaPago);
                     if ValorPleno <> 0 then
                         Buffer.Coeficiente := Round(Buffer."Valor Franco" / ValorPleno, 0.0001)
                     else
@@ -429,6 +611,20 @@ codeunit 50053 "Gestión Francos"
     /// hizo falta sacar, y un cero silencioso sería peor —el franco se pagaría en cero y el recibo
     /// saldría igual de creíble.
     /// </remarks>
+    local procedure EstablecerFechaConfig(Fecha: Date)
+    begin
+        if FFechaConfig = Fecha then
+            exit;
+        FFechaConfig := Fecha;
+        FCfgCargada := false;
+        Clear(FParamValor);
+        Clear(FIdentificadores);
+        Clear(FCacheValor);
+        Clear(FTipoAtrPrecio);
+        Clear(FDivisorValor);
+        Clear(FConceptoConsumo);
+    end;
+
     local procedure CargarConfigValuacion()
     var
         Concepto: Record "Concepto Liquidación";
@@ -440,6 +636,9 @@ codeunit 50053 "Gestión Francos"
         // Se recorren todos y gana el primero configurado: si hay varios conceptos de consumo, basta
         // con que uno diga cómo se valúa, porque el precio del franco es del lote y no del concepto.
         Concepto.SetRange("Rol Franco", "Rol Franco Liq."::Consumo);
+        Concepto.SetRange(Activo, true);
+        Concepto.SetFilter("Vigencia Desde", '<=%1', FFechaConfig);
+        Concepto.SetFilter("Vigencia Hasta", '%1|>=%2', 0D, FFechaConfig);
         if not Concepto.FindSet() then
             Error(ErrSinConceptoConsumo);
         FConceptoConsumo := Concepto.Código;
@@ -447,6 +646,7 @@ codeunit 50053 "Gestión Francos"
             if Concepto."Cód. Parámetro Valor" <> '' then begin
                 FConceptoConsumo := Concepto.Código;
                 FParamValor := Concepto."Cód. Parámetro Valor";
+                IdentificadoresDeValor(FParamValor, FIdentificadores);
                 FTipoAtrPrecio := Concepto."Cód. Tipo Atributo Precio";
                 FDivisorValor := Concepto."Divisor Valor";
                 exit;
@@ -568,14 +768,16 @@ codeunit 50053 "Gestión Francos"
         end;
     end;
 
-    local procedure TotalDevengado(EmployeeNo: Code[20]; LiqActual: Code[20]): Decimal
+    local procedure TotalDevengado(EmployeeNo: Code[20]; LiqActual: Code[20]; FechaCorte: Date): Decimal
     var
         Lin: Record "Línea Liquidación";
         Total: Decimal;
     begin
+        if FCuenta.Activa(EmployeeNo) then exit(FCuenta.Total(EmployeeNo, "Rol Franco Liq."::Devengo, LiqActual, FechaCorte, true));
         // FiltrarLotes ya acota los conceptos en la base; acá sólo se evita traer el registro
         // entero para leerle un campo.
         FiltrarLotes(Lin, EmployeeNo, LiqActual);
+        Lin.SetFilter("Fecha Liquidación", '<=%1', FechaCorte);
         Lin.SetLoadFields(Cantidad);
         if Lin.FindSet() then
             repeat
@@ -584,18 +786,20 @@ codeunit 50053 "Gestión Francos"
         exit(Total);
     end;
 
-    local procedure TotalConsumido(EmployeeNo: Code[20]; LiqActual: Code[20]): Decimal
+    local procedure TotalConsumido(EmployeeNo: Code[20]; LiqActual: Code[20]; FechaCorte: Date): Decimal
     var
         Lin: Record "Línea Liquidación";
         Codigos: List of [Code[20]];
         Total: Decimal;
     begin
+        if FCuenta.Activa(EmployeeNo) then exit(FCuenta.Total(EmployeeNo, "Rol Franco Liq."::Consumo, LiqActual, FechaCorte, true));
         if not CodigosPorRol(Codigos, "Rol Franco Liq."::Consumo) then exit(0);
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.SetRange("No. Empleado", EmployeeNo);
         Lin.SetFilter("No. Liquidación", '<>%1', LiqActual);
+        Lin.SetFilter("Fecha Liquidación", '<=%1', FechaCorte);
         // Mismo cambio que en TotalPorRolHasta: el filtro de conceptos se evalúa en la base.
-        Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos));
+        FiltrarCodigos(Lin, Codigos);
         Lin.SetLoadFields(Cantidad);
         if Lin.FindSet() then
             repeat
@@ -612,11 +816,16 @@ codeunit 50053 "Gestión Francos"
         Lin.SetCurrentKey("No. Empleado", "Fecha Liquidación", "Tipo Concepto");
         Lin.Ascending(true);
         Lin.SetRange("No. Empleado", EmployeeNo);
-        Lin.SetFilter("No. Liquidación", '<>%1', LiqActual);
-        if CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo) then
-            Lin.SetFilter("Cód. Concepto", ConstruirFiltroCodigos(Codigos))
-        else
-            Lin.SetRange("Cód. Concepto", '');  // no devengo concepts configured → empty set
+        // EL FILTRO SÓLO SI HAY LIQUIDACIÓN QUE EXCLUIR. Pasar '' NO lo desactiva: deja puesto
+        // "<>''", que descarta las líneas sin número —ninguna— pero también impide que el llamador
+        // pida el conjunto COMPLETO. La indemnización de francos no gozados lo necesita completo,
+        // porque el devengo del último tramo nace en el mismo documento que lo paga, y con el filtro
+        // puesto ese lote quedaba afuera: el importe salía por 12 días en vez de 13, sin un solo
+        // error a la vista.
+        if LiqActual <> '' then
+            Lin.SetFilter("No. Liquidación", '<>%1', LiqActual);
+        CodigosPorRol(Codigos, "Rol Franco Liq."::Devengo);
+        FiltrarCodigos(Lin, Codigos);  // sin conceptos configurados, tampoco incluir líneas de código vacío
     end;
 
     // Collects the distinct concept codes flagged with the given franco role (across all vigencias).
@@ -634,25 +843,55 @@ codeunit 50053 "Gestión Francos"
         exit(Codigos.Count() > 0);
     end;
 
-    /// <summary>Los códigos como filtro de BC: 'A'|'B'|'C'.</summary>
+    /// <summary>Selecciona los códigos literales, sin interpretar sus caracteres como operadores.</summary>
     /// <remarks>
-    /// CADA CÓDIGO VA ENTRE COMILLAS. Sin ellas, un código con un carácter que el parser de filtros
-    /// interpreta —&amp;, |, *, .., &lt;, &gt;, @— dejaría de buscarse a sí mismo y pasaría a ser sintaxis:
-    /// el filtro seguiría siendo válido y devolvería otro conjunto, sin error. Hoy ningún concepto
-    /// tiene esos caracteres, así que esto no cambia nada; existe para que siga siendo cierto el día
-    /// que alguien cree uno.
+    /// Reemplaza la selección de conceptos y las marcas de esta instancia. Conserva los demás
+    /// filtros, grupos y clave, incluido el orden FIFO. Sólo los códigos numéricos usan OR en SQL;
+    /// para los demás, SetRange compara cada literal y MarkedOnly reúne las coincidencias.
+    /// Las marcas son de la variable, no escrituras de líneas ni movimientos de francos.
     /// </remarks>
-    internal procedure ConstruirFiltroCodigos(Codigos: List of [Code[20]]): Text
+    internal procedure FiltrarCodigos(var Lin: Record "Línea Liquidación"; Codigos: List of [Code[20]])
+    var
+        Cod: Code[20];
+        SoloNumericos: Boolean;
+    begin
+        Lin.MarkedOnly(false);
+        Lin.ClearMarks();
+        Lin.SetRange("Cód. Concepto");
+        if Codigos.Count() = 0 then begin
+            Lin.MarkedOnly(true);
+            exit;
+        end;
+
+        SoloNumericos := true;
+        foreach Cod in Codigos do
+            if (Cod = '') or (DelChr(Cod, '=', '0123456789') <> '') then
+                SoloNumericos := false;
+        if SoloNumericos then begin
+            Lin.SetFilter("Cód. Concepto", ConstruirFiltroNumerico(Codigos));
+            exit;
+        end;
+
+        foreach Cod in Codigos do begin
+            Lin.SetRange("Cód. Concepto", Cod);
+            if Lin.FindSet() then
+                repeat
+                    Lin.Mark(true);
+                until Lin.Next() = 0;
+        end;
+        Lin.SetRange("Cód. Concepto");
+        Lin.MarkedOnly(true);
+    end;
+
+    local procedure ConstruirFiltroNumerico(Codigos: List of [Code[20]]): Text
     var
         Filtro: TextBuilder;
         Cod: Code[20];
-        CodigoTexto: Text;
     begin
         foreach Cod in Codigos do begin
             if Filtro.Length() > 0 then
                 Filtro.Append('|');
-            CodigoTexto := Cod;
-            Filtro.Append('''' + CodigoTexto.Replace('''', '''''') + '''');
+            Filtro.Append('''' + Cod + '''');
         end;
         exit(Filtro.ToText());
     end;
@@ -705,7 +944,34 @@ codeunit 50053 "Gestión Francos"
         Categoria := Liq."Cód. Categoría";
     end;
 
-    local procedure ValorFrancoDia(Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date): Decimal
+    local procedure ValorFrancoDia(Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date; Documento: Code[20]; Empleado: Code[20]): Decimal
+    begin
+        exit(ResolverValorFrancoDia(Sufijo, Convenio, Categoria, FechaPago, true, TipoDeLaLiquidacion(Documento), Empleado));
+    end;
+
+    /// <summary>El mismo precio, pero para MOSTRAR: si no hay, devuelve cero en vez de cortar.</summary>
+    /// <remarks>
+    /// LAS DOS PANTALLAS PREGUNTAN A PROPÓSITO POR UN PRECIO QUE PUEDE NO EXISTIR: piden el valor
+    /// SIN sufijo —el "valor pleno" de la categoría— y hoy NINGUNA fila de VALOR_FRANCO está cargada
+    /// sin sufijo: todas son _CAL_ o _LAN_. Con el corte de "un franco no puede valer cero" esas dos
+    /// consultas rompían la página de CUALQUIER tripulante, no sólo de los casos raros:
+    ///
+    /// - DetallePorLote lo usa de REFERENCIA del coeficiente, que es una proporción y no un importe.
+    ///   Sin referencia la proporción es 1, que es lo que ya hacía el `else`.
+    /// - AcumularFrancosEmpleado (Francos por Tripulante) valúa el SALDO con él. Devuelve cero, que
+    ///   es lo que mostraba antes del 6/10/2026. OJO: el importe del saldo sigue saliendo en cero,
+    ///   porque el buffer agrupa por convenio+categoría y no sabe de qué buque viene cada lote, así
+    ///   que no tiene sufijo que pedir. Es un defecto de esa pantalla, anterior a esto, y se arregla
+    ///   agrupando también por buque —no tapando el corte del cálculo—.
+    ///
+    /// El corte sigue valiendo donde importa —el cálculo—, porque ahí un cero se paga y nadie lo ve.
+    /// </remarks>
+    local procedure ValorFrancoDiaParaMostrar(Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date): Decimal
+    begin
+        exit(ResolverValorFrancoDia(Sufijo, Convenio, Categoria, FechaPago, false, '', ''));
+    end;
+
+    local procedure ResolverValorFrancoDia(Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date; CortarSiFalta: Boolean; TipoLiq: Code[20]; Empleado: Code[20]): Decimal
     var
         Valor: Decimal;
     begin
@@ -714,19 +980,169 @@ codeunit 50053 "Gestión Francos"
         if FParamValor = '' then
             Error(ErrSinParametroValor, FConceptoConsumo);
 
-        if Sufijo <> '' then begin
-            Valor := ValorParametro(FParamValor + '_' + Sufijo + '_' + Convenio + '_' + Categoria, FechaPago);
-            if Valor <> 0 then
-                exit(AplicarDivisor(Valor));
-        end;
-        Valor := ValorParametro(FParamValor + '_' + Convenio + '_' + Categoria, FechaPago);
+        Valor := ValorDeFormula(Sufijo, Convenio, Categoria, FechaPago, TipoLiq, Empleado);
         // UN FRANCO NO PUEDE VALER CERO. Hasta acá, no encontrar el parámetro devolvía cero y el
         // franco se pagaba en nada, sin aviso: el importe salía bajo y cuadraba con la cantidad de
         // días, así que ningún control de importe lo veía. Es más barato cortar y nombrar el lote
         // que no tiene precio.
-        if Valor = 0 then
-            Error(ErrSinPrecioFranco, FParamValor, Sufijo, Convenio, Categoria, FechaPago);
+        //
+        // ...PERO SÓLO DONDE EL CERO SE PAGA. Ver ValorFrancoDiaParaMostrar: las dos pantallas
+        // preguntan a propósito por un precio que puede no existir, y ahí cortar es peor que un cero.
+        if Valor = 0 then begin
+            if CortarSiFalta then
+                Error(ErrSinPrecioFranco, FParamValor, Sufijo, Convenio, Categoria, FechaPago);
+            exit(0);
+        end;
         exit(AplicarDivisor(Valor));
+    end;
+
+    /// <summary>El valor mensual de UN franco, evaluando la fórmula del "Parámetro del valor" con el contexto de ese lote.</summary>
+    /// <remarks>
+    /// EL CAMPO ES UNA FÓRMULA. Sus identificadores son nombres de parámetro y se resuelven para el
+    /// par del lote: primero con el sufijo de pesquería (NOMBRE_CAL_175/75_OF02) y si no hay, sin él
+    /// (NOMBRE_175/75_OF02). Un nombre solo (VALOR_FRANCO) vale lo de siempre; una expresión
+    /// (IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO)) deja que el convenio decida con qué valor de empresa
+    /// se paga. Para distinguir el tipo de liquidación se compara TIPO_LIQ por código, como en
+    /// cualquier fórmula: IF(TIPO_LIQ = 'LIQ_FINAL', IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO), VALOR_FRANCO).
+    ///
+    /// No se resuelve con el contexto de la liquidación porque el precio es del LOTE, no del empleado:
+    /// cada lote trae su convenio, su categoría y su pesquería (ver ValorParametro).
+    ///
+    /// Se recuerda por lote-par-fecha-tipo: un FIFO largo pide el mismo precio decenas de veces.
+    /// </remarks>
+    local procedure ValorDeFormula(Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date; TipoLiq: Code[20]; Empleado: Code[20]): Decimal
+    var
+        Ctx: Dictionary of [Text, Decimal];
+        Codigos: Dictionary of [Text, Text];
+        Clave: Text;
+        Nombre: Text;
+        NombreTipoLiq: Text;
+        Valor: Decimal;
+    begin
+        Clave := StrSubstNo('%1|%2|%3|%4|%5|%6', Sufijo, Convenio, Categoria, Format(FechaPago, 0, 9), TipoLiq, Empleado);
+        if FCacheValor.Get(Clave, Valor) then
+            exit(Valor);
+
+        foreach Nombre in FIdentificadores do
+            Ctx.Add(Nombre, ValorParametroDelLote(Nombre, Sufijo, Convenio, Categoria, FechaPago, Empleado));
+
+        // La comparación por código necesita el nombre configurado de TIPO_LIQ en el contexto y el
+        // código actual en los códigos de atributo; el valor numérico no se usa.
+        NombreTipoLiq := NombreVariableTipoLiq();
+        if NombreTipoLiq <> '' then begin
+            Ctx.Add(NombreTipoLiq, 0);
+            Codigos.Add(NombreTipoLiq, TipoLiq);
+        end;
+
+        FEvaluador.Init(Ctx, FechaPago);
+        FEvaluador.SetCodigosAtributos(Codigos);
+        if not FEvaluador.TryEvalFormula(FParamValor, Valor) then
+            Error(ErrFormulaValor, FConceptoConsumo, FParamValor, GetLastErrorText());
+        FCacheValor.Add(Clave, Valor);
+        exit(Valor);
+    end;
+
+    local procedure ValorParametroDelLote(Nombre: Text; Sufijo: Code[10]; Convenio: Code[20]; Categoria: Code[20]; FechaPago: Date; Empleado: Code[20]): Decimal
+    var
+        Valor: Decimal;
+    begin
+        // EL ACUERDO PERSONAL MANDA: un valor cargado para el empleado (NOMBRE_<empleado>) le gana al del par del lote, igual
+        // que en el resto de los parámetros. Es cómo se representa una decisión puntual, por ejemplo el precio que Meta4 cargó
+        // como incidencia en las finales del 23/4/2026. Hace falta que el parámetro tenga 'Sufijo Empleado'.
+        if Empleado <> '' then begin
+            Valor := ValorParametro(Nombre + '_' + Empleado, FechaPago);
+            if Valor <> 0 then
+                exit(Valor);
+        end;
+        if Sufijo <> '' then begin
+            Valor := ValorParametro(Nombre + '_' + Sufijo + '_' + Convenio + '_' + Categoria, FechaPago);
+            if Valor <> 0 then
+                exit(Valor);
+        end;
+        exit(ValorParametro(Nombre + '_' + Convenio + '_' + Categoria, FechaPago));
+    end;
+
+    // El nombre de la variable TIPO_LIQ es configurable: se busca por su Cód. Cálculo, como hace el evaluador.
+    local procedure NombreVariableTipoLiq(): Text
+    var
+        VarSis: Record "Variable Sistema Liq.";
+    begin
+        VarSis.SetRange("Cód. Cálculo", 'TIPO_LIQ');
+        if VarSis.FindFirst() then
+            exit(VarSis."Nombre Variable");
+        exit('');
+    end;
+
+    // El tipo de liquidación del documento, recordado: se pide por cada lote de cada pasada.
+    local procedure TipoDeLaLiquidacion(Documento: Code[20]): Code[20]
+    var
+        Liq: Record "Liquidación";
+        Tipo: Code[20];
+    begin
+        if Documento = '' then
+            exit('');
+        if FTipoPorDocumento.Get(Documento, Tipo) then
+            exit(Tipo);
+        if Liq.Get(Documento) then
+            Tipo := Liq."Cód. Tipo Liq.";
+        FTipoPorDocumento.Set(Documento, Tipo);
+        exit(Tipo);
+    end;
+
+    /// <summary>
+    /// Los nombres de parámetro que usa la fórmula del valor: identificadores que no son funciones,
+    /// palabras reservadas, la variable TIPO_LIQ ni texto entre comillas.
+    /// </summary>
+    procedure IdentificadoresDeValor(Formula: Text; var Nombres: List of [Text])
+    var
+        Texto: Text;
+        Nombre: Text;
+        NombreTipoLiq: Text;
+        Pos: Integer;
+        Largo: Integer;
+        Inicio: Integer;
+        Siguiente: Integer;
+        Letra: Text;
+    begin
+        Clear(Nombres);
+        Texto := Formula.ToUpper();
+        NombreTipoLiq := NombreVariableTipoLiq().ToUpper();
+        Largo := StrLen(Texto);
+        Pos := 1;
+        while Pos <= Largo do begin
+            Letra := CopyStr(Texto, Pos, 1);
+            if Letra = '''' then begin
+                // Texto entre comillas: no es un nombre.
+                Pos += 1;
+                while (Pos <= Largo) and (CopyStr(Texto, Pos, 1) <> '''') do
+                    Pos += 1;
+                Pos += 1;
+            end else
+                if EsInicioDeNombre(Letra) then begin
+                    Inicio := Pos;
+                    while (Pos <= Largo) and EsLetraDeNombre(CopyStr(Texto, Pos, 1)) do
+                        Pos += 1;
+                    Nombre := CopyStr(Texto, Inicio, Pos - Inicio);
+                    Siguiente := Pos;
+                    while (Siguiente <= Largo) and (CopyStr(Texto, Siguiente, 1) = ' ') do
+                        Siguiente += 1;
+                    if not ((Siguiente <= Largo) and (CopyStr(Texto, Siguiente, 1) = '(')) then
+                        if not (Nombre in ['AND', 'OR', 'NOT', NombreTipoLiq]) then
+                            if not Nombres.Contains(Nombre) then
+                                Nombres.Add(Nombre);
+                end else
+                    Pos += 1;
+        end;
+    end;
+
+    local procedure EsInicioDeNombre(Letra: Text): Boolean
+    begin
+        exit((Letra = '_') or ((Letra >= 'A') and (Letra <= 'Z')));
+    end;
+
+    local procedure EsLetraDeNombre(Letra: Text): Boolean
+    begin
+        exit(EsInicioDeNombre(Letra) or ((Letra >= '0') and (Letra <= '9')));
     end;
 
     /// <summary>El valor del parámetro está en un mes comercial; acá se lo pasa a día.</summary>
@@ -764,15 +1180,19 @@ codeunit 50053 "Gestión Francos"
     procedure MonedaDelPrecio(FechaPago: Date): Code[10]
     var
         ParamVig: Record "Parámetro Vigente";
+        Nombre: Text;
     begin
+        EstablecerFechaConfig(FechaPago);
         CargarConfigValuacion();
         if FParamValor = '' then
             exit('');
-        ParamVig.SetFilter("Cód. Parámetro", FParamValor + '*');
         ParamVig.SetFilter("Vigencia Desde", '<=%1', FechaPago);
         ParamVig.SetFilter(Moneda, '<>%1', '');
-        if ParamVig.FindFirst() then
-            exit(ParamVig.Moneda);
+        foreach Nombre in FIdentificadores do begin
+            ParamVig.SetFilter("Cód. Parámetro", Nombre + '*');
+            if ParamVig.FindFirst() then
+                exit(ParamVig.Moneda);
+        end;
         exit('');
     end;
 

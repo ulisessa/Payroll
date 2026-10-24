@@ -77,11 +77,20 @@ table 60022 "Ded. Ganancias Empleado"
             Caption = 'Observaciones';
             DataClassification = CustomerContent;
         }
+        field(8; "No. Línea"; Integer)
+        {
+            Caption = 'No. Línea';
+            DataClassification = CustomerContent;
+            MinValue = 0;
+            // Distingue deducciones del mismo tipo en la misma vigencia (dos hijos con gasto educativo, dos prepagas). La
+            // importación del SIRADIG numera desde 0 las <deduccion> repetidas de un tipo; las filas cargadas a mano o
+            // anteriores a este campo son la línea 0. El motor suma todas las filas de la vigencia: no lo lee.
+        }
     }
 
     keys
     {
-        key(PK; "No. Empleado", "Vigencia Desde", "Cód. Tipo") { Clustered = true; }
+        key(PK; "No. Empleado", "Vigencia Desde", "Cód. Tipo", "No. Línea") { Clustered = true; }
         key(K2; "No. Empleado", "Vigencia Desde") { }
     }
 }

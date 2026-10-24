@@ -78,8 +78,99 @@ codeunit 50019 "Gestión Liquidación"
             Liq."No.", Liq."Cód. Período", Posterior."No.", Posterior."Cód. Período", Posterior."Fecha Liquidación");
     end;
 
+    procedure ReabrirPorNumero(Numero: Code[20])
+    var
+        Liq: Record "Liquidación";
+    begin
+        Liq.Get(Numero);
+        Reabrir(Liq);
+    end;
+
+    /// <summary>Reabre consumidores antes que sus devengos; deja bloqueos externos pendientes.</summary>
+    procedure ReabrirPeriodoPorCodigo(Codigo: Code[20])
+    var
+        Revertidas: Integer;
+        Bloqueadas: Integer;
+    begin
+        ReabrirPeriodo(Codigo, Revertidas, Bloqueadas);
+        if Bloqueadas > 0 then
+            Error('Quedan %1 liquidaciones bloqueadas por dependencias fuera del período. No se reabrió el período.', Bloqueadas);
+    end;
+
+    procedure ReabrirPeriodo(Codigo: Code[20]; var Revertidas: Integer; var Bloqueadas: Integer)
+    var
+        Liq: Record "Liquidación";
+        Numeros: List of [Code[20]];
+    begin
+        Liq.LockTable();
+        Liq.SetRange("Cód. Período", Codigo);
+        Liq.SetRange(Estado, Liq.Estado::Calculada);
+        if Liq.FindSet() then repeat
+            Numeros.Add(Liq."No.");
+        until Liq.Next() = 0;
+        ReabrirSeleccion(Numeros, Revertidas, Bloqueadas);
+    end;
+
+    /// <summary>Respeta exactamente las claves seleccionadas y las dependencias del ledger.</summary>
+    procedure ReabrirSeleccion(Numeros: List of [Code[20]]; var Revertidas: Integer; var Bloqueadas: Integer)
+    var
+        Motivos: List of [Text];
+    begin
+        ReabrirSeleccion(Numeros, Revertidas, Bloqueadas, Motivos);
+    end;
+
+    /// <summary>Igual, y además dice POR QUÉ quedó bloqueada cada una que no se pudo reabrir.</summary>
+    procedure ReabrirSeleccion(Numeros: List of [Code[20]]; var Revertidas: Integer; var Bloqueadas: Integer; var Motivos: List of [Text])
+    var
+        Liq: Record "Liquidación";
+        Posterior: Record "Liquidación";
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Pendientes: List of [Code[20]];
+        Revisar: List of [Code[20]];
+        Numero: Code[20];
+        Consumidor: Code[20];
+        Avance: Boolean;
+    begin
+        Revertidas := 0;
+        Bloqueadas := 0;
+        Liq.LockTable();
+        foreach Numero in Numeros do
+            if Liq.Get(Numero) then
+                if Liq.Estado = Liq.Estado::Calculada then
+                    if not Pendientes.Contains(Numero) then Pendientes.Add(Numero);
+        repeat
+            Avance := false;
+            Clear(Revisar);
+            foreach Numero in Pendientes do Revisar.Add(Numero);
+            foreach Numero in Revisar do begin
+                Liq.Get(Numero);
+                if PuedeReabrir(Liq, Posterior) then
+                    if Cuenta.PuedeRevertir(Numero, Consumidor) then begin
+                        Reabrir(Liq);
+                        Pendientes.Remove(Numero);
+                        Revertidas += 1;
+                        Avance := true;
+                    end;
+            end;
+        until (Pendientes.Count() = 0) or not Avance;
+        Bloqueadas := Pendientes.Count();
+
+        // El motivo de cada bloqueada, nombrando al estorbo. El mensaje genérico decía "posteriores o
+        // consumos de francos" y obligaba a adivinar cuál era: a un mensualizado, que no tiene
+        // francos, le sonaba a error.
+        Clear(Motivos);
+        foreach Numero in Pendientes do
+            if Liq.Get(Numero) then
+                if not PuedeReabrir(Liq, Posterior) then
+                    Motivos.Add(StrSubstNo(MotBloqueoPosterior, Liq."No.", Posterior."No.", Posterior."Cód. Período"))
+                else
+                    if not Cuenta.PuedeRevertir(Numero, Consumidor) then
+                        Motivos.Add(StrSubstNo(MotBloqueoFrancos, Liq."No.", Consumidor));
+    end;
+
     procedure Reabrir(var Liq: Record "Liquidación")
     var
+        CuentaFrancos: Codeunit "Cuenta Corriente Francos";
         LinLiq: Record "Línea Liquidación";
         GestPrest: Codeunit "Gestión Préstamos";
         GestNov: Codeunit "Gestión Novedades Liq.";
@@ -102,6 +193,7 @@ codeunit 50019 "Gestión Liquidación"
         if Liq.Estado <> Liq.Estado::Calculada then
             Error(ErrSoloCalculadaReabrir);
         ValidarSinPosteriores(Liq);
+        CuentaFrancos.Revertir(Liq."No.");
         Registro.Iniciar("Tipo Proceso Liq."::Reapertura, Liq);
         Liq.Estado := Liq.Estado::Borrador;
         Liq.Modify(true);
@@ -346,15 +438,366 @@ codeunit 50019 "Gestión Liquidación"
         exit(Nombres.Contains(VarName));
     end;
 
-    procedure RevertirAprobacion(var Liq: Record "Liquidación"): Boolean
+    /// <summary>Libera marcas sin consumidores del empleado y de las versiones generales.</summary>
+    /// <remarks>
+    /// Se ejecuta después de guardar el estado Calculada y reconstruir el registro de usos.
+    /// No depende de que la marca apareciera en la corrida anterior: también encuentra huérfanas.
+    /// El registro identifica la versión exacta. Para liquidaciones anteriores a ese registro,
+    /// conservar una marca ante un token histórico es deliberadamente conservador.
+    /// </remarks>
+    procedure ReconciliarEnUso(NoEmpleado: Code[20]): Integer
+    begin
+        exit(ReconciliarEnUso(NoEmpleado, ''));
+    end;
+
+    procedure ReconciliarEnUso(NoEmpleado: Code[20]; NoLiquidacionActual: Code[20]): Integer
     var
-        LinLiq: Record "Línea Liquidación";
-        GestPrest: Codeunit "Gestión Préstamos";
+        ParamVig: Record "Parámetro Vigente";
+        Candidatas: Record "Parámetro Vigente" temporary;
+        Pendientes: Record "Parámetro Vigente" temporary;
+        VersionesConfirmadas: Record "Parámetro Vigente" temporary;
+        Uso: Record "Uso Parámetro Liq.";
+        DocumentosPrecargados: Dictionary of [Code[20], Boolean];
+        NombresPorBase: Dictionary of [Code[20], Text];
+        HistoricoPorEmpleado: Dictionary of [Code[20], Dictionary of [Text, Boolean]];
+        LiquidacionesHistoricas: Dictionary of [Code[20], Boolean];
+        BaseActual: Code[20];
+        PrecargarTestigos: Boolean;
+        CantidadPendientes: Integer;
+        Liberadas: Integer;
+    begin
+        // La precarga bloquea primero su cabecera y sus usos, antes de leer los valores,
+        // como el cálculo/reapertura. Las demás versiones buscan un consumidor activo.
+        Uso.LockTable();
+        CargarVersionesDeLiquidacionActiva(NoEmpleado, NoLiquidacionActual, Uso, VersionesConfirmadas);
+        ParamVig.LockTable();
+        ParamVig.SetRange("En Uso", true);
+        ParamVig.SetFilter("No. Empleado", '%1|%2', '', NoEmpleado);
+        if ParamVig.FindSet() then
+            repeat
+                Candidatas := ParamVig;
+                Candidatas.Insert();
+                if not VersionesConfirmadas.Get(ParamVig."Cód. Parámetro Base", ParamVig."Cód. Parámetro", ParamVig."Vigencia Desde") then begin
+                    Pendientes.Init();
+                    Pendientes."Cód. Parámetro Base" := ParamVig."Cód. Parámetro Base";
+                    Pendientes."Cód. Parámetro" := ParamVig."Cód. Parámetro";
+                    Pendientes."Vigencia Desde" := ParamVig."Vigencia Desde";
+                    Pendientes.Insert(false);
+                    CantidadPendientes += 1;
+                end;
+            until ParamVig.Next() = 0;
+
+        if CantidadPendientes = 0 then
+            exit(0);
+
+        // No modificar el campo filtrado durante el recorrido de la tabla real.
+        // Las cachés viven sólo esta llamada: el siguiente cálculo puede crear usos o cambiar
+        // estados. No se guarda un «sin uso» entre liquidaciones, ni se toca su trazabilidad.
+        // El cursor no cambia mientras los testigos eliminan versiones de Pendientes.
+        // La clave agrupa cada base en un tramo: una carga sin aporte adicional desactiva
+        // sólo sus próximas precargas. Las candidatas restantes siempre pasan por TOP1.
+        Candidatas.SetCurrentKey("Cód. Parámetro Base", "Cód. Parámetro", "Vigencia Desde");
+        if Candidatas.FindSet() then begin
+            BaseActual := Candidatas."Cód. Parámetro Base";
+            PrecargarTestigos := true;
+            repeat
+                if BaseActual <> Candidatas."Cód. Parámetro Base" then begin
+                    BaseActual := Candidatas."Cód. Parámetro Base";
+                    PrecargarTestigos := true;
+                end;
+                if Pendientes.Get(Candidatas."Cód. Parámetro Base", Candidatas."Cód. Parámetro", Candidatas."Vigencia Desde") then begin
+                    // La consulta exacta decide esta versión aunque sea la última. Retirarla
+                    // antes del lector permite contar sólo candidatas adicionales pendientes.
+                    Pendientes.Delete(false);
+                    CantidadPendientes -= 1;
+                    if not TieneUsoExactoActivo(Candidatas, Uso, Pendientes, CantidadPendientes, DocumentosPrecargados, PrecargarTestigos) then
+                        if not TieneUsoHistoricoCacheado(Candidatas, NombresPorBase, HistoricoPorEmpleado, LiquidacionesHistoricas) then begin
+                            ParamVig.Get(Candidatas."Cód. Parámetro Base", Candidatas."Cód. Parámetro", Candidatas."Vigencia Desde");
+                            ParamVig."En Uso" := false;
+                            ParamVig.Modify();
+                            Liberadas += 1;
+                        end;
+                end;
+                if CantidadPendientes = 0 then
+                    exit(Liberadas);
+            until Candidatas.Next() = 0;
+        end;
+        exit(Liberadas);
+    end;
+
+    local procedure CargarVersionesDeLiquidacionActiva(NoEmpleado: Code[20]; NoLiquidacionActual: Code[20]; var Uso: Record "Uso Parámetro Liq."; var VersionesActuales: Record "Parámetro Vigente" temporary)
+    var
+        Liq: Record "Liquidación";
+    begin
+        if NoLiquidacionActual = '' then
+            exit;
+
+        // La cabecera debe seguir activa mientras se usan estas respuestas positivas.
+        // Uso ya tiene LockTable en el llamador; no se aceptan lecturas sucias ni se conserva
+        // esta precarga entre documentos. El motor llama después de guardar Calculada.
+        Liq.ReadIsolation := IsolationLevel::UpdLock;
+        Liq.SetLoadFields(Estado, "No. Empleado");
+        if not Liq.Get(NoLiquidacionActual) then
+            exit;
+        if Liq."No. Empleado" <> NoEmpleado then
+            exit;
+        if not (Liq.Estado in [Liq.Estado::Calculada, Liq.Estado::Aprobada, Liq.Estado::Contabilizada]) then
+            exit;
+
+        CargarVersionesRegistradas(NoLiquidacionActual, Uso, VersionesActuales);
+    end;
+
+    local procedure CargarVersionesRegistradas(NoLiquidacion: Code[20]; var Uso: Record "Uso Parámetro Liq."; var VersionesConfirmadas: Record "Parámetro Vigente" temporary)
+    begin
+        // El llamador ya confirmó y bloqueó la cabecera activa. Restablecer filtros/clave
+        // y pedir UpdLock explícito conserva sus usos hasta terminar la transacción.
+        // Sólo se lee este documento por su PK, sin buscar otros recibos.
+        Uso.Reset();
+        Uso.ReadIsolation := IsolationLevel::UpdLock;
+        Uso.SetRange("No. Liquidación", NoLiquidacion);
+        Uso.SetLoadFields("Cód. Parámetro Base", "Cód. Parámetro", "Vigencia Desde");
+        if Uso.FindSet() then
+            repeat
+                // La PK temporal conserva los tres componentes sin concatenaciones ni
+                // ambigüedad entre nombres de variable, bases, claves o vigencias.
+                if not VersionesConfirmadas.Get(Uso."Cód. Parámetro Base", Uso."Cód. Parámetro", Uso."Vigencia Desde") then begin
+                    VersionesConfirmadas.Init();
+                    VersionesConfirmadas."Cód. Parámetro Base" := Uso."Cód. Parámetro Base";
+                    VersionesConfirmadas."Cód. Parámetro" := Uso."Cód. Parámetro";
+                    VersionesConfirmadas."Vigencia Desde" := Uso."Vigencia Desde";
+                    VersionesConfirmadas.Insert(false);
+                end;
+            until Uso.Next() = 0;
+    end;
+
+    local procedure ConfirmarPendientesDeTestigo(NoLiquidacion: Code[20]; var Uso: Record "Uso Parámetro Liq."; var Pendientes: Record "Parámetro Vigente" temporary; var CantidadPendientes: Integer): Integer
+    var
+        Confirmadas: Integer;
+    begin
+        // La query ya confirmó y protegió la cabecera. Sólo interesan triples exactas aún
+        // pendientes: no almacenar versiones ajenas, duplicadas o ya resueltas por otro recibo.
+        Uso.Reset();
+        Uso.ReadIsolation := IsolationLevel::UpdLock;
+        Uso.SetRange("No. Liquidación", NoLiquidacion);
+        Uso.SetLoadFields("Cód. Parámetro Base", "Cód. Parámetro", "Vigencia Desde");
+        if Uso.FindSet() then
+            repeat
+                if Pendientes.Get(Uso."Cód. Parámetro Base", Uso."Cód. Parámetro", Uso."Vigencia Desde") then begin
+                    Pendientes.Delete(false);
+                    CantidadPendientes -= 1;
+                    Confirmadas += 1;
+                    // AL no cortocircuita: salir antes de Next evita avanzar sin candidatas.
+                    if CantidadPendientes = 0 then
+                        exit(Confirmadas);
+                end;
+            until Uso.Next() = 0;
+        exit(Confirmadas);
+    end;
+
+    local procedure TieneUsoExactoActivo(Version: Record "Parámetro Vigente"; var Uso: Record "Uso Parámetro Liq."; var Pendientes: Record "Parámetro Vigente" temporary; var CantidadPendientes: Integer; var DocumentosPrecargados: Dictionary of [Code[20], Boolean]; var PrecargarTestigos: Boolean): Boolean
+    var
+        UsosActivos: Query "Versiones Parámetro En Uso";
+        Resultado: Boolean;
+        DocumentoTestigo: Code[20];
+    begin
+        // SQL resuelve la unión y se detiene en el primer consumidor activo. No traer cada uso
+        // a AL para hacer un Get de cabecera, ni contar todos los recibos que comparten versión.
+        UsosActivos.SetRange(CodigoBase, Version."Cód. Parámetro Base");
+        UsosActivos.SetRange(ClaveParametro, Version."Cód. Parámetro");
+        UsosActivos.SetRange(VigenciaDesde, Version."Vigencia Desde");
+        UsosActivos.Open();
+        Resultado := UsosActivos.Read();
+        if Resultado then
+            DocumentoTestigo := UsosActivos.NumeroLiquidacion;
+        UsosActivos.Close();
+
+        // El testigo ya quedó activo y protegido por ReadExclusive en la query. Sus demás usos
+        // acreditan otras versiones sin otra consulta de existencia. No se filtra el empleado
+        // de la cabecera: el contrato exacto acepta cualquier consumidor activo de esa versión.
+        // Sólo positivos y sólo esta llamada; una ausencia sigue pasando por el TOP1 original.
+        if Resultado then
+            if PrecargarTestigos then
+                if CantidadPendientes > 0 then
+                    if not DocumentosPrecargados.ContainsKey(DocumentoTestigo) then begin
+                        // Cero aporte cambia sólo la política de lectura de esta base, nunca
+                        // una respuesta de existencia. El próximo TOP1 se mantiene intacto.
+                        if ConfirmarPendientesDeTestigo(DocumentoTestigo, Uso, Pendientes, CantidadPendientes) = 0 then
+                            PrecargarTestigos := false;
+                        DocumentosPrecargados.Add(DocumentoTestigo, true);
+                    end;
+        exit(Resultado);
+    end;
+
+    local procedure TieneUsoHistoricoCacheado(Version: Record "Parámetro Vigente"; var NombresPorBase: Dictionary of [Code[20], Text]; var HistoricoPorEmpleado: Dictionary of [Code[20], Dictionary of [Text, Boolean]]; var LiquidacionesHistoricas: Dictionary of [Code[20], Boolean]): Boolean
+    var
+        Param: Record "Parámetro";
+        Nombre: Text;
+    begin
+        if not NombresPorBase.Get(Version."Cód. Parámetro Base", Nombre) then begin
+            Nombre := Version."Cód. Parámetro Base";
+            Param.SetLoadFields("Nombre Variable");
+            if Param.Get(Version."Cód. Parámetro Base") then
+                if Param."Nombre Variable" <> '' then
+                    Nombre := Param."Nombre Variable";
+            NombresPorBase.Add(Version."Cód. Parámetro Base", Nombre);
+        end;
+        if TieneNombreHistoricoCacheado(Version."No. Empleado", Nombre, HistoricoPorEmpleado, LiquidacionesHistoricas) then
+            exit(true);
+        if Nombre <> Version."Cód. Parámetro Base" then
+            exit(TieneNombreHistoricoCacheado(Version."No. Empleado", Version."Cód. Parámetro Base", HistoricoPorEmpleado, LiquidacionesHistoricas));
+        exit(false);
+    end;
+
+    local procedure TieneNombreHistoricoCacheado(NoEmpleado: Code[20]; Nombre: Text; var HistoricoPorEmpleado: Dictionary of [Code[20], Dictionary of [Text, Boolean]]; var LiquidacionesHistoricas: Dictionary of [Code[20], Boolean]): Boolean
+    var
+        PorNombre: Dictionary of [Text, Boolean];
+        Resultado: Boolean;
+    begin
+        if Nombre = '' then
+            exit(false);
+        if HistoricoPorEmpleado.Get(NoEmpleado, PorNombre) then
+            if PorNombre.Get(Nombre, Resultado) then
+                exit(Resultado);
+
+        // El histórico no identifica vigencia ni clave derivada. Su respuesta sólo depende
+        // del nombre y del empleado de la LÍNEA; para una versión general no filtra empleado.
+        Resultado := BuscarNombreHistoricoSinRegistro(NoEmpleado, Nombre, LiquidacionesHistoricas);
+        PorNombre.Add(Nombre, Resultado);
+        if HistoricoPorEmpleado.ContainsKey(NoEmpleado) then
+            HistoricoPorEmpleado.Set(NoEmpleado, PorNombre)
+        else
+            HistoricoPorEmpleado.Add(NoEmpleado, PorNombre);
+        exit(Resultado);
+    end;
+
+    local procedure BuscarNombreHistoricoSinRegistro(NoEmpleado: Code[20]; Nombre: Text; var LiquidacionesHistoricas: Dictionary of [Code[20], Boolean]): Boolean
+    var
+        Linea: Record "Línea Liquidación";
+        Entradas: List of [Text];
+        Entrada: Text;
+        Coincide: Boolean;
+    begin
+        Linea.SetLoadFields("No. Liquidación", "Fuente Parámetros");
+        if NoEmpleado <> '' then
+            Linea.SetRange("No. Empleado", NoEmpleado);
+        // Sustituir antes de aplicar el filtro: SetFilter con '*%1*' puede buscar el %1 literal.
+        Linea.SetFilter("Fuente Parámetros", StrSubstNo('*%1*', 'VAR:' + Nombre));
+        if Linea.FindSet() then
+            repeat
+                Coincide := false;
+                Entradas := Linea."Fuente Parámetros".Split('|');
+                foreach Entrada in Entradas do
+                    if (Entrada = 'VAR:' + Nombre) or (Entrada = 'VAR:' + Nombre + '_ESFCY') then
+                        Coincide := true;
+                if Coincide then
+                    if EsLiquidacionHistoricaActiva(Linea."No. Liquidación", LiquidacionesHistoricas) then
+                        exit(true);
+            until Linea.Next() = 0;
+        exit(false);
+    end;
+
+    local procedure EsLiquidacionHistoricaActiva(Numero: Code[20]; var LiquidacionesHistoricas: Dictionary of [Code[20], Boolean]): Boolean
+    var
+        Liq: Record "Liquidación";
+        Uso: Record "Uso Parámetro Liq.";
+        Resultado: Boolean;
+    begin
+        if LiquidacionesHistoricas.Get(Numero, Resultado) then
+            exit(Resultado);
+        Liq.SetLoadFields(Estado);
+        if Liq.Get(Numero) then
+            if Liq.Estado in [Liq.Estado::Calculada, Liq.Estado::Aprobada, Liq.Estado::Contabilizada] then begin
+                Uso.SetRange("No. Liquidación", Numero);
+                // Cualquier uso registrado excluye TODO el recibo del respaldo histórico,
+                // aunque sea de otro parámetro: esa corrida ya declara sus versiones exactas.
+                Resultado := Uso.IsEmpty();
+            end;
+        LiquidacionesHistoricas.Add(Numero, Resultado);
+        exit(Resultado);
+    end;
+
+    procedure TieneUsoActivo(Version: Record "Parámetro Vigente"): Boolean
+    var
+        Uso: Record "Uso Parámetro Liq.";
+        Liq: Record "Liquidación";
+        Param: Record "Parámetro";
+        Nombre: Text;
+    begin
+        Uso.SetCurrentKey("Cód. Parámetro", "Vigencia Desde", "No. Liquidación");
+        Uso.SetRange("Cód. Parámetro Base", Version."Cód. Parámetro Base");
+        Uso.SetRange("Cód. Parámetro", Version."Cód. Parámetro");
+        Uso.SetRange("Vigencia Desde", Version."Vigencia Desde");
+        if Uso.FindSet() then
+            repeat
+                if Liq.Get(Uso."No. Liquidación") then
+                    if Liq.Estado in [Liq.Estado::Calculada, Liq.Estado::Aprobada, Liq.Estado::Contabilizada] then
+                        exit(true);
+            until Uso.Next() = 0;
+
+        Nombre := Version."Cód. Parámetro Base";
+        if Param.Get(Version."Cód. Parámetro Base") then
+            if Param."Nombre Variable" <> '' then
+                Nombre := Param."Nombre Variable";
+        if TieneUsoHistoricoSinRegistro(Version, Nombre) then
+            exit(true);
+        // También protege el nombre antiguo cuando se vació/renombró la cabecera.
+        if Nombre <> Version."Cód. Parámetro Base" then
+            exit(TieneUsoHistoricoSinRegistro(Version, Version."Cód. Parámetro Base"));
+        exit(false);
+    end;
+
+    local procedure TieneUsoHistoricoSinRegistro(Version: Record "Parámetro Vigente"; Nombre: Text): Boolean
+    var
+        Linea: Record "Línea Liquidación";
+        Liq: Record "Liquidación";
+        Uso: Record "Uso Parámetro Liq.";
+        Entradas: List of [Text];
+        Entrada: Text;
+        Coincide: Boolean;
+    begin
+        if Nombre = '' then
+            exit(false);
+        Linea.SetLoadFields("No. Liquidación", "Fuente Parámetros");
+        if Version."No. Empleado" <> '' then
+            Linea.SetRange("No. Empleado", Version."No. Empleado");
+        // Sustituir antes de aplicar el filtro: SetFilter con '*%1*' puede buscar el %1 literal.
+        Linea.SetFilter("Fuente Parámetros", StrSubstNo('*%1*', 'VAR:' + Nombre));
+        if Linea.FindSet() then
+            repeat
+                Coincide := false;
+                Entradas := Linea."Fuente Parámetros".Split('|');
+                foreach Entrada in Entradas do
+                    if (Entrada = 'VAR:' + Nombre) or (Entrada = 'VAR:' + Nombre + '_ESFCY') then
+                        Coincide := true;
+                if Coincide then
+                    if Liq.Get(Linea."No. Liquidación") then
+                        if Liq.Estado in [Liq.Estado::Calculada, Liq.Estado::Aprobada, Liq.Estado::Contabilizada] then begin
+                            Uso.SetRange("No. Liquidación", Liq."No.");
+                            // Una corrida con registro usa sus versiones exactas, no una resolución
+                            // actual que puede haber cambiado desde que se calculó.
+                            if Uso.IsEmpty() then
+                                exit(true);
+                        end;
+            until Linea.Next() = 0;
+        exit(false);
+    end;
+
+    procedure RevertirAprobacion(var Liq: Record "Liquidación"): Boolean
     begin
         if Liq.Estado <> Liq.Estado::Aprobada then
             Error(ErrSoloAprobada);
         if not Confirm(MsgConfirmarRevertir, false) then
             exit(false);
+        RevertirAprobacionSinConfirmar(Liq);
+        exit(true);
+    end;
+
+    /// <summary>Revierte la aprobación sin preguntar: la usa la reversión en lote, que ya pidió su propia confirmación.</summary>
+    procedure RevertirAprobacionSinConfirmar(var Liq: Record "Liquidación")
+    var
+        LinLiq: Record "Línea Liquidación";
+        GestPrest: Codeunit "Gestión Préstamos";
+    begin
         Registro.Iniciar("Tipo Proceso Liq."::"Reversión Aprobación", Liq);
         Liq.Estado := Liq.Estado::Calculada;
         Liq.Modify(true);
@@ -363,7 +806,6 @@ codeunit 50019 "Gestión Liquidación"
         GestPrest.RevertirCuotasLiquidacion(Liq."No.");
         Registro.Info("Categoría Registro Liq."::Estado, RegRevertidaTxt);
         Registro.Finalizar();
-        exit(true);
     end;
 
     var
@@ -375,6 +817,8 @@ codeunit 50019 "Gestión Liquidación"
         ErrSoloCalculada: Label 'Solo se pueden aprobar liquidaciones en estado Calculada.';
         ErrSoloCalculadaReabrir: Label 'Solo se puede reabrir una liquidación en estado Calculada.';
         ErrSoloAprobada: Label 'Solo se puede revertir una liquidación en estado Aprobada.';
+        MotBloqueoPosterior: Label '%1: el empleado tiene calculada la liquidación posterior %2 (período %3)', Comment = '%1=liquidación, %2=posterior, %3=período de la posterior';
+        MotBloqueoFrancos: Label '%1: sus francos los consume la liquidación %2, que no está en la selección', Comment = '%1=liquidación, %2=consumidora';
         ErrPosterioresAlReabrir: Label 'No se puede reabrir %1 (período %2) porque el empleado ya tiene liquidado el período %4 en la liquidación %3, del %5.\\Reabrir libera las novedades aplicadas y desmarca las cuotas de préstamo de esta liquidación: con una posterior ya calculada, el próximo cálculo del empleado se las vuelve a llevar —la misma cuota descontada dos veces, la misma novedad liquidada dos veces—. Además las líneas quedan en Borrador, y los acumuladores anuales y del período no cuentan Borrador.\\Usá "Recalcular en cadena" para rehacer ésta y todas las posteriores en orden.', Comment = '%1=liq actual, %2=período actual, %3=liq posterior, %4=período posterior, %5=fecha';
         MsgConfirmarRevertir: Label 'Esta liquidación ya fue aprobada. ¿Confirma que desea revertir la aprobación y volver al estado Calculada?';
 }

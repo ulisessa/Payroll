@@ -277,7 +277,8 @@ codeunit 50081 "Control Marea Liq."
     procedure ConstruirVariablesComunes(var Comunes: Record "Resumen Variable Liq." temporary; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20])
     var
         Liq: Record "Liquidación";
-        Res: Record "Resumen Variable Liq.";
+        Res: Record "Resumen Variable Liq." temporary;
+        VariablesGuardadas: Codeunit "Variables Guardadas Liq.";
         Descartadas: List of [Code[30]];
         Vistas: Integer;
     begin
@@ -289,7 +290,9 @@ codeunit 50081 "Control Marea Liq."
 
         repeat
             Vistas += 1;
-            Res.SetRange("No. Liquidación", Liq."No.");
+            // Completas: los parámetros que el resumen omite (ya están en el uso del parámetro) tienen que contar, o toda variable
+            // de convenio saldría "no presente" y se descartaría de las comunes de la marea.
+            VariablesGuardadas.Cargar(Liq."No.", Res);
             if Vistas = 1 then begin
                 if Res.FindSet() then
                     repeat

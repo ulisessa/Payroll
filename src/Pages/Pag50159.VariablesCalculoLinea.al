@@ -6,6 +6,7 @@ page 50159 "Variables Cálculo Línea"
     Caption = 'Variables del Cálculo';
     PageType = List;
     SourceTable = "Detalle Variable Línea Liq.";
+    SourceTableTemporary = true;
     Editable = false;
     UsageCategory = None;
 
@@ -82,6 +83,15 @@ page 50159 "Variables Cálculo Línea"
             }
         }
     }
+
+    /// <summary>Carga las variables de una línea, con las que el motor no repite por línea ya repuestas desde el resumen.</summary>
+    procedure Cargar(LiqNo: Code[20]; LineNo: Integer)
+    var
+        Guardadas: Codeunit "Variables Guardadas Liq.";
+    begin
+        Guardadas.CargarDetalle(LiqNo, LineNo, Rec);
+        if Rec.FindFirst() then;
+    end;
 
     trigger OnOpenPage()
     var

@@ -208,12 +208,9 @@ page 50118 "Líneas Liquidación"
                 ToolTip = 'Muestra las variables que se utilizaron al calcular esta línea.';
                 trigger OnAction()
                 var
-                    Det: Record "Detalle Variable Línea Liq.";
                     VarPage: Page "Variables Cálculo Línea";
                 begin
-                    Det.SetRange("No. Liquidación", Rec."No. Liquidación");
-                    Det.SetRange("No. Línea", Rec."No. Línea");
-                    VarPage.SetTableView(Det);
+                    VarPage.Cargar(Rec."No. Liquidación", Rec."No. Línea");
                     VarPage.Caption := Rec."Descripción Concepto";
                     VarPage.RunModal();
                 end;

@@ -16,7 +16,20 @@ page 50152 "Ded. Ganancias Empleado Sub"
             {
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
                 field("Cód. Tipo"; Rec."Cód. Tipo") { ApplicationArea = All; }
-                field(Descripción; Rec.Descripción) { ApplicationArea = All; }
+                // La importación del SIRADIG asigna "Cód. Tipo" sin Validate y deja Descripción vacía: se muestra la propia
+                // si está cargada y, si no, la de la tabla de tipos (vigente a la fecha de la declaración).
+                field(DescripcionMostrada; DescripcionMostrada)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Descripción';
+                    Editable = false;
+                    ToolTip = 'Descripción de la deducción: la cargada en la línea o, si está vacía, la del tipo de deducción.';
+                }
+                field("No. Línea"; Rec."No. Línea")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Distingue deducciones del mismo tipo en la misma vigencia (por ejemplo, dos hijos con gasto educativo). Para una sola deducción por tipo, dejar en 0.';
+                }
                 field(Cantidad; Rec.Cantidad)
                 {
                     ApplicationArea = All;
@@ -69,4 +82,21 @@ page 50152 "Ded. Ganancias Empleado Sub"
             }
         }
     }
+
+    trigger OnAfterGetRecord()
+    begin
+        DescripcionMostrada := Rec.Descripción;
+        if DescripcionMostrada <> '' then exit;
+        DedVigente.SetRange(Código, Rec."Cód. Tipo");
+        DedVigente.SetFilter("Vigencia Desde", '<=%1', Rec."Vigencia Desde");
+        if not DedVigente.FindLast() then begin
+            DedVigente.SetRange("Vigencia Desde");
+            if not DedVigente.FindFirst() then exit;
+        end;
+        DescripcionMostrada := DedVigente.Descripción;
+    end;
+
+    var
+        DedVigente: Record "Ded. Ganancias Vigente";
+        DescripcionMostrada: Text[100];
 }
