@@ -3,40 +3,51 @@ aliases: ["Variables rotas que valen cero"]
 tipo: leccion
 tema: formulas-evaluador
 tags: [leccion, formulas-evaluador, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-15
 ---
 
 # Variables rotas que valen cero
 
-> [!note] Verificar: Al 2026-10-04 `AÑOS_ANTIG_30JUN` y `MESES_PROM_AUS_6/12` ya tienen `case` en el motor. Revisar si el resto sigue vigente. Ver [[Divergencias entre documentación vieja y código]].
+Una fila activa de `Variable Sistema Liq.` con un `Cód. Cálculo` que el motor no implementa
+se carga como **cero** y deja una advertencia. La existencia de ese aviso no demuestra que
+una fórmula haya utilizado el cero: también se cargan variables que ninguna fórmula consume.
 
-> [!warning] Falla en silencio
-> tres variables de sistema con Cód. Cálculo inexistente valen CERO en fórmulas que las usan: antigüedad SOMU y los promedios de ausentismo
+## Estado verificado el 15/10/2026
 
-Siete variables de sistema están **activas con un `Cód. Cálculo` que el dispatcher de Cod50016 no
-conoce**, así que valen CERO en toda fórmula que las nombre y el motor sólo lo dice como advertencia.
-**Tres de ellas las usa una fórmula vigente**, y ahí el cero es un defecto real:
+`AÑOS_ANTIG_30JUN`, `MESES_PROM_AUS_6` y `MESES_PROM_AUS_12` **sí tienen `case`** en el motor
+actual. El hallazgo anterior que proponía agregar esos tres cálculos ya no describe el código
+publicado; ver [[antiguedad-suma-de-fases]] y [[ventana-promedio-ausentismo]].
 
-| Variable | La usa | Qué rompe |
-|---|---|---|
-| `AÑOS_ANTIG_30JUN` | `PCT_ANTIG_SOMU` | el corte del 30/6 del Art. 32 — ver [[antiguedad-suma-de-fases]] |
-| `MESES_PROM_AUS_6` | `PROM_AUS_MES`, `PROM_AUS_MES_NR` | los promedios de ausentismo — ver [[ventana-promedio-ausentismo]] |
-| `MESES_PROM_AUS_12` | `PROM_AUS_MES`, `PROM_AUS_MES_NR` | ídem |
+La revisión de avisos de **1.0.0.660** encontró cinco filas con código inexistente:
+`DIAS_COBERTURA_30`, `DIAS_HAB_ANIO`, `HAB_EXTORD_ANUAL`, `HAB_GRAV_ANUAL` y `RETENIDO_ANUAL`.
+No tenían consumidores exactos en las fórmulas y configuración conservadas. Se **inactivaron**,
+sin borrar filas, renombrar variables ni modificar fórmulas o recibos. No requieren recalcular
+enero. Las alternativas que ya usa la configuración se detallan en [[Variables de sistema]].
 
-Las otras cuatro —`DIAS_HAB_ANIO`, `HAB_EXTORD_ANUAL`, `HAB_GRAV_ANUAL` y `RETENIDO_ANUAL`— **no
-las nombra ninguna fórmula**: son filas viejas que quedaron al lado de las `YTD_*` que sí funcionan,
-y sólo hacen ruido en el informe de avisos. `DIAS_HAB_ANIO` es el caso ANIO/AÑO que el propio
-comentario del motor menciona: el código que existe es **`DIAS_HAB_AÑO`, con Ñ**.
+`DIAS_HAB_ANIO` no es una grafía equivalente a `DIAS_HAB_AÑO`: el motor implementa la segunda,
+con Ñ. `DIAS_COBERTURA_30` tampoco debe convertirse mecánicamente en `DIAS_ALTA_30`, porque
+una cobertura parcial y la fase de alta miden cosas distintas; ver [[cobertura-parcial-no-es-ausencia]].
 
-**Cómo buscar esto bien**: la lista de códigos válidos NO es la de la ayuda de Pag50146, que está
-incompleta y desactualizada. La fuente es el `case` de `ResolverVariableSistema` en Cod50016; se
-saca con `grep -oE "^            '[A-ZÑ_]+'"`. Y para ver si una fórmula usa la variable **no sirve
-un `LIKE '%nombre%'`**: `HAB_EXTORD_ANUAL` matchea dentro de `YTD_HAB_EXTORD_ANUAL` y da falsos
-positivos. Hay que exigir un carácter no alfanumérico a cada lado:
-`PATINDEX('%[^A-Za-z0-9_]'+nv+'[^A-Za-z0-9_]%', ' '+REPLACE(formula,CHAR(10),' ')+' ') > 0`.
+## Cómo verificar un caso nuevo
 
-Las tres que importan **necesitan código AL**, no configuración: son lógicas de cálculo que el motor
-no tiene. Arreglarlas es agregar su `case` en Cod50016, no tocar la fila.
+1. Comparar el `Cód. Cálculo` de la fila con el `case` de **`ComputeVariableSistema`** en
+   Cod50016 y con la versión publicada. La ayuda de Pag50146 y la lista del lookup pueden
+   estar incompletas; no son el dispatcher.
+2. Buscar usos del **identificador completo** en todas las vigencias conservadas de conceptos,
+   fórmulas, condiciones, órdenes, cantidades, bases, fuentes, filtros y parámetros. No alcanza
+   `LIKE '%nombre%'`: `HAB_EXTORD_ANUAL` aparece dentro de `YTD_HAB_EXTORD_ANUAL` sin ser
+   una referencia independiente. El límite debe excluir letras españolas, números y guion bajo;
+   por ejemplo, `(?<![\p{L}\p{N}_])NOMBRE(?![\p{L}\p{N}_])`.
+3. Verificar otros dueños o aliases del nombre antes de inactivar o migrar una fila. Cambiar el
+   propietario de un nombre puede hacer que otra fuente lo sobrescriba.
+4. Si el cálculo existe, corregir su configuración; si la fila no tiene uso, retirarla del catálogo
+   activo conservando su trazabilidad. Sólo un cálculo requerido que realmente no exista puede
+   necesitar AL nuevo. **Sembrar agrega faltantes; no repara códigos erróneos de filas existentes.**
+
+Antes de 660, `AvisarCodigoDesconocido` unía los mensajes sin separador. El registro guardaba
+los primeros 250 caracteres y perdía el resto, ocultando otros nombres. Desde 660 se separan
+los avisos y un mensaje largo conserva texto en `Detalle`; esto mejora la lectura del control,
+sin cambiar la resolución de una variable ni los resultados económicos.
 
 ## Relacionado
 

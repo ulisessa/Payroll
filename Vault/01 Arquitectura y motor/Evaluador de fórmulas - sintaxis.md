@@ -94,22 +94,28 @@ Como la fórmula se pone en mayúsculas, **un `Nombre Variable` configurado con 
 
 Un `#` sobre un acumulador devuelve su subtotal *hasta ese punto*; sobre un concepto con novedad devuelve el importe de la novedad.
 
-## Comparación de un atributo contra un código
+## Comparación contra un código
 
-Si a la derecha de `=` o `<>` hay una **cadena entre comillas**, el evaluador descarta el valor numérico de la izquierda y compara el **código** del atributo de lista:
+Si a la derecha de `=` o `<>` hay una **cadena entre comillas**, el evaluador descarta el valor numérico de la izquierda y compara el **código**:
 
 ```
 IF(SINDICATO = 'PAT', 1, 0)
+IF(TIPO_LIQ = 'CIERRE_MAREA', 1, 0)
 ```
+
+Vale para **dos cosas**: los atributos de tipo `Lista` y la variable de sistema `TIPO_LIQ`
+([[tipo-liq-no-implementada]]). Las dos viajan por el mismo canal —`FCodigosAtributos`— y por eso el
+editor autocompleta la lista de códigos en los dos casos.
 
 Reglas (`CompararCodigoAtributo`, `ValidarCodigoAtributo`):
 
 - Sólo `=` y `<>`; otro operador → *"Los códigos de atributo solo admiten = y <>."*
-- El texto de la izquierda **tiene que ser exactamente el nombre** del atributo (se recorta del original entre el inicio de la comparación y el operador). Una expresión a la izquierda no sirve.
-- El atributo debe ser de tipo `Lista` con ese `Nombre Variable`, y el código debe existir entre sus valores; si no, error al validar (no en silencio). El resultado bueno se cachea por liquidación (`FCodigosValidos`).
+- El texto de la izquierda **tiene que ser exactamente el nombre** del atributo o de la variable (se recorta del original entre el inicio de la comparación y el operador). Una expresión a la izquierda no sirve.
+- Para un atributo: debe ser de tipo `Lista` con ese `Nombre Variable`, y el código debe existir entre sus valores. Para `TIPO_LIQ`: el código debe existir en `Tipo Liquidación`, y el error enumera los que sí valen. Si no, error al validar (no en silencio). El resultado bueno se cachea por liquidación (`FCodigosValidos`).
+- **La comparación no distingue mayúsculas** (desde el 11/10/2026). Antes iba contra el literal crudo mientras la validación filtraba un campo `Code` con collation CI: `SINDICATO = 'pat'` pasaba la validación y la condición era falsa **siempre**, sin un solo aviso.
 - Se compara contra `FCodigosAtributos`, que llena `LoadAtributos`. Si un parámetro o fuente le pisó el nombre al atributo, **no hay código cargado**: error *"No se cargó el código vigente de X…"* (o `0` en tolerante). Ver [[parametro-y-atributo-mismo-nombre]] y [[atributo-comparar-por-codigo]].
 - En modo histórico (detalle de cálculo) exige que el código se haya conservado.
-- Una cadena fuera de ese contexto (por ejemplo `'X' + 1`) → *"Un código entre comillas solo puede usarse como argumento de texto o a la derecha de una comparación de atributo."* El único otro uso legítimo es el primer argumento de `TRAMO`.
+- Una cadena fuera de ese contexto (por ejemplo `'X' + 1`) → *"Un código entre comillas solo puede usarse como argumento de texto o a la derecha de una comparación de atributo."* También se admiten los nombres literales de `TRAMO` y los tres primeros argumentos de `ACUM_PARAM_CCT`; ver [[Evaluador de fórmulas - funciones]].
 
 ## Modos del evaluador
 

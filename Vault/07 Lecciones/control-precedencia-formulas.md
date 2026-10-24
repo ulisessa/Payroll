@@ -8,7 +8,13 @@ actualizado: 2026-10-04
 
 # Control de precedencia de fórmulas
 
-Control estático que detecta fórmulas que referencian con # o @ un concepto de orden de cálculo mayor, que leen cero sin dar error
+Control estático de dependencias de conceptos y acumuladores.
+
+> [!important] Aclaración del 14/10/2026
+> `#` lee un resultado ya calculado y depende del orden. `@` reevalúa la fórmula: no necesita que
+> el concepto referenciado haya corrido, aunque hereda las dependencias de sus acumuladores y
+> referencias `#`. El diagnóstico histórico siguiente no debe interpretarse como una regla de
+> precedencia de `@`. La acción actual se documenta en [[Orden de cálculo y precedencia]].
 
 Una fórmula que lee `#XXXX` o `@XXXX` de un concepto que se calcula **después** obtiene **cero**, sin
 error y sin rastro — el patrón de [[concepto-negativo-despues-de-sus-consumidores]] y de
@@ -47,3 +53,7 @@ intermedio que los dos lean.
 - [[novedad-con-proyecto-queda-huerfana]]
 - [[comparar-columna-contra-total]]
 - [[grossing-up-tapa-errores]]
+
+## El 1534 seguía leyendo #1023 antes de que se calculara (16/10/2026)
+
+El control del 28/9 había listado `1534 (159) -> #1023 (450)` y quedó. El 1023 después pasó de 450 a **470** y la rama del 1534 que restaba el feriado quedó en el **451**: siempre leyó cero. En el devengado del 13 al 28/2 de 04724 el premio absorbía el feriado (1534 +142.318, 2003 −140.320 contra Meta4, bruto +1.997). El orden del 1534 pasó a `IF(APLICA_PROD_FIJO > 0 AND TIPOACTIVIDAD = 1 AND PCT_PROD_CAPECA > 0, 471, 159)` (`scripts/Orden1534DespuesDel1023.sql`, vigencia 2026-02-04): 471 es justo después del 1023, y sin la guarda del grossing-up porque la rama con `#1023` también les aplica. **Pendiente:** la rama tangonero (`TIPOACTIVIDAD <> 1`) también lee `#1023` y sigue en 159; sin verificar contra Meta4. Las fracciones del 1534 no necesitaron copia: el motor toma la vigencia de fracciones más reciente a la fecha (01/01, 01/02 y 02/02 existen; no hay de 03/02).

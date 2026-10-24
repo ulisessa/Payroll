@@ -46,6 +46,8 @@ Manual del **usuario y operador** del sistema de liquidación. Todo lo que está
 |---|---|
 | [[Asistente de fórmulas y detalle del cálculo]] | Probar una fórmula; explicar una línea ya liquidada |
 | [[Controles y avisos del cálculo]] | Catálogo de avisos y errores, y pantallas de control |
+| [[Dónde se usa un símbolo]] | Qué fórmulas, filtros y acumuladores nombran a algo, y quién lo lee antes de que esté listo |
+| [[Reporte SICOSS]] | La declaración mensual de la seguridad social en Excel, y qué columnas no cierran contra Meta4 |
 | [[Resolución de problemas frecuentes]] | De síntoma a causa |
 
 ## Memoria del manual
@@ -65,3 +67,6 @@ Modelo de datos (`02 Modelo de datos`): [[Tabla - Liquidación]] · [[Tabla - L�
 ## Ver también
 
 [[Índice Arquitectura y motor]] · [[Índice Integraciones]] · [[Índice Dominio - empleado y condiciones]] · [[Índice Dominio - marea y pagos]] · [[Índice Desarrollo y operaciones]]
+
+- [[Carga de atributos y parámetros desde las fichas]] — carga e historial de atributos, y parámetros vinculados desde su origen.
+

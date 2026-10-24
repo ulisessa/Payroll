@@ -72,3 +72,35 @@ Los seis `.md` de la raíz (`README_SIRADIG.md`, `IMPORTACION_SIRADIG_GUIA.md`, 
 ## Ver también
 
 [[Tabla - Importación SIRADIG]], [[Tabla - Cue SIRADIG]], [[Tabla - Ded. Ganancias Empleado]], [[Tabla - Ded. Ganancias Vigente]], [[Extensión - Employee Relative]], [[Extensión - Human Resources Setup SIRADIG]], [[Deducciones de Ganancias y familiares]], [[SIRADIG - modelo y parser]].
+
+## ZIP con todas las presentaciones (19/10/2026)
+
+AFIP baja las presentaciones de todos los trabajadores en un único ZIP (`resultadosXML.zip`, un XML por trabajador con el nombre `CUIL_PERIODO_presentacion_NRO.xml`). **Importar Archivos SIRADIG** lo acepta: un `.zip` a secas se abre y cada XML se importa como un archivo más, con el CUIL sacado del nombre de la entrada (`Gestor Archivos SIRADIG.ExtraerXmlsDelZip`, Cod50047). Un `.xml.zip` sigue siendo UNA presentación con el CUIL del nombre del zip.
+
+El orquestador (Cod50046, `ImportarArchivosSubidos`) ahora lee primero todo lo subido a una lista de (nombre, XML) y después importa de a uno con el mismo `Commit` + `Run` de siempre; el importador (Cod50058) tiene `SetContenido` para trabajar desde el texto ya leído. Un archivo ilegible o con nombre inválido se anota en el resumen y no frena al resto; reimportar la misma presentación se rechaza con "ya ha sido importado". La importación **por carpeta del servidor** sigue pidiendo `.xml.zip` / `.xml` sueltos: no abre ZIP con varias presentaciones.
+
+Pendiente de probar con la importación real. El archivo de prueba es `2026-01/resultadosXML.zip`: 19 presentaciones de enero de 2026 (37 cargas, 24 deducciones), los 19 CUIL son empleados de BC.
+
+## Cambios del 19/10/2026 sobre el procesamiento (deducciones, familiares y archivos subidos)
+
+Salen de importar `2026-01/resultadosXML.zip` (19 presentaciones de enero de 2026) y comparar lo que el procesador habría hecho con lo que ya hay en BC.
+
+**Procesar un archivo subido desde la PC.** Antes la acción **Procesar Importación** (y el proceso masivo) leían el archivo de la ruta guardada en `Archivo Origen`, que para un archivo subido es sólo el nombre: fallaba. Ahora el XML se lee del registro de auditoría (`Auditoria AFIP Interface.LeerXmlRegistrado`, usa `AFIP Register Entry No.`) y sólo si no está se cae al archivo del servidor (`Orquestador SIRADIG.LeerXmlDeLaImportacion`).
+
+**Deducciones: mes a mes y con la vigencia del mes.** Cada `<deduccion>` trae `<periodo mesDesde mesHasta montoMensual>`: el importe de cada mes. `Ded. Ganancias Empleado."Importe Fijo"` es mensual y el motor lee sólo el conjunto de la vigencia más reciente, así que la declaración se carga como línea de tiempo: una vigencia (día 1 del mes) por cada mes en que cambia el conjunto de deducciones activas, con todas las activas ese mes; cuando deja de haber activas, una línea en cero por cada tipo que terminó. Antes se cargaba `montoTotal` (anual) como mensual y con vigencia = hoy. En enero de 2026: 8 empleados con deducciones, 24 líneas de importe con vigencia 1/1 y 24 líneas en cero con vigencia 1/2 (la presentación de enero sólo declara enero). Un recálculo de enero, febrero o marzo de esos empleados **cambia**: el motor ahora ve las deducciones, sin los topes de Meta4 (educación 40 % de la ganancia no imponible, médica 5 %, etc.).
+
+**Familiares: no se pisa lo que ya está.** `EncontrarFamiliar` busca por documento (SIRADIG informa el CUIL del familiar, 11 dígitos; BC guarda el DNI: son los dígitos 3 a 10), después por fecha de nacimiento si identifica a uno solo del empleado (36 de 37 cargas) y recién después por apellido y nombre (4 de 37: BC y SIRADIG los escriben distinto). Un familiar que ya existe conserva su código de parentesco, documento y datos del impuesto: sólo se completan los vacíos. Uno nuevo se crea con el código de SIRADIG si existe en la tabla Relative (1, 3, 30, 31, 32, 103) o `CC` para el 51, y queda sin `Cód. Tipo Ded.` ni fecha de alta del impuesto: no deduce hasta que alguien se los cargue ([[familiar-alta-impuesto]]). El `mesDesde`, `mesHasta` y `porcentajeDeduccion` del XML hoy no se usan.
+
+## Árbol de importaciones por período (19/10/2026)
+
+`Árbol de Importaciones SIRADIG` (Pag110075, con el buffer temporal Tab110066 y el armado en Cod110076) agrupa **Mes de presentación → Estado → Importación**. El período de SIRADIG es el año fiscal (2026) y todas las presentaciones del año caen en él, por eso el corte es el mes de la `Fecha Presentación` (enero, febrero...); las importaciones sin fecha van a un nodo aparte, con contadores (importaciones, pendientes, con errores, procesadas) por nodo y los pendientes arriba. Se abre desde la lista con **Ver por Período**.
+
+Las acciones corren sobre el **alcance** de lo marcado, igual que el árbol de liquidaciones:
+- **Procesar**: de lo marcado toma sólo lo pendiente. Parado en un mes de presentación, procesa todo lo que falte en una sola pasada y con un único resumen (`Orquestador SIRADIG.ProcesarFiltradas`, también lo usa la lista con las filas seleccionadas: antes procesaba una sola).
+- **Eliminar**: las que no están procesadas exitosamente, con una confirmación que dice cuántas son.
+- **Abrir lista**: la lista acotada al mes de presentación y estado del nodo.
+- **Importar Archivos SIRADIG**: la misma carga que la lista (xml, .xml.zip o un zip con todas).
+
+`ProcesarFiltradas` no usa `Commit` ni `TryFunction`: la importación de un CUIL que no existe en BC queda en "Error en Procesamiento" con el motivo y el resto sigue; cualquier otro error corta todo y **deshace la pasada completa** —no queda nada a medias—. Se recorre una lista de números con `Get` porque procesar cambia el `Estado` y un bucle que filtra por Estado y lo modifica se detiene sin avisar.
+
+Los objetos de SIRADIG (página, tabla, codeunits) **no están en ningún permission set**; sólo se agregaron los tres del árbol nuevo. Un usuario sin SUPER no podría abrir la lista.

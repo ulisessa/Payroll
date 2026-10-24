@@ -27,8 +27,10 @@ Los "Descuento Anticipo Poder / Llegada / Haberes" del recibo **no salen de
   Migradas 2.028 de 2026 el 18/9/2026 → conceptos 8830/8840/8850, 619.220.000 pesos.
 - **AHA** amortiza: legajos de tierra (`8xxxx`/`9xxxx`), sin buque ni marea, cuotas mensuales
   el día 25. Ej.: 90361 recibe 14.000.000 y devuelve 4 cuotas de 2.000.000. Va a
-  **`Préstamo Empleado`** + `Cuota Préstamo`. **PENDIENTE**, y BC no tiene concepto de
-  descuento de préstamo (habría que usar 8850 o crear uno).
+  **`Préstamo Empleado`** + `Cuota Préstamo`. Los cuatro con descuento de febrero fueron
+  cargados/completados el 12/10/2026, usando el **8870** ya existente. Ver
+  [[prevuelo-febrero-2026-migracion-meta4]]. No regenerar en cuotas iguales un plan de origen
+  desigual ni asignar fechas al saldo cuya programación no existe en Meta4.
 
 **Dos trampas de fecha:**
 

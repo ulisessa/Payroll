@@ -2,7 +2,7 @@
 tipo: proceso
 tags: [motor, recalculo, orden-cronologico]
 fuente: [src/Codeunits/Cod110031.RecalculoEnCadenaLiq.al, src/Codeunits/Cod50019.GestionLiquidacion.al, src/Codeunits/Cod50014.MotorLiquidacion.al, src/Pages/Pag50117.FichaLiquidacion.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-12
 ---
 
 # Recálculo en cadena
@@ -13,11 +13,11 @@ trampa.
 
 ## El problema que resuelve
 
-El motor mira **hacia atrás sin techo**: el ledger de francos (`TotalConsumido`) cuenta todo el consumo
-del empleado sin filtro de fecha, los acumuladores anuales y el YTD de Ganancias hacen lo mismo. Recalcular
-marzo con abril ya liquidado hace que marzo vea el consumo de abril como si ya hubiera ocurrido: el FIFO
-se saltea lotes que en marzo estaban disponibles y marzo se paga con los lotes equivocados. **El número
-que sale no es el que ese mes habría dado en su momento, y nada lo delata.**
+Recalcular un período cambia datos que leen los siguientes: créditos y consumos de francos,
+aportes, Ganancias, novedades y cuotas de préstamos. El YTD actual filtra desde el inicio del año
+hasta FechaRef; no lee todo el historial sin techo. La cuenta corriente también limita el saldo
+por fecha, pero no permite revertir un crédito utilizado por otra liquidación activa. El control
+cronológico protege esa dependencia entre períodos. Ver [[Cuenta corriente y matriz de francos]].
 
 Por eso hay **dos puertas cerradas**, simétricas:
 
@@ -70,6 +70,27 @@ Devuelve cuántas se recalcularon (la de partida incluida). Se invoca desde la a
 ## Todo en una transacción
 
 `Ejecutar` llama a `LiquidarRecord` **directamente** (no `LiquidarConRegistro`): si un período de la cadena falla, el `Error` se propaga y **se revierte la cadena entera**. Dejarla a medio rehacer sería peor que el problema original (períodos sin líneas y nadie sabría cuáles). Contrasta con los lotes, donde cada liquidación tiene su transacción ([[Transaccionalidad y errores del cálculo]]).
+
+## Varias liquidaciones del mismo mes
+
+Los acumuladores PERIODO_ACUM leen las otras liquidaciones calculadas del mes, incluso las
+fechadas después. Recalcular un cierre individual dejando Devengados y Regular calculadas puede
+asignarle aporte cero porque aquellas bases ya alcanzan el tope. Repetirlo para las siguientes
+no reconstruye necesariamente los descuentos realmente pagados.
+
+`EjecutarMesEmpleado(Numero)` rehace las **Calculadas** del empleado y período del documento:
+
+1. Valida que no haya Aprobadas/Contabilizadas ni líneas activas de meses posteriores.
+2. Ordena por Fecha Liquidación y número. Los borradores preexistentes quedan afuera.
+3. Reabre todas en orden inverso mediante Gestión Liquidación, antes de calcular la primera.
+4. Calcula en orden ascendente con LiquidarRecord. Todo ocurre en una transacción, sin Commit nuevo.
+
+Así los topes y acumulados se reconstruyen desde las mismas bases que al calcular por primera vez.
+No cambia la acción existente de cadena entre períodos. Para administración en ArbuTest se usa
+`scripts/RecalcularMesEmpleado.ps1 -Numero <número de una liquidación del mes>`.
+
+Verificación: caso con cierre, devengados y regular, aporte mensual completo hasta el tope y
+repetición con los mismos totales. Se incluye en Test Cuenta Francos con rollback.
 
 ## Cuidado
 

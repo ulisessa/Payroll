@@ -62,7 +62,7 @@ El diagnóstico evalúa en **modo validación** contra ese contexto: da un resul
 | **Ayuda de firma** | argumento actual subrayado (`IF(`**`condición`**`, …)`), pila de llamadas |
 | **Auto-cierre** | `(` inserta `()`, `'` inserta `''`; `)` y `'` "pasan por encima" del que ya está |
 | **Resaltado de paréntesis** | marca el `(` y `)` del grupo más interno que contiene el cursor (sólo con foco) |
-| **Ver nombres** | vista de **sólo lectura** que reemplaza el campo por la misma fórmula con la descripción de cada concepto referenciado por `@`/`#` |
+| **Ver nombres** | vista de **sólo lectura** que reemplaza el campo por la misma fórmula con la descripción de cada concepto referenciado por `@`/`#` y de cada variable (parámetro, sistema, fuente de datos, atributo) que tenga descripción cargada |
 | **Tema** | detecta claro/oscuro del host (`fondoDelHost`, `esOscuro`) y se adapta |
 | **Auto-altura** | el `textarea` crece; quien scrollea es el contenedor (una sola barra de scroll) |
 
@@ -108,3 +108,10 @@ El add-in guarda con **asignación directa + `Modify(true)`**, sin `Validate`, a
 ## Relacionado
 
 [[Evaluador de fórmulas - sintaxis]] · [[Evaluador de fórmulas - funciones]] · [[Formateador de fórmulas]] · [[atributo-comparar-por-codigo]]
+
+## Menú contextual: abrir la ficha (13/10/2026)
+Botón derecho sobre un token que sea **concepto** (`@`/`#`), **parámetro**, **fuente de datos**, **variable de sistema** o **atributo** abre su ficha. Sobre cualquier otra cosa no se intercepta, para conservar el menú del navegador (copiar/pegar).
+- **JS** (`editorFormula.js`): `destinoDeFicha` decide el tipo con el mismo `clasificar` del resaltado, y el menú dispara el evento `OnAbrirFicha(Tipo; Nombre)` del control add-in. El tipo es el del catálogo (`Parámetro`, `Fuente Datos`, `Sistema`, `Atributo`) o `concepto`.
+- **AL**: `Cod110071 "Abrir Ficha Fórmula Liq."` resuelve nombre → registro y hace `Page.Run` (no modal, para poder comparar fichas). Lo llaman `Pag50139` y `Pag50145`. Concepto: versión vigente a `WorkDate`, o la última si no hay. Parámetro: por `Nombre Variable`, quitando `_ESFCY`. Atributo: quitando `_ULT_MAREA`. Variables de sistema que inyecta el motor (sin fila) avisan que no tienen ficha.
+- Un **acumulador** se abre como concepto (`Es Acumulador`): el JS lo manda con tipo `concepto`. Agregado el 14/10/2026, faltaba.
+- **Hay que republicar** (cambia el control add-in) y recargar con Ctrl+F5: el navegador cachea los archivos del control.

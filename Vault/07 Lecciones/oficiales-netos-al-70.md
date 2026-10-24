@@ -3,7 +3,7 @@ aliases: ["Oficiales netos al 70%"]
 tipo: leccion
 tema: conceptos-haberes
 tags: [leccion, conceptos-haberes, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-16
 ---
 
 # Oficiales netos al 70%
@@ -67,3 +67,30 @@ Los conceptos mensuales 8542/8543/8593 sí quedaron verificados contra el recibo
 - [[que-tc-usa-cada-concepto]]
 - [[tc-de-marea-no-es-cotizacion]]
 - Tema: `conceptos-haberes` (ver [[_Convenciones del vault]])
+
+## 04724 y 04921 en febrero (15/10/2026)
+
+- **04724 (Primer Oficial de Cubierta, HF802):** el cierre de la marea 7 (1 al 12/2) pagaba 1.782.900 de más: la garantía CCT de los 7 días de enero (5.400 USD × 1.415 / 30 × 7) que el devengado de enero ya había pagado. Meta4 resta ese devengado anterior (`ACUM_PARAM_CCT('DEV_PREV_MAREA', ...)`) y BC no, porque la rama del 1534 que lo hace estaba reservada a quien no tiene neto pactado. En el devengado del 13 al 28/2 faltaba además restar el feriado 1023. Nueva vigencia 2026-02-03 del 1534 sin `NETO_GU_MAREA = 0 AND ES_GROSSING_UP = 0` en la condición. Para quien tiene grossing-up el total lo fija el 2003, así que 04868 sólo cambia el reparto 1534/2003.
+- **04921 (Jefe de Máquinas, HF801):** el escalón de febrero (20.000 USD) arranca con la marea 8 (17/2) y no el 1/2: el cierre del 1 al 16/2 de la marea 7 se paga a 17.000 (verificado con el neto de Meta4 + el anticipo). 04836, con el mismo tipo de escalón mensual, cierra con el valor de febrero desde el 1/2, así que no hay una regla general: cada uno se mide contra su cierre. Script: `scripts/Premio1534OficialesNeto.sql`.
+
+## El neto acordado es del mes (04724, 15/10/2026)
+
+Meta4 trata el neto pactado como un objetivo **del mes**: si el cierre ya pagó de más (el premio 1534 supera el objetivo prorrateado y el tapón 2003 queda en cero), el exceso se descuenta del objetivo de la liquidación siguiente. 04724 en febrero: objetivo del mes 12.750 × 1.370 × 0,70 / 30 × 28 = 11.412.100; el cierre pagó 5.388.440 contra 4.873.050 de objetivo (+515.390) y el devengado pagó 6.004.710 en vez de 6.521.200. **Medido en las 33 liquidaciones con `NETO_GARANT` de enero y febrero de los siete oficiales: neto + exclusión − objetivo da cero (±10 pesos) en todas menos en ese cierre**, así que la regla sólo mueve a 04724. Implementado con la variable `EXCESO_NETO_GU_MES` (Cod50016, sembrada en Cod50077) y una vigencia nueva de `NETO_GARANT` desde el 1/2: `… − IF(NETO_GU_MAREA > 0, MAX(0, EXCESO_NETO_GU_MES), 0)`. Sólo se descuenta el exceso, no se reparte un faltante. Script: `scripts/NetoGarantMesAcumulado.sql`. Para que el devengado lea al cierre, éste tiene que estar calculado antes (ver [[tope-sipa-dos-liquidaciones-se-anulan]]).
+
+## Comprobación posterior del complemento (16/10/2026)
+
+La revisión actual de febrero confirma que el cierre y los demás haberes del
+devengado del caso con exceso mensual ya coinciden con Meta4. El residuo está
+en `2003`: Oracle conserva una entrada original en `M4T_VAL_INCIDENCIA`, mientras
+BC obtiene el complemento por grossing-up. Los descuentos derivan de ese cambio
+de bruto y BC converge dentro de su tolerancia.
+
+Se conserva la fórmula conforme al criterio del usuario de mantener resultados
+razonablemente equivalentes. No ajustar otra vez `1534` ni copiar el `2003` original
+sólo para eliminar ese residuo. La planilla expresa el neto final USD como dato;
+la diferencia de tratamiento ARS/USD del exceso no explica por sí sola ese dato.
+Evidencia y estabilidad en `.snapshots/revision-febrero-03207-04724-20261016/`.
+
+## El 2013 en guardia de puerto: indicador 2041 y subtotal 1990 (15/10/2026)
+
+La fórmula de Meta4 (confirmada por el usuario): `G = asegurado de puerto × TC × días / 30 × (1,4 si el indicador 2041 = 1)`, `H = TOT_HAB_GZDO` (1990 = 1083 + 1023 + 1053, sin el sueldo a órdenes 1073) y `2013 = MAX(0, G − H)` en poteros. Quedó en datos: `2013` resta `(#1083 + #1023 + #1053)` (`scripts/Concepto2013Subtotal1990.sql`) y el factor sale del indicador, migrado como 188 novedades de febrero a junio (`scripts/Indicador2041.sql`: concepto informativo 2041, fuente `IND_GUARDIA_2041` sobre la tabla de novedades, Cantidad 1 por empleado y mes) con `COEF_GUARDIA_PUERTO_175/75` = 1,4 desde el 1/2 (`scripts/Concepto2013Indicador2041.sql`). El formato para cargarlo: período del mes, tipo REGULAR, concepto 2041, Cantidad 1, importe 0, fecha de la incidencia, observación "Meta4 2041".

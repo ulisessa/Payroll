@@ -3,12 +3,17 @@ aliases: ["Ventana del promedio de ausentismo"]
 tipo: leccion
 tema: vacaciones-sac-licencias
 tags: [leccion, vacaciones-sac-licencias, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-13
 ---
 
 # Ventana del promedio de ausentismo
 
-**En una frase:** Criterio del promedio de ausentismo confirmado por RRHH: la recaída no continúa la licencia (salvo ART) y sin 12 meses se promedia la fracción activa; BC ya lo cumple y quien se aparta es Meta4
+**Criterio vigente:** la recaída inicia otra licencia, salvo ART; para enfermedad el usuario confirmó
+el 13/10/2026 que se promedia sólo el vínculo actual y se usa divisor por días cuando es reciente.
+Ver [[enfermedad-base-total-no-base-fiscal]] para la implementación y validación actuales.
+
+Lo siguiente conserva el antecedente de septiembre y explica por qué enfermedad tiene ahora
+fuentes y divisores propios: el promedio compartido con ART permanece con su comportamiento anterior.
 
 `PROM_AUS_12` suma `BASE_PROMEDIO` en los 12 meses previos al arranque de la ausencia, lo divide por
 `MESES_PROM_AUS_12` —meses con **fase de alta**, no con remuneración— y el ancla la da
@@ -33,7 +38,9 @@ que es exactamente "la fracción de tiempo que está activo".
 defecto de BC. Acá es al revés en las 8 diferencias, y sólo se puede afirmar después de tener el
 criterio por escrito.
 
-**Cómo aplicarlo:** no "arreglar" estas diferencias contra Meta4. Queda un riesgo latente, no un
+**Cómo aplicar el antecedente:** no cambiar el ancla de las recaídas sólo para igualar Meta4.
+El divisor de ocho meses del reingreso mencionado arriba fue sustituido para enfermedad por
+los días del vínculo actual, siguiendo la confirmación posterior del usuario. Queda un riesgo latente, no un
 defecto: `FechaInicioAusencia()` trata AU1 y ACC igual, pero para ART la recaída **sí** toma el mismo
 valor, así que si aparece un accidente con dos episodios habría que anclar en el primero. Hoy no
 muerde — los ILT del 02854 y el 04047 dan exacto, ver [[accidente-empleador-y-art]]. Relacionado:
@@ -42,6 +49,7 @@ muerde — los ILT del 02854 y el 04047 dan exacto, ver [[accidente-empleador-y-
 ## Relacionado
 
 - [[recaida-accidente-mismo-valor]]
+- [[enfermedad-base-total-no-base-fiscal]] — base específica de enfermedad desde febrero, sin cambiar las ventanas aprobadas.
 - [[recibo-vacaciones-paga-solo-vacaciones]]
 - [[vacaciones-tierra-duplica-el-mes]]
 - [[vacaciones-tripulantes-promedio]]

@@ -61,7 +61,7 @@ flowchart LR
 
 - **Firma digital de recibos, onboarding, legajo digital, gestión documental**: la propuesta comercial los declara fuera de alcance; el diseño de la firma está sólo como propuesta ([[firma-recibos-digitales]]).
 - **Contabilización**: el enum `Estado Liq.` tiene el valor `Contabilizada` y varias pantallas lo contemplan, pero **ningún código lo asigna** (se buscó `Estado := Contabilizada` en todo `src`). Hoy el flujo termina en *Aprobada*. La propuesta habla de "asiento contable directo, sin interfaz": **no está construido**.
-- **Libro de Sueldos Digital**: figura en la propuesta como salida; no se encontró ningún objeto AL que lo genere.
+- **Libro de Sueldos Digital**: figura en la propuesta como salida; no se encontró ningún objeto AL que lo genere. Desde el 12/10/2026 sí existe la declaración de **SICOSS** en Excel ([[Reporte SICOSS]]), que es otra cosa: declara la seguridad social del mes, no el libro de sueldos.
 
 > [!warning] Propuesta vs. código
 > La propuesta HHRR promete "sin interfaces ni sincronización que mantener". En la práctica existen la sincronización con NAV y las herramientas de Meta4 porque el proyecto convive con ambos sistemas durante la transición. La propuesta describe el estado objetivo; este vault describe lo que hay.

@@ -93,3 +93,12 @@ Muestra el **promedio por liquidación** (un hecho), no un tiempo restante estim
 [[Ciclo de cálculo de una liquidación]] · [[Recálculo en cadena]] · [[Estados y transiciones de una liquidación]] · [[Tabla - Liquidación]]
 
 **Tablas relacionadas:** [[Tabla - Estado Tipo Liq]] · [[Tabla - Tipo Liquidación]] · [[Tabla - Fase Alta Empleado]] · [[Tabla - Personal Proyecto]] · [[Tabla - Período Liquidación]]
+
+## Reapertura con consumos dentro del alcance
+
+Lotes Liquidación Liq.Reabrir conserva las claves seleccionadas y delega el orden en
+Gestión Liquidación.ReabrirSeleccion, compartido con Revertir Calculadas del período.
+Los consumidores se retiran antes de sus devengos. Las dependencias fuera del alcance
+se cuentan como bloqueadas, sin ampliar la selección ni abortar por un origen interno.
+Ver [[reapertura-periodo-dependencias-francos]].
+

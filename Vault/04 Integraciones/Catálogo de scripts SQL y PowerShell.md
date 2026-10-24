@@ -94,6 +94,7 @@ Detalle: [[Migración Meta4 - correcciones y auditorías]].
 | `CrearCuotaSindicalSACDevengado.sql` | Alta del concepto 4754 copiando 4752 | SQL Server | Puntual (hecho) | Sí, comentado |
 | `CorregirEscalaPrecioPuertoLAN.sql` | `PRECIO_PUERTO_LAN` SOMU: 5 categorías fuera de la escala 100/85/80/75/70 | SQL Server | Puntual (hecho) | Sí, comentado |
 | `CorregirValoresCalamar2026.sql` | 18 `VALOR_CAL_*` con cociente redondeado | SQL Server | Puntual (hecho) | Sí, comentado |
+| `CorregirFamiliaresMeta4.ps1` | Seis clasificaciones familiares verificadas entre 14 casos; respaldo, reinicio y recálculo mensual completo. Ver [[ganancias-familiares-meta4-vs-recibo-historico]] | SQL Server + AL | Puntual (hecho); requiere payload privado | Sólo con `-Aplicar`; preview escribe y revierte |
 | `CargarValoresOficiales768.sql` | Básicos de oficiales 768/19 extraídos de los recibos PDF de Meta4 | SQL Server | Puntual | Sí, comentado |
 | `ImportarSaldoInicialFrancos.sql` | `Saldo francos 31-12-25.xlsx` -> hoja de carga `Saldo Inicial Francos Liq.` (no aplica el ledger) | SQL Server | Una vez; luego "Aplicar" desde la página | Sí (inserta en la hoja; reversible) |
 | `ImportarSaldoInicialFrancos_Datos.sql` | Los 214 registros del Excel como `INSERT` a `dbo.MIG_SaldoFrancos` | SQL Server | Antes del script principal | **SÍ (vivo)**: `DELETE FROM dbo.MIG_SaldoFrancos` + inserta |
@@ -136,3 +137,9 @@ Los tres scripts PowerShell usan `Application Name=Codex Payroll ...` y autentic
 ## Ver también
 
 [[ConfigPackage y RapidStart - qué lleva y qué no]], [[Diagnóstico de rendimiento]], [[Índice Integraciones]].
+
+## `ConsolidarAntiguedad1054En1053.sql` (13/10/2026)
+Pasa la antigüedad de los mensualizados 130/75 del concepto 1054 al 1053, que ya cubría 372/04. Todo como **vigencia nueva desde 2026-01-02** (las 2026-01-01 se cierran el 01/01): rama `IF(CONVENIO = '130/75', ...)` en 1053, `Fórmula Orden Cálculo` = `IF(CONVENIO = '372/04', 50, IF(CONVENIO = '130/75', 50, 100))` (la tripulación sigue en 100), 2103/3553/3973/4743 sin `+ #1054`, 1054 cerrado, y fila CCT (1053, 130/75). Aplicado ese día. Efecto: 130/75 pasa a alimentar `BASE_AUSENTISMO` y `BASE_FERIADO`. SQL directo: reiniciar el service tier.
+
+## `UnificarBasePromedioTotal.sql` (14/10/2026)
+`BASE_PROMEDIO` pasa a ser siempre el **total** (como `TOT_PROMEDIOS` de Meta4). Antes la historia migrada lo traía total y los recibos del motor sólo la parte remunerativa (el 3554, acuerdo sindical no remunerativo, aportaba sólo a `BASE_PROMEDIO_NR`), así que vacaciones y SAC quedaban cortas en 729/15. Vigencias nuevas: fracción 3554→`BASE_PROMEDIO` desde 2026-01-02; `AJ_PROM_PESQUERIA` cerrado (hacía lo mismo que el 3554 en la liquidación final); `PROM_AUS_MES` (2026-01-03) resta `AUS_NO_REM_ACT_n` para que accidente siga dando lo mismo (su NR va aparte en 4160/4165); `PROM_ENF_MES` (2026-02-04) sin `ENF_NR`. **Efecto aceptado:** el SAC (`MEJOR_REM_SEM`, 3813) toma el total. Requiere recalcular enero en cadena (los recibos guardados traen `BASE_PROMEDIO` sin NR) y reiniciar el service tier.

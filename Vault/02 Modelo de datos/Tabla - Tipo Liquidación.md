@@ -17,7 +17,17 @@ PK `Código` (clustered); clave `Orden` (`Orden`). DropDown: Código, Descripci�
 | Rol | Campo | Propósito |
 |---|---|---|
 | Identidad | `Código` (1), `Descripción` (2), `Activo` (6, InitValue true) | `Activo` = existe y se puede usar (≠ entra en corrida) |
-| Orden / TIPO_LIQ | `Orden` (3) | **Único**. También es el valor de la variable de sistema `TIPO_LIQ` en fórmulas (`IF(TIPO_LIQ = 70, …)`). Seed: REGULAR 10, AGUINALDO 20, VACACIONES 30, LIQ_FINAL 40, RELIQUIDACION 50, DEVENGADOS 60, CIERRE_MAREA 70; el 0 lo usa SALDO_INICIAL |
+| Orden (valor de TIPO_LIQ) | `Orden` (3) | **Único**, porque también es el valor numérico de la variable `TIPO_LIQ`. Dos tipos con el mismo Orden harían que `IF(TIPO_LIQ = n, …)` matcheara los dos. El caption lo anuncia desde el 11/10/2026: antes el número no estaba explicado en ningún lado de la interfaz |
+
+> [!tip] En una fórmula, comparar por código
+> `IF(TIPO_LIQ = 'CIERRE_MAREA', …)` en vez de `IF(TIPO_LIQ = 1, …)`. El número sigue funcionando,
+> pero depende de este campo, que es editable: cambiarle el Orden a un tipo reescribe el significado
+> de todas las fórmulas que lo comparan sin tocarlas. Ver [[tipo-liq-no-implementada]].
+
+Órdenes **en ArbuTest al 11/10/2026**, que no son los del seed —se editaron a mano—:
+`SALDO_INICIAL 0 · CIERRE_MAREA 1 · HIST_REMUN 5 · ANTICIPO 10 · VACACIONES 30 · LIQ_FINAL 40 ·
+RELIQUIDACION 50 · DEVENGADOS 60 · REGULAR 100 · AGUINALDO 110`. El seed de `Cod50055` reparte de
+10 en 10 (REGULAR 10 … CIERRE_MAREA 70) y es idempotente, así que no los vuelve a mover.
 | Disparo | `Disparador` (11, enum [[Enums de liquidación#Disparador Tipo Liq]]) | Ninguno / Arribo / MareaEnCurso / BajaEmpleado |
 | Calendario | `Meses` (12, Text[30]) | Filtro de BC sobre el mes (`6|12` aguinaldo, `1..6`); vacío = todos. Se evalúa con una tabla temporal `Mes Filtro Liq.` para reutilizar la sintaxis de filtros de BC |
 | Estados | `Exige Estados` (13) | **FlowField** `exist("Estado Tipo Liq.")`: líneas de estado exigido/excluido (tabla 110059, enums [[Enums de liquidación#Modo Estado Tipo Liq]] y [[Enums de liquidación#Ventana Estado Tipo Liq]]) |
@@ -50,4 +60,4 @@ No tiene; los cambios de configuración valen para las corridas siguientes.
 - `Tipo Proyecto = Todos` es legítimo para otros tipos: no avisa si es el equivocado ([[job-tipo-cero-no-bloquea]]).
 - Exclusividad Vacaciones/Regular vía `HAY_LIQ_VACACIONES`: [[exclusividad-vacaciones]]; vacaciones de tierra: [[vacaciones-tierra-duplica-el-mes]].
 - Cobertura: [[cobertura-devengado-tapa-dias]], [[ventana-liquidacion-es-cobertura]].
-- `TIPO_LIQ`: la lección [[tipo-liq-no-implementada]] dice que no existe (al 28/9/2026), pero hoy `Cod50016` **sí** resuelve el `Cód. Cálculo` `TIPO_LIQ` y `Cod50077.Sembrar` lo siembra: la lección está desactualizada. Ver también [[orden-calculo-del-lote]].
+- `TIPO_LIQ`: `Cod50016` resuelve el `Cód. Cálculo` `TIPO_LIQ`, `Cod50077.Sembrar` lo siembra, y desde el 11/10/2026 publica además el **código** para comparar con un literal. La lección [[tipo-liq-no-implementada]] quedó reescrita con eso; su título viejo ya no aplica. Ver también [[orden-calculo-del-lote]].

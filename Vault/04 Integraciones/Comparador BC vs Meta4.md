@@ -2,7 +2,7 @@
 tipo: proceso
 tags: [migracion-meta4, comparador, controles-auditoria, conciliacion]
 fuente: [METODO_COMPARACION_META4_BC.md, src/Pages/Pag110051.CompararBCMeta4.al, src/Pages/Pag110052.DetalleCompMeta4.al, src/Tables/Tab110057.CompMeta4Buffer.al, src/Tables/Tab110058.CompDetMeta4Buffer.al, src/Tables/Tab110055.ColumnaHistMeta4.al, scripts/CompararEneroMotor.ps1]
-actualizado: 2026-10-08
+actualizado: 2026-10-21
 ---
 
 # Comparador BC vs Meta4
@@ -25,11 +25,11 @@ flowchart LR
 
 | | Meta4 | BC |
 |---|---|---|
-| Bruto | `TOT_REMUN_27617` | `REMUNERATIVO_BRUTO` **+** `NO_REMUNERATIVO` (el bruto de Meta4 incluye el acuerdo sindical del Dto 633/18, no remunerativo) |
+| Bruto | `TOT_REMUN_27617` **+** `SAC_ABONADO` | `REMUNERATIVO_BRUTO` **+** `NO_REMUNERATIVO` (el bruto de Meta4 incluye el acuerdo sindical del Dto 633/18, no remunerativo) |
 | Descuentos | `TOT_RETEN` | `Total Descuentos` de la **cabecera** |
 | Neto | `LIQUIDO` | `Neto a Pagar` de la cabecera |
 
-2. **Drilldown `Qué explica la diferencia` (Pag110052)**, buffer `Comp. Det. Meta4 Buffer` (110058). `Origen`: **Ambos**, **Sólo Meta4** (el motor no lo liquidó), **Sólo BC** (liquidó de más), **Sin equivalencia** (hay valor en Meta4 y no se sabe qué concepto de BC le corresponde: es un hueco del mapeo, nunca se mezcla con "Sólo Meta4"). Sólo compara columnas `DV`/`RT`/`SS`, salvo las de `Mapeo Verificado`. Si el catálogo (`Clasificación Meta4`, `Cód. Concepto BC`) está vacío **da error** en vez de mostrar "todo Sólo BC" (que se leería como "Meta4 no liquidó nada", lo contrario de la verdad; ya pasó).
+2. **Drilldown `Qué explica la diferencia` (Pag110052)**, buffer `Comp. Det. Meta4 Buffer` (110058). `Origen`: **Ambos**, **Sólo Meta4** (el motor no lo liquidó), **Sólo BC** (liquidó de más), **Sin equivalencia** (hay valor en Meta4 y no se sabe qué concepto de BC le corresponde: es un hueco del mapeo, nunca se mezcla con "Sólo Meta4"). Sólo compara columnas `DV`/`RT`/`SS`, las de `Mapeo Verificado` y (desde el 14/10/2026) las **sin clasificar con concepto de BC mapeado** (hoy cinco: SUELDO→1003 y los cuatro aportes del SAC); antes quedaban afuera y 1003 salía "Sólo BC" con 21 M de diferencia inexistente. Si el catálogo (`Clasificación Meta4`, `Cód. Concepto BC`) está vacío **da error** en vez de mostrar "todo Sólo BC" (que se leería como "Meta4 no liquidó nada", lo contrario de la verdad; ya pasó).
 3. **Recibo en PDF** (`2026-01/` ... `2026-08/`, nombrados por fecha y tipo: `FRA` francos, `PUE` puerto, `MAR` marea, `EMB` embarcados, `VAC`, `ADM`, `BAJ`). Extraer con `pdftotext -table` (con `-layout` una celda vacía corre las columnas). Índice de enero: `recibos_2026-01_extraidos.tsv`.
 
 ## Qué hace que la comparación no mienta
@@ -41,6 +41,7 @@ flowchart LR
 | Columna | Qué guarda cada corrida | Cómo se agrega |
 |---|---|---|
 | `TOT_REMUN_27617` | acumulado del mes **hasta ella** | diferencia contra la corrida anterior, en orden de `CONTADOR_LIQ` |
+| `SAC_ABONADO` | el SAC de esa corrida | diferencia, igual que el anterior (vive en la misma tabla de acumulados) |
 | `TOT_RETEN`, `LIQUIDO` | lo suyo | suma |
 | `IG_*` | acumulado del año | máximo |
 | `DV`/`RT`/`SS` | lo suyo | suma |
@@ -64,6 +65,25 @@ flowchart LR
 > `SetRange` sin valor y recién después se aplica el estado actual de las casillas. Quien agregue
 > una casilla nueva tiene que sumar su campo a esa limpieza, o quedará pegada.
 
+## Contadores de la cabecera
+
+La página muestra **Con diferencias: X de Y**, **En bruto** y **En neto**. `Y` es
+la cantidad de filas de la vista actual, después de aplicar los filtros del usuario,
+las casillas, el año, los meses y la marea. `X` cuenta una sola vez cada fila que
+difiere en bruto, descuentos o neto: el mismo criterio de *Sólo diferencias*.
+Las contribuciones no entran en ese indicador. Una ausencia con todos los importes
+en cero sigue siendo visible, pero no se cuenta como diferencia de importes.
+
+El conteo usa las diferencias exactas, sin tolerancia ni redondeo adicional; una
+diferencia menor a un centavo también cuenta. Los contadores de bruto y neto pueden
+superponerse. Con una vista vacía se muestra `0 de 0` y los dos contadores en cero.
+
+Se recorre una copia compartida del buffer temporal con todos sus grupos de filtros
+y marcas; no se modifica el cursor, no se vuelve a consultar Meta4 y el resultado se
+reutiliza mientras los filtros no cambien. Al reconstruir el buffer se invalida esa
+caché. `Dif. Neto` se calcula antes de `Hay Dif. Recibo`, para que una diferencia
+exclusiva del neto también entre en el indicador y en el filtro.
+
 ## Procedimiento
 
 1. Catálogo poblado. 2. Abrir con año 2026, *Sólo meses que BC calculó* y *Sólo diferencias*. 3. Mirar las **tres** columnas de `% Dif.` (coloreadas por separado). 4. Drilldown y clasificar en una de las cuatro capas. 5. Si es del motor, contra el PDF. 6. Limpiar de arriba hacia abajo (fase -> estado -> asignación).
@@ -79,8 +99,23 @@ Unidad mínima = empleado-mes o empleado-marea (no recibo por recibo). El mapeo 
 ## Casos resueltos con este método (para no re-investigar)
 [[diferencias-descuentos-enero]], [[cuota-sindical-deducida-dos-veces]], [[comparar-columna-contra-total]], [[ventana-promedio-ausentismo]], [[antiguedad-no-cuenta-dias-gp]], [[feriado-divide-por-30-fijo]].
 
-> [!warning] Discrepancia código/documentación
-> El comentario de `Cargar()` en Pag110051 todavía dice "se toma el MÁXIMO por empleado-mes, no la suma", pero el código resta cada corrida contra la anterior (diferencias). Manda el código. Además el tooltip del bruto de BC sólo menciona `REMUNERATIVO_BRUTO` aunque se suma `NO_REMUNERATIVO`.
+> [!important] La cuarta asimetría: `TOT_REMUN_27617` no incluye el SAC
+> El bruto de BC sí lo incluye —el 3813 aporta a `REMUNERATIVO_BRUTO`—, así que enfrentados sin
+> corregir, los **ocho egresados de enero de 2026 daban 2.060.565 de brecha de bruto**, y en cinco de
+> ellos la diferencia era **exactamente su SAC de egreso al centavo**. Sumando `SAC_ABONADO` del lado
+> de Meta4, seis de los ocho cierran con un resto de **0,86 o menos**: la brecha era la métrica.
+>
+> Corregido en la 1.0.0.614 (11/10/2026). Hoy sólo muerde en los egresados, pero **en junio y
+> diciembre lo cobra toda la nómina** —por 3613 y 3623— y la pantalla habría mostrado un error de
+> cálculo masivo inexistente. Es el mismo tipo de trampa que el `LIQUIDO` de los anticipos: dos
+> columnas que miden cosas distintas.
+>
+> En enero `SAC_ABONADO` aparece en **7 empleados y una sola corrida cada uno**, así que diferencia y
+> suma coinciden; se usa la diferencia igual, por si alguna vez se repite.
+
+Las discrepancias código/documentación que esta nota arrastraba quedaron corregidas en la misma
+versión: el comentario de `Cargar()` que decía "se toma el MÁXIMO" y el tooltip del bruto de BC que
+sólo mencionaba `REMUNERATIVO_BRUTO`.
 
 ## Ver también
 

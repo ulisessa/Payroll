@@ -91,3 +91,12 @@ En cada vuelta de convergencia, `ResetAccumuladores` pone en 0 **todos los códi
 [[Ciclo de cálculo de una liquidación]] · [[Contexto de liquidación y variables]] · [[concepto-negativo-despues-de-sus-consumidores]] · [[tope-sac-por-liquidacion]] · [[tot-remun-27617-es-acumulador]] · [[Tabla - Concepto Liquidación]]
 
 **Tablas relacionadas:** [[Tabla - Fracción Acumulador]] · [[Tabla - Detalle Acumulador Liq]] · [[Tabla - Concepto Liquidación]]
+
+## Fracciones por convenio
+
+Filtro Convenio, opcional en la fracción, limita el aporte al convenio efectivo del concepto.
+Vacío aplica a todos; admite filtros de BC como <>372/04. El motor cachea el filtro de la misma
+versión que el porcentaje y lo comprueba antes de sumar. La unificación del 1055 en el 1053
+lo utiliza para conservar las bases de ausentismo y feriado de cada convenio.
+Ver [[antiguedad-unificada-1053-por-convenio]].
+

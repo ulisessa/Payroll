@@ -1,4 +1,4 @@
----
+﻿---
 aliases: ["Francos: libro FIFO"]
 tipo: leccion
 tema: francos
@@ -38,3 +38,30 @@ De dónde sale el valor en Meta4: `PR_FRANCO` de `M4T_ACUMULADO_RL3`. En **ofici
 - [[puesto-vs-categoria-cct]]
 - [[a-cuenta-futuros-aumentos-francos]]
 - [[franco-porcentaje-por-pesqueria]]
+
+## Factor sobre el importe consumido
+
+El motor permite configurar Factor Importe Consumo sin modificar los días FIFO. Vacío equivale
+a uno. La corrección de la final está preparada y pendiente de publicación/configuración;
+ver [[coeficiente-franco-no-cambia-dias-fifo]].
+
+
+## Evolución 2026-10-12
+
+El camino tradicional sigue sobre líneas. Para empleados inicializados, la fuente de saldo y aplicaciones pasa a movimientos persistentes con contramovimientos; ver [[Cuenta corriente y matriz de francos]]. La matriz no asienta consumos hasta cerrar la pasada definitiva.
+
+## Días de franco cargados a mano: la novedad `DIAS_FRANCO` (14/10/2026, v1.0.0.657)
+
+En Meta4 los días de franco que se pagan son una incidencia (la 1061, unas 40 por mes) y casi siempre coinciden
+con los estados Francos: en febrero 41 de 43. Cuando no coinciden —04047, baja el 12/2 con accidente hasta el
+11/2 y ningún estado `FR`, cobró 5 días cargados a mano— el desvío no es una etiqueta: mueve el `1063`, el
+`2803`/`2804` (el saldo se parte 5 + 35), la antigüedad del `1053` y el SAC de egreso del `3813`.
+
+`DIAS_FRANCOS_PERIODO` ahora suma, además de los días en estados Francos, las novedades del concepto
+`DIAS_FRANCO` del empleado y el período (`DiasFrancoNovedad`, `Cod50016`). Lo leen el `1063` (Cantidad Matriz),
+el `1053`, el `1023` y el `2083`. El concepto es informativo (condición 0, fuera del recibo) y la novedad nunca se
+materializa —`NovedadAplica` la saltea, como `FECHA_TC`—: queda Pendiente a propósito. Con tipo de liquidación o
+proyecto vale sólo para esa liquidación. Script: `scripts/DiasFrancoNovedad.sql` (carga la de 04047: 5 días,
+`LIQ_FINAL`, 202602).
+
+Ver [[franco-porcentaje-por-pesqueria]] y [[bases-contribuciones-patronales-meta4]].

@@ -1,8 +1,8 @@
 ---
 tipo: proceso
 tags: [desarrollo, publicacion, rad, bc]
-fuente: [.vscode/launch.json, REAPLICAR_TRAS_RESTORE.md, src/Codeunits/Cod110049.VariablesSistemaInstall.al, src/Codeunits/Cod110050.VariablesSistemaUpgrade.al]
-actualizado: 2026-10-04
+fuente: [scripts/Publicar.ps1, .vscode/launch.json, REAPLICAR_TRAS_RESTORE.md, src/Codeunits/Cod110049.VariablesSistemaInstall.al, src/Codeunits/Cod110050.VariablesSistemaUpgrade.al]
+actualizado: 2026-10-11
 ---
 
 # Publicar en BC (no usar RAD)
@@ -28,6 +28,38 @@ Start-NAVAppDataUpgrade -ServerInstance $ServerInstance -Tenant default -Name $A
    (Origen: `REAPLICAR_TRAS_RESTORE.md`, caso 1.0.0.412 publicada pero no sincronizada.)
 6. `Start-NAVAppDataUpgrade` es lo que **dispara los codeunits Upgrade** ([[Install y Upgrade - qué siembra cada uno]]).
 7. Reiniciar el service tier (o `Sync-NAVTenant`) si hubo `UPDATE` directos por SQL: [[sql-directo-deja-cache-rancia]].
+
+## `scripts/Publicar.ps1` — el ciclo en un comando
+
+```powershell
+pwsh scripts/Publicar.ps1                 # compilar + publicar + borrar rad.json
+pwsh scripts/Publicar.ps1 -SoloCompilar   # validar sin tocar el servidor
+pwsh scripts/Publicar.ps1 -Reiniciar      # y reiniciar el service tier (sólo si hubo UPDATE por SQL)
+```
+
+Hace lo mismo que el *Publish* de VS Code —un POST al dev endpoint con autenticación Windows— y agrega lo que VS Code no hace: avisa si hay worktrees de git (compilarían copias viejas), filtra los cuatro warnings de siempre, rechaza `ForceSync` aunque `launch.json` lo pida, y mira el `Removed` de `rad.json` antes de borrarlo.
+
+> [!warning] Para reiniciar, el nombre del servidor tampoco es el de `launch.json`
+> `mimir.arbumasa.com` es un **alias de DNS**: resuelve a la IP correcta, pero Kerberos pide un SPN para ese nombre y no existe, así que WinRM muere con «No puede encontrarse el equipo». El que funciona es el FQDN del dominio, **`mimir.arbumasa.net.ar`**, y sale de resolver el nombre corto por DNS (`[System.Net.Dns]::GetHostEntry('mimir').HostName`). Desde el 13/10/2026 `-Reiniciar` lo deriva solo y prueba los dos nombres antes de rendirse. Ver [[ares-topologia-bc]].
+
+> [!warning] El dev endpoint NO está donde está el cliente web
+> `launch.json` dice `https://mimir.arbumasa.com/BC252`, que es la URL del **cliente web detrás de IIS**. El servicio de desarrollo escucha **aparte, en el puerto 7049** del mismo host, y el path es sólo la instancia:
+>
+> ```
+> https://mimir.arbumasa.com:7049/BC252/dev/apps?SchemaUpdateMode=Synchronize
+> ```
+>
+> Contra la URL del cliente web la publicación devuelve **404**, que se lee como un problema de permisos y no lo es: no hay nada escuchando ahí. Por eso el script sondea primero `…/dev/metadata` con un GET: si el endpoint no está donde se cree, falla ahí y lo dice.
+
+Dos detalles más del protocolo, cada uno con su código de error propio:
+
+| Síntoma | Causa |
+|---|---|
+| **415** Unsupported Media Type | El `.app` va como `multipart/form-data`, no como `application/octet-stream`. En PowerShell, `-Form @{ upload = Get-Item $app }` |
+| **422** Unprocessable Entity | El **cuerpo** de la respuesta lo explica; hay que leerlo. El caso habitual: *"already deployed as a global application"* |
+
+> [!important] El dev endpoint no reemplaza una versión ya publicada como global
+> Si la versión de `app.json` ya está instalada como aplicación **global** —que es cómo está hoy la de `mimir`—, el POST devuelve 422 y no publica nada. Las dos salidas son decisión del usuario: subir `version` en `app.json` ([[Versionado de app.json]]), o despublicar la global con `Unpublish-NAVApp` en el servidor. El script no toca la versión: la sube el usuario al publicar ([[version-app-json-manual]]).
 
 ## Qué corre y qué no al publicar
 

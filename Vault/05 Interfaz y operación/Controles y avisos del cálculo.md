@@ -2,10 +2,13 @@
 tipo: referencia
 tags: [controles, avisos, registros-proceso, diagnostico, calidad]
 fuente: [src/Reports/Rep50047.AvisosDelCalculo.al, src/Codeunits/Cod50068.RegistroProcesosLiq.al, src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Codeunits/Cod50061.GestionNovedadesLiq.al, src/Pages/Pag110000.RegistrosProcesoLiq.al, src/Pages/Pag50014.ControlOrdenAcumuladores.al, src/Pages/Pag110026.ControlPeriodosLiquidados.al, src/Pages/Pag110022.ControlLiquidacionMarea.al, src/Pages/Pag110056.ControlLiquidacionPeriodo.al, src/Pages/Pag110045.FormulasConErrores.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-15
 ---
 
 # Controles y avisos del cálculo
+
+> [!note] Informe corregido en 1.0.0.660 (15/10/2026)
+> El encabezado cuenta los avisos, procesos y liquidaciones de la selección completa y muestra sus períodos. Sólo identifica empleado y liquidación cuando la selección corresponde a un proceso. Los grupos cuentan procesos distintos, conservan mensajes completos en el detalle y excluyen procesos sin advertencias ni errores. Los avisos dinámicos de orden señalan una precedencia para revisar, sin afirmar por sí solos una diferencia económica: [[Avisos y advertencias del cálculo]].
 
 El motor distingue **errores** (el cálculo se corta, la liquidación no se guarda) de **avisos** (calcula igual, pero algo merece mirarse). Los avisos son lo importante: **casi todos los problemas silenciosos del sistema** (importe bajo sin error, concepto en cero, base incompleta) tienen un aviso o un control que los delata, **si se mira**.
 
@@ -23,7 +26,7 @@ flowchart LR
 | Canal | Cuándo | Qué hacer |
 |---|---|---|
 | **Cartel** tras *Calcular* en la Ficha | Hay advertencias de parámetros | Leer; el detalle queda en el registro |
-| **Informe "Avisos del cálculo"** (Rep50047, `ApplicationArea = All`) | Al final de un lote que dejó **cinco o más** avisos o errores (umbral que fija `MinimoParaInforme`) | Es de **la corrida entera** (por sesión). Imprime/copia; agrupa por registro (liquidación, empleado, período, tipo) con severidad, categoría, concepto, variable, mensaje, detalle e importe |
+| **Informe "Avisos del cálculo"** (Rep50047, `ApplicationArea = All`) | Al final de un lote que dejó **cinco o más** avisos o errores (umbral que fija `MinimoParaInforme`) | Es de **la corrida entera** (por sesión), respetando los filtros de selección. Agrupa por severidad, categoría, concepto, variable, mensaje y detalle; muestra cantidad de procesos afectados y totales de la selección. Para identificar todas las liquidaciones de un grupo, consultar las entradas del registro |
 | **Registros de Proceso** (110000) | Siempre: cada cálculo, aprobación, reapertura, reversión, eliminación, creación | Filtrar **Solo con error**; **Ver toda la corrida** (todos los de la misma sesión de lote); **Ver detalle** |
 | Resumen del lote | "N calculada(s), M con error. Las que fallaron quedaron sin calcular; el motivo está en Registros de Proceso" | Ir al registro |
 
@@ -37,7 +40,7 @@ flowchart LR
 | "*X*: no tiene ningún valor cargado en Parámetros Vigentes" | Parámetro | **No hay ninguna vigencia a esa fecha** (se omite si el parámetro tiene filas por convenio/empleado que no alcanzan a este empleado: eso es normal) | Falta una carga |
 | "La variable *X* tiene el Cód. Cálculo "*Y*", que el motor no conoce: vale CERO en todas las fórmulas que la usen" | Parámetro | Variable de sistema mal sembrada | Revisar *Variables Sistema* → **Sembrar variables estándar** ([[variable-sistema-hay-que-sembrarla]]) |
 | "La Fuente de Datos *X* no tiene ningún filtro cargado: está agregando la tabla entera" | Parámetro | Filtros perdidos | [[Configurar fuentes de datos]] |
-| "Orden de cálculo: *concepto* lee *acumulador* en el orden N, pero todavía recibe K aporte(s) más tarde (el último es *concepto2*, en el orden M)" | Orden de Cálculo | **El importe del concepto quedó calculado sobre un acumulador incompleto** | Correr *Control de Orden de Cálculo*; adelantar el aportante o mover la lectura al *Orden Sugerido* ([[acumuladores-orden-calculo]]) |
+| "Orden de cálculo: *concepto* lee *acumulador* en el orden N, pero todavía recibe K aporte(s) más tarde (el último es *concepto2*, en el orden M)" | Orden de Cálculo | Una lectura relevante se hizo antes de aportes efectivos; puede ser una lectura por etapas | Correr *Control de Orden de Cálculo* y revisar la propuesta y su motivo antes de aplicar. Si no existe un movimiento seguro, explica el impedimento ([[acumuladores-orden-calculo]]) |
 | "Se cargó una cantidad de *N* en el concepto *X* pero el concepto no generó línea… Esa cantidad NO se pagó" | General | Incidencia/novedad **sólo con cantidad** sobre un concepto que no aplica (convenio, tipo de liquidación, condición) o sin fórmula | Revisar el concepto o la novedad |
 | "La novedad del concepto *X* tiene Valor Unitario *V* pero Cantidad 0, así que su Importe quedó en cero y el concepto va a liquidar 0,00" | Novedad | Se cargó el unitario sin cantidad | Cargar Cantidad 1 o escribir el Importe |
 | "Novedad NO aplicada al concepto *X*: la liquidación ya tenía una incidencia cargada a mano o por préstamos" | Novedad | La incidencia manual se **respeta** y la novedad queda *Pendiente* con motivo | Decidir cuál vale ([[Novedades e incidencias - carga operativa]]) |
@@ -64,7 +67,7 @@ flowchart LR
 | Pantalla | Qué detecta | Cuándo correrla |
 |---|---|---|
 | **Fórmulas con errores** (110045) | Conceptos cuya fórmula o condición **no parsea**. Es la misma validación de la primera fase del cálculo, sin necesitar liquidación. *Revisar de nuevo* reparsea todo | Tras tocar conceptos; "el día que se configura y no el día que hay que pagar" |
-| **Control de Orden de Cálculo** (50014) | Por acumulador: orden del **último aportante** vs. orden del **primer lector**. Columnas *Orden Máx. Aporte, Concepto Máx. Aporte, Orden Mín. Lectura, Concepto Mín. Lectura, Aportes en Conflicto, Códigos en Conflicto, Orden Sugerido*. Filtros *Fecha de referencia* y *Solo conflictos* | Tras cambiar `Orden Cálculo`, fórmulas o fracciones. Un conflicto = **importes menores a los correctos sin ningún error visible** |
+| **Control de Orden de Cálculo** (50014) | Compara aportantes y lectores del acumulador según vigencia, fracción y convenio. Para la fila seleccionada muestra concepto a mover, orden actual, orden propuesto y explicación. Usa la misma propuesta que la acción *Corregir orden*, prueba alternativas y respeta dependencias y vigencias futuras. No presenta el orden actual como arreglo; si no hay solución segura, deja vacía la propuesta y explica por qué | Tras cambiar órdenes, fórmulas o fracciones. Revisar primero si la lectura necesita el total o es deliberadamente parcial. Ningún orden se cambia al verificar: requiere usar la acción y confirmar su propuesta |
 | **Días Liquidados por Empleado** (110026, caption del menú; objeto *Control de Cobertura Liq.*) | Una fila por empleado, una columna por estado con los **días** en él, y **Sin Liquidar**. Detecta lo que el período esconde: dos mareas del 1 al 20 dejan julio "liquidado" con once días sin liquidar. Filtros *Período, Fecha Desde/Hasta, Empleado*; botones *Período anterior/siguiente*, *Sólo los que tienen faltantes*, *Completar fechas de cobertura* (para liquidaciones previas a que se guardara la cobertura; no recalcula nada) | Antes de cerrar el mes. **No poner la fecha hasta en el futuro**: los días no liquidados aún aparecen como faltantes |
 | **Control de Liquidación por Marea** (110022) | Matriz concepto × tripulante de **una marea**, datos de cálculo de la marea (días de navegación/puerto/feriados, tipo de cambio usado), neto mín/prom/máx, y **lista de quién cobró distinto que su categoría**. *Ver cantidades* (kilos, días, horas) es la primera pregunta cuando dos de la misma categoría cobraron distinto. *Control de Liquidación (Excel)* lo baja a Excel | Al cerrar una marea. 32 tripulantes por vez (*Columnas siguientes/anteriores*) |
 | **Control de Liquidación por Período** (110056) | Lo mismo por **mes**: arranca vacía y **pide acotar** (empleado, concepto, proyecto, tipo, fechas, convenio, categoría) porque 300 empleados no entran en una pantalla. Filtrar por *concepto* contesta "¿a quién **no** le salió?" | Para "¿a quién le cambió el sueldo?" |
@@ -79,7 +82,7 @@ flowchart LR
 ## Cómo interpretar un importe sospechoso
 
 1. **Cero sin error** → condición falsa, concepto fuera de convenio/tipo, parámetro sin vigencia (`IFZERO`), variable que vale 0, o novedad con todo en cero ([[novedad-en-cero-no-apagaba-el-concepto]]).
-2. **Bajo sin error** → orden de cálculo (aviso "Orden de cálculo").
+2. **Bajo sin error** → revisar precedencias y bases con el aviso "Orden de cálculo"; el aviso por sí solo no prueba la causa ni el importe de la diferencia.
 3. **Múltiplo entero exacto** (×2, ×5) → misma cosa contada varias veces: contar liquidaciones del empleado en el período antes de mirar la fórmula ([[lote-tipo-liq-en-blanco]]).
 4. **Distinto de Meta4 por un proporcional** → buscar el concepto aguas arriba ([[antiguedad-formula-explicita]]).
 

@@ -2,7 +2,7 @@
 tipo: tabla
 tags: [modelo-de-datos, parametros, calculo, rendimiento]
 fuente: [src/Tables/Tab110009.UsoParametroLiq.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Codeunits/Cod50019.GestionLiquidacion.al, src/Codeunits/Cod50081.ControlMareaLiq.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-19
 ---
 
 # Tabla - Uso Parámetro Liq
@@ -34,6 +34,22 @@ Ninguno.
 
 ## Vigencias
 Referencia puntual a una vigencia de [[Tabla - Parámetro Vigente]]; no tiene vigencia propia.
+
+## Reconciliación y recibos testigo
+
+La optimización del 19/10, instalada y con 30/30 pruebas aisladas aprobadas, conserva la tabla sin cambios. La query
+exacta de conciliación encuentra un recibo activo por versión; Gestión Liquidación aprovecha
+ese testigo para leer una sola vez sus usos por PK de documento y confirmar otras versiones
+en un temporal local. Usa `SetLoadFields` de base/clave/vigencia y `UpdLock`; la cabecera activa
+ya está protegida por la query. Sólo se reutilizan positivos y la ausencia conserva la consulta
+exacta y el respaldo histórico. No cambia `RegistrarUsoParametro`, `BorrarUsoParametros`,
+los registros persistentes ni `Fuente Parámetros`. Ver [[Parámetros y vigencias]].
+
+El ajuste posterior del mismo día, publicado y validado con 35/35 pruebas aisladas, limita la memoria de testigos a
+triples de candidatas todavía pendientes. Si una carga no confirma ninguna pendiente adicional,
+se omiten las próximas precargas disparadas por esa base en la llamada; TOP1 e histórico siguen
+comprobando cada candidata desconocida. No se modifica esta tabla ni se eliminan registros de
+uso: los `Delete(false)` nuevos actúan exclusivamente sobre `Parámetro Vigente` temporal.
 
 ## Trampas
 > [!warning] Liquidaciones calculadas antes de que existiera la tabla

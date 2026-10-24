@@ -3,7 +3,7 @@ aliases: ["Migración de novedades desde Meta4"]
 tipo: leccion
 tema: migracion-meta4
 tags: [leccion, migracion-meta4, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-13
 ---
 
 # Migración de novedades desde Meta4
@@ -80,3 +80,28 @@ suma coincide con Meta4. Los únicos duplicados reales eran los que venían de *
 - [[migracion-estados-meta4]]
 - [[migracion-tipo-liq-incompleta]]
 - Tema: `migracion-meta4` (ver [[_Convenciones del vault]])
+## Devolución de Ganancias en una regular de febrero
+
+Revisión en lectura del 12/10/2026: una devolución de febrero se concilió exactamente
+como impuesto total acumulado (5008) menos retenciones de enero (5010), sin otras
+compensaciones en sus acumulados. No había novedad de 5010 ni valor personal de
+5008/5010; sólo días de franco. El signo negativo es un resultado del cálculo
+acumulativo de Meta4, no un importe a migrar como novedad.
+
+La norma 5010 vigente desde septiembre de 2024 permite resultado negativo, limitado
+por lo previamente retenido. En BC, la fórmula regular vigente en febrero todavía
+contiene MAX(impuesto acumulado - YTD_RETENIDO_ANUAL, 0); esa rama impide devolver.
+La rama LIQ_FINAL ya permitía negativos, pero no cubría una regular. La revisión inicial dejó pendiente
+revisar esa limitación del cálculo mensual, en lugar de congelar el reintegro con
+una novedad. No se modificaron fórmulas ni datos en esta revisión.
+
+Fuentes, importes y referencias originales: respaldo privado
+.snapshots/devolucion-ganancias-febrero-20261012.
+
+## Corrección mensual aplicada el 13/10/2026
+
+La limitación anterior queda corregida con una nueva vigencia del 5010 desde
+01/02/2026 y la normalización de los valores fiscales a unidad mensual. El caso
+original concilia al centavo sin novedad; enero conserva su fórmula y resultados.
+Ver [[ganancias-devolucion-mensual-y-unidades]] para alcance, pruebas, cambios
+concurrentes de configuración y diferencias de febrero todavía abiertas.

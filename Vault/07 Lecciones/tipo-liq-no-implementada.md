@@ -1,41 +1,70 @@
 ---
-aliases: ["TIPO_LIQ no está implementada"]
+aliases: ["TIPO_LIQ no está implementada", "TIPO_LIQ se compara por código"]
 tipo: leccion
 tema: motor-calculo
 tags: [leccion, motor-calculo, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-11
 ---
 
-# TIPO_LIQ no está implementada
+# TIPO_LIQ se compara por código, no por número
 
-> [!note] Verificar: Al 2026-10-04 el código contradice esta lección: `TIPO_LIQ` sí está resuelta en `Cod50016` y sembrada en `Cod50077`. Además `Sembrar` da `CIERRE_MAREA` Orden 70 (no 1). Ver [[Divergencias entre documentación vieja y código]].
+**En una frase:** `TIPO_LIQ` devolvía el `Orden` del tipo y una fórmula con `IF(TIPO_LIQ = 40, …)` no se podía leer ni verificar; desde el 11/10/2026 se escribe `TIPO_LIQ = 'LIQ_FINAL'` y el editor ofrece la lista.
 
-**En una frase:** TIPO_LIQ figura en la ayuda de Variables de Sistema y en comentarios de Tab50578, pero no está implementada en ningún codeunit ni sembrada como fila
+> [!warning] Esta nota decía lo contrario
+> Hasta el 4/10/2026 afirmaba que `TIPO_LIQ` **no estaba implementada**. Era cierto al 28/9 y dejó de serlo sin que la nota se corrigiera. Hoy está resuelta en `Cod50016`, sembrada en `Cod50077` y se compara de las dos formas. Queda el alias viejo para no romper enlaces.
 
-`TIPO_LIQ` aparece en el ToolTip de `Pag50146.VariableSistemaList` como variable disponible, y
-`Tab50578.TipoLiquidacion` valida que el `Orden` sea único justamente porque "también se usa como
-valor de TIPO_LIQ en fórmulas". Pero al 28/9/2026 **no existe**: ningún codeunit la resuelve y no
-hay fila en `Variable Sistema Liq.` con ese Cód. Cálculo. El motor tiene `FTipoLiq` internamente
-(Cod50016) pero no lo expone.
+## El problema no era que faltara: era que no se podía leer
 
-Órdenes vigentes, que serían sus valores: SALDO_INICIAL 0, CIERRE_MAREA 1, HIST_REMUN 5,
-ANTICIPO 10, VACACIONES 30, LIQ_FINAL 40, RELIQUIDACION 50, DEVENGADOS 60, REGULAR 100,
-AGUINALDO 110.
+La variable devuelve el **`Orden`** del tipo de liquidación de la corrida, y `Tab50578` fuerza que el
+Orden sea único justamente para eso. Funcionaba. Pero:
 
-**Por qué:** hace falta para cualquier concepto que deba comportarse distinto en un cierre de marea que
-en un devengado — el caso concreto es [[produccion-no-se-prorratea]], donde 1534 y 2003 no pueden
-habilitarse en DEVENGADOS hasta poder distinguir. La ayuda promete la variable, así que es fácil
-escribirla en una fórmula y que el cálculo corte.
+- `IF(TIPO_LIQ = 40, …)` no dice nada. Para saber qué es 40 hay que entrar a la tabla a mirar.
+- **En ningún lado de la interfaz decía qué número era cada tipo.** El caption del campo era "Orden"
+  y la descripción sembrada se cortaba en `"(CIERRE_MAREA 1, DEVENGADOS 60…)"`.
+- `TIPO_LIQ = 41` compila, no coincide con nada y no da ningún error. Un dígito mal tipeado apaga
+  una rama entera en silencio, que es la familia de fallas que más cuesta en este motor.
+- El número depende de un campo editable. Cambiarle el Orden a un tipo reescribe el significado de
+  todas las fórmulas que lo comparan, sin tocarlas.
 
-**Cómo aplicarlo:** implementarla en Cod50016 exponiendo `FTipoLiq` y **además** sembrar la fila —
-las dos cosas, ver [[variable-sistema-hay-que-sembrarla]]. Mientras tanto, no usarla en fórmulas.
+## La solución reusó el mecanismo de los atributos
+
+El evaluador **ya sabía** comparar por código: un literal entre comillas a la derecha de `=` cambia
+la comparación, y así funcionan los atributos de lista ([[atributo-comparar-por-codigo]]). Enganchar
+`TIPO_LIQ` fueron tres toques:
+
+| Dónde | Qué |
+|---|---|
+| `Cod50016.LoadVariablesSistema` | Publica el código en `FCodigosAtributos`, además del número |
+| `Cod50015.ValidarCodigoAtributo` | Valida el literal contra `Tipo Liquidación` en vez de exigir un atributo |
+| `Cod50060.BuildValoresAtributoJson` | Emite los códigos, y el editor los autocompleta sin tocar el JS |
+
+**Las dos formas conviven.** El número sigue funcionando: no hay migración forzada.
+
+> [!important] El enganche va por `Cód. Cálculo`, no por el nombre
+> `Nombre Variable` es configurable a propósito —una instalación puede renombrar la variable para que
+> las fórmulas se lean mejor, y `Cod50077` lo documenta—. Comparar contra el literal `'TIPO_LIQ'`
+> dejaría de funcionar justo en la instalación que se tomó el trabajo de ponerle un nombre claro.
+
+## Por qué: el cero es ambiguo y el número no se audita
+
+Una liquidación **sin** `Cód. Tipo Liq.` también devuelve cero, y cero es el Orden de
+`SALDO_INICIAL` ([[migracion-tipo-liq-incompleta]]). Comparar contra 0 no distingue "es un saldo
+inicial" de "no tiene tipo cargado"; con el código, `TIPO_LIQ = 'SALDO_INICIAL'` sólo matchea el
+primero, porque el código de una liquidación sin tipo es el vacío.
+
+## Cómo aplicarlo
+
+- En una fórmula nueva, **siempre el código**: `IF(TIPO_LIQ = 'CIERRE_MAREA', …)`. El editor ofrece la
+  lista al escribir la comilla, con la descripción del tipo y su Orden al lado.
+- Para saber **quién compara TIPO_LIQ** antes de tocar un tipo: [[Dónde se usa un símbolo]].
+- Las tres fórmulas que lo usaban —1023, 1534 y 2003— se migraron el 11/10/2026 por SQL, con entrada
+  en el historial de fórmulas y la invariante de que ningún importe se mueva.
 
 ## Relacionado
 
+- [[atributo-comparar-por-codigo]] — el mecanismo que se reusó
+- [[produccion-no-se-prorratea]] — el caso que pedía distinguir el cierre del devengado
+- [[variable-sistema-hay-que-sembrarla]]
 - [[lote-tipo-liq-en-blanco]]
-- [[novedad-con-proyecto-queda-huerfana]]
-- [[novedad-en-cero-no-apagaba-el-concepto]]
-- [[novedad-estado-apunta-a-proyecto-sin-liquidar]]
-- [[novedad-tipo-liq-y-fecha-se-pelean]]
-- [[novedades-pre-liquidacion]]
-- Tema: `motor-calculo` (ver [[_Convenciones del vault]])
+- [[migracion-tipo-liq-incompleta]]
+- [[vacio-en-tipos-liq-aplicables-es-comodin]]

@@ -93,3 +93,10 @@ Ver [[conceptos-tres-vigencias]]. El historial de estados, en cambio, es contigu
 Todo lo demás (zona, veda, sindicato, obra social…) se identifica por `Nombre Variable` y es configuración. Ver [[sindicato-obra-social-atributos]], [[veda-como-atributo-del-buque]].
 
 Relacionado: [[Vision del dominio pesquero]], [[Convenios, categorías y par CCT]].
+
+## Mejoras de carga del 11/10/2026
+
+La búsqueda de un valor existente abre las alternativas sin filtrar por su código; el historial
+se controla arriba de la lista y la ficha permite agregar vigencias. Los accesos a parámetros
+respetan el origen y el eje del atributo. Ver [[Carga de atributos y parámetros desde las fichas]].
+

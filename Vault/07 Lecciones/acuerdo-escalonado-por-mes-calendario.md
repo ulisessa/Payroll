@@ -38,3 +38,11 @@ El error se detecta sólo en un tramo que caiga **entre la salida y el fin de me
 - [[condiciones-oficiales-poteros-2026]]
 - [[grossing-up-tapa-errores]]
 - [[anticipos-por-encima-del-neto-gu]]
+
+## Excepción: un ascenso a mitad de mes (04826, 15/10/2026)
+
+La planilla de condiciones lista a 04826 **dos veces**: Primer Oficial de Máquinas (15.000 / 6.600) y Jefe de Máquinas junto con 04837 (22.000 / 9.000). Se ascendió con la marea 8 del HF802: el cierre del 1 al 12/2 cierra con 15.000, y el devengado del 13 al 28/2 de Meta4 (neto 11,25 M contra 7,67 M de BC, 6 M de diferencia en el tapón 2003) corresponde a 22.000 / 9.000 (BC con esos valores da 11,1 M). La vigencia va **el 13/2, día de la salida**, no el 1/2: un cambio de puesto no es un escalón por mes. Script: `scripts/Escalon04826Jefe.sql`. El atributo PUESTO de 04826 sigue en OF04 hasta el 28/2 y pasa a OF02 el 1/3; hoy no afecta el neto pactado, pero conviene alinear la fecha.
+
+## Corrección de 04163 con datos de marzo (20/10/2026)
+
+La nota de arriba movió los escalones de 04163 al día 1 «sin liquidaciones con qué verificarse». Con marzo se pudo verificar y **el 1/3 estaba mal**: Meta4 liquidó el cierre del 13/3 (cobertura 1 al 22/3, 22 días) con 12.000 USD —`12.000 × 1.360 × 70 % × 22/30 − 250.000` de anticipo = 8.127.600— y la devengada del 23 al 31/3 con 15.000. El escalón de marzo arranca con la **salida de la marea nueva (23/3)**, como en 04826 (13/2) y 04921 (17/2), que ya estaban en la fecha de salida y cuadran. `scripts/EscalonGU04163Marzo.sql`: la fila del 1/3 pasa a 12.000 y se agrega la del 23/3 con 15.000, en `USD_MAREA_04163` y `NETO_GU_MAREA_04163`. Antes de mover un escalón al día 1 hay que verificarlo contra un tramo que caiga entre el 1 y la salida; el caso de 04836/04921 (devengados del 29 al 31/1) no alcanza para generalizar.

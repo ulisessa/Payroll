@@ -3,10 +3,18 @@ aliases: ["Anticipos como novedades"]
 tipo: leccion
 tema: conceptos-haberes
 tags: [leccion, conceptos-haberes, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-16
 ---
 
 # Anticipos como novedades
+
+> [!warning] Criterio histórico superado para nuevas cargas
+> Para preparar otro mes, usar [[Préstamos y cuotas]], [[anticipos-cta-cte-meta4]]
+> y [[anticipo-no-es-haber-del-recibo]]. Los pagos de anticipo tipo 4 no se agregan
+> como haberes del recibo mensual. El proyecto se determina por el movimiento y
+> el destino acreditado; no se deja vacío por regla general. Un patrón de importes
+> no acredita por sí solo una entrada manual. El texto siguiente conserva el
+> diagnóstico de una migración anterior; no es la receta para repetirla.
 
 4803, 4813, 4823 y 4115 se cargan como Novedades y no tienen fórmula a propósito; 902 migradas de ene-jun 2026
 

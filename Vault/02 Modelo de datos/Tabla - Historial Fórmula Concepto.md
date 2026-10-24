@@ -2,7 +2,7 @@
 tipo: tabla
 tags: [modelo-de-datos, auditoria, formulas, conceptos]
 fuente: [src/Tables/Tab110002.HistorialFormulaConcepto.al, src/Codeunits/Cod50070.HistorialFormulasLiq.al, src/Pages/Pag110004.HistorialFormulasConcepto.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-14
 ---
 
 # Tabla - Historial Fórmula Concepto
@@ -21,11 +21,16 @@ actualizado: 2026-10-04
 | `Fecha Hora` | DateTime | Cuándo **empezó** la sesión de edición. No se toca después: ancla la ventana de agrupación y el orden de la lista. |
 | `Última Edición` | DateTime | Último guardado dentro de la misma sesión. |
 | `Usuario` | Code[50] | Quién editó. |
-| `Tipo Cambio` | Enum `Tipo Cambio Fórmula` | Alta, Modificación, Eliminación, Formato. |
+| `Tipo Cambio` | Enum `Tipo Cambio Fórmula` | Alta, Modificación, Eliminación, Formato, Orden. |
 | `Fórmula Anterior/Nueva`, `Condición Anterior/Nueva` | Text[2048] | Textos completos. |
 | `Cambió Fórmula`, `Cambió Condición` | Boolean | Qué parte cambió. |
 
 `ResumenCambio()` devuelve `Fórmula Anterior` si es Eliminación, si no `Fórmula Nueva` (texto corto para la grilla).
+
+Para tipo **Orden**, `Fórmula Anterior/Nueva` contienen las expresiones completas del **orden de
+cálculo**. `ResumenCambio()` lo rotula explícitamente y la ficha muestra una sección de orden.
+`RegistrarCambioOrden` crea una entrada independiente, sin campos nuevos ni agrupación con ediciones
+de importe. El método de restauración rechaza ese tipo; revertirlo requiere una nueva vigencia.
 
 ## Lógica en triggers
 Ninguna en la tabla. La lógica vive en `Cod50070 Historial Fórmulas Liq.`, llamado desde los triggers de `Concepto Liquidación`: `RegistrarAlta`, `RegistrarModificacion`, `RegistrarFormato`, `RegistrarBaja`, `Restaurar`.

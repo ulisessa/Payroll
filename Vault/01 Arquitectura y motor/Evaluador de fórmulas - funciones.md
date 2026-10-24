@@ -7,6 +7,23 @@ actualizado: 2026-10-04
 
 # Evaluador de fórmulas - funciones
 
+## `ACUM_PARAM_CCT('fuente', 'parámetro', 'cantidad', divisor)`
+
+Acumula un precio normativo de convenio ponderado por una cantidad histórica. La fuente
+activa debe consultar cabeceras de liquidación y filtrar empleado y proyecto con
+`{EMP_NO}` y `{JOB_NO}`. Cada cabecera debe ser previa, calculada y del mismo contexto.
+El parámetro no admite ejes de atributos; se resuelve con convenio, categoría y fecha
+sellados, dejando empleado vacío para no tomar acuerdos personales.
+
+La cantidad y, si el parámetro está expresado en moneda, su variable de tipo de cambio
+se leen del resumen guardado de cada documento. El divisor debe ser positivo. Un dato
+histórico necesario ausente corta el cálculo; no se sustituye por cero.
+
+El resultado y los argumentos se conservan en el detalle de variables de la línea para
+su explicación histórica, que no consulta los datos actuales. Las vigencias de precio
+efectivamente usadas se registran en `Uso Parámetro Liq.` al terminar el cálculo.
+No escribe recibos históricos ni agrega un `Commit`.
+
 Las funciones son las del `case` de `CallFunction` (Cod50015). Hay **12**, y el catálogo del editor
 (`Catálogo Variables Liq.`, Cod50064, `Inicializar`) es su **espejo**: agregar una función obliga a
 tocar los dos, más `IsFormulaKeyword` del motor (`BuildFormulaEvaluada`). Ver [[Evaluador de fórmulas - sintaxis]].

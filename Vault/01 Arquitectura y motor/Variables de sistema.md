@@ -2,7 +2,7 @@
 tipo: referencia
 tags: [motor, variables, contexto]
 fuente: [src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Tables/Tab60018.VariableSistemaLiq.al, src/Codeunits/Cod50077.GestionVariablesSistema.al, src/Codeunits/Cod110049.VariablesSistemaInstall.al, src/Codeunits/Cod110050.VariablesSistemaUpgrade.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-15
 ---
 
 # Variables de sistema
@@ -28,27 +28,54 @@ etiqueta y hay `LiqNo`, el motor escribe un paso en `Detalle Ganancias Liq.`), y
 >
 > Un `Cód. Cálculo` que el `case` no conoce vale **0** y agrega una **advertencia** (`AvisarCodigoDesconocido`); ya no es mudo.
 
-## Catálogo completo (33 códigos del `case`)
+## Catálogo por función
 
 ### Calendario y período
 
 | Cód. Cálculo | Qué devuelve |
 |---|---|
-| `AÑOS_ANTIGUEDAD` | antigüedad **fraccionaria** a `FechaRef` (`Gestión Estado Empleado`.`CalcAntiguedadFraccionAlFecha`) |
+| `AÑOS_ANTIGUEDAD` | antigüedad **fraccionaria** al **fin del período** (el mayor entre `FechaRef` y `Fecha Hasta` del período; `Gestión Estado Empleado`.`CalcAntiguedadFraccionAlFecha`). Desde el 20/10/2026 no es la fecha de arribo del cierre de marea: ver [[antiguedad-al-fin-de-mes]] |
 | `AÑOS_ANTIG_30JUN` | años **completos** de antigüedad al corte del 30/6 vigente (Art. 32 CCT): `CalcAntiguedadAl30Junio` |
 | `DIAS_HAB` | días hábiles del **período entero** (lun-vie, o según el calendario del período) |
 | `DIAS_MES` | días calendario del período (`Fecha Hasta − Fecha Desde + 1`; 31 en enero, 28 en febrero) |
+| `DIAS_ALTA_30` | días del **mes comercial de 30** con el empleado de alta. Recorre las **fases** día por día y saltea el 31. Su complemento —`30 - DIAS_ALTA_30`— son los días que el sueldo mensual no devengó |
+
+> [!important] `DIAS_ALTA_30` no es `DIAS_MES`, y va por la fase, no por la cobertura
+> Son los dos errores fáciles. `DIAS_MES` da 31 en enero y arruina cualquier prorrateo: la
+> liquidación argentina divide por **30 fijo** y el día 31 no cuenta ([[feriado-divide-por-30-fijo]]).
+>
+> Y la **cobertura parcial no es una ausencia**: la regular de un tripulante cubre sólo los días que
+> no cubre el cierre de marea, así que prorratear por la cobertura le descontaría media nómina. La
+> fase dice si existía la relación laboral, que es lo que decide si el sueldo se devengó. En los dos
+> casos de enero de 2026 las dos daban lo mismo —por eso hay que elegir con la cabeza y no con la
+> muestra—. Ver [[cobertura-parcial-no-es-ausencia]].
+>
+> El tope se aplica al **día del mes**, no al total: de alta del 2 al 31 son 29 días, no 30.
+> Toparlo por el total pagaría un día que no se devengó. Alta desde el 5 → 26; del 9 al 24 → 16.
 | `DIAS_FERIADOS` | feriados del período: fechas **con entrada propia** `Nonworking` en el calendario, contados sólo si caen en la ventana de la liquidación (tramos). Calendario: el del **convenio** (`Cód. Calendario`) si lo tiene, si no el del período |
 | `DIAS_HAB_AÑO` | días hábiles del año calendario de `FechaRef` |
 | `DIAS_ALTA_AÑO` | días hábiles del año con el empleado de alta (Alta → Baja; los estados intermedios no cortan) |
 | `MES_ANUAL` | mes calendario de `FechaRef` (1 a 12); sirve para anualizar YTD |
 | `PCT_ESCALA` | `Categoría CCT."% Escala" / 100` del par (convenio, categoría) en uso; 0 si no existe. **La única que depende del par**: se recalcula en `UsarParCCT` |
-| `TIPO_LIQ` | el **`Orden`** del tipo de liquidación (`Tipo Liquidación`); 0 si la liquidación no tiene tipo. Se devuelve el Orden y no el código porque las fórmulas son numéricas |
+| `TIPO_LIQ` | el tipo de liquidación de la corrida. **Se compara por código** —`TIPO_LIQ = 'LIQ_FINAL'`— y numéricamente devuelve el `Orden` del tipo; 0 si la liquidación no tiene tipo |
 
-> [!warning] `TIPO_LIQ` = 0 es ambiguo
-> Es el Orden de `SALDO_INICIAL`, pero también lo que da una liquidación vieja sin `Cód. Tipo Liq.`
-> ([[migracion-tipo-liq-incompleta]]). Comparar contra cualquier otro orden sí distingue. La lección
-> [[tipo-liq-no-implementada]] **ya no es cierta**: la variable existe en el `case` y en `Sembrar`.
+> [!tip] Comparar por código, no por número
+> Desde el 11/10/2026 `TIPO_LIQ` admite un literal entre comillas a la derecha de `=` o `<>`, igual
+> que un atributo de lista ([[atributo-comparar-por-codigo]]):
+>
+> ```
+> IF(TIPO_LIQ = 'CIERRE_MAREA', PROD_KN_MAREA / 1000 * USD_TON_PROD, VALOR_NAV_EMP / 30 * DIAS_MAREA)
+> ```
+>
+> El editor ofrece la lista de tipos al escribir la comilla, y un código inexistente **corta con
+> error** en vez de no coincidir con nada en silencio. La forma numérica sigue valiendo; no hay
+> migración forzada, pero una fórmula nueva no tiene motivo para usarla. Detalle en
+> [[tipo-liq-no-implementada]].
+
+> [!warning] `TIPO_LIQ` = 0 es ambiguo; `= 'SALDO_INICIAL'` no
+> Cero es el Orden de `SALDO_INICIAL`, pero también lo que da una liquidación vieja sin
+> `Cód. Tipo Liq.` ([[migracion-tipo-liq-incompleta]]). Por código no hay ambigüedad: una liquidación
+> sin tipo tiene el código vacío y no matchea ningún tipo.
 
 ### Marea (navegación, puerto, enrolamiento)
 
@@ -92,6 +119,7 @@ Ver [[ventana-promedio-ausentismo]] y [[accidente-empleador-y-art]].
 
 | Cód. Cálculo | Qué devuelve |
 |---|---|
+| `DEDUC_GANANCIAS_ACUM` | deducciones de Ganancias acumuladas del año: familia mes a mes más gastos por los meses transcurridos ([[deduccion-ganancias-acumulada-por-mes]]) |
 | `DEDUC_GANANCIAS` | deducciones anuales: cargas de familia (fracción por tipo × valor vigente del parámetro del tipo) + gastos deducibles fijos (`Ded. Ganancias Empleado`). Escribe filas `Familiar` y `Gasto` en `Detalle Ganancias Liq.` |
 
 Un familiar deduce sólo si tiene **fecha de alta a efectos del impuesto** ≤ `FechaRef`, sin baja o con baja ≥ inicio de la ventana, y dentro del tope de edad del tipo (`Parámetro."Edad Máxima Familiar"`, 0 = sin tope; el mes del cumpleaños cuenta). El `% Deducción` es el coeficiente (vacío = 100). Ver [[familiar-alta-impuesto]].
@@ -105,7 +133,10 @@ Un familiar deduce sólo si tiene **fecha de alta a efectos del impuesto** ≤ `
 | `PERIODO_CONCEPTO` | `Cód. Concepto` | lo ya liquidado de **un** concepto en el **mes** (todos los períodos del mismo mes: `MENS072026` y `MENS072026B`), sin acumulador dedicado |
 | `YTD_LINEAS` | `Tipo Concepto` | suma anual de líneas por `Tipo Concepto` (sin excluir nada más que Borrador) |
 
-Varias filas pueden compartir el mismo `Cód. Cálculo` con acumuladores distintos (`HAB_GRAV_ANUAL`→`BASE_IG4`, `HAB_EXTORD_ANUAL`→`BASE_EXT_IG4`).
+Varias filas pueden compartir el mismo `Cód. Cálculo` con acumuladores distintos
+(`YTD_HAB_GRAV_ANUAL` → `YTD_ACUM` sobre `BASE_IG4`, `YTD_HAB_EXTORD_ANUAL` →
+`YTD_ACUM` sobre `BASE_EXT_IG4`). El nombre configurable no debe confundirse con un
+código de cálculo que el motor implemente.
 
 > [!warning] En `YTD_ACUM`/`PERIODO_ACUM` cada concepto cuenta **una vez** y con la fracción **más vieja** vigente
 > `CalcImporteAnualPorAcumulador` recorre `Fracción Acumulador` en orden de `Vigencia Desde` ascendente
@@ -121,12 +152,38 @@ Varias filas pueden compartir el mismo `Cód. Cálculo` con acumuladores distint
 > [!warning] Un publish de RAD no dispara Upgrade
 > En desarrollo hay que usar la acción **Sembrar** de la página *Variables de Sistema* (Pag50146) o insertar la fila a mano.
 
-No se siembran con nombre propio: `YTD_ACUM`, `PERIODO_ACUM`, `PERIODO_CONCEPTO`, `YTD_LINEAS`, `DIAS_ESTADO_PERIODO`, `DIAS_ESTADO_PREVIOS` (necesitan su parámetro; sin él darían 0 mudo). Para estados se siembran `DIAS_ENFERMEDAD` (AU1), `DIAS_ACCIDENTE` (ACC) y `DIAS_ACC_PREVIOS` (ACC, `DIAS_ESTADO_PREVIOS`), **sólo si el estado existe** en el catálogo.
+No se siembran con nombre propio: `YTD_ACUM`, `PERIODO_ACUM`, `PERIODO_CONCEPTO`, `YTD_LINEAS`, `DIAS_ESTADO_PERIODO`, `DIAS_ESTADO_PREVIOS` (necesitan su parámetro; sin él darían 0 mudo). Desde el 13/10/2026 el sembrado tampoco agrega asociaciones fijas de los nombres de ausentismo a estados. Las filas existentes se conservan. Una instalación limpia carga las fuentes y los mecanismos genéricos necesarios como datos de configuración; la página expone `Cód. Estado` y el lookup incluye los dos cálculos por estado. Cambiar el origen de un nombre requiere migrar o renombrar expresamente su dueño anterior, incluso si está inactivo.
 
 > [!note] Divergencias internas halladas (4/10/2026)
 > - `DIAS_MES` está en el `case` pero **no** en `Sembrar` ni en la lista `Opciones` del `OnLookup` de `Cód. Cálculo`.
-> - `MESES_PROM_AUS_6`, `MESES_PROM_AUS_12`, `DIAS_ESTADO_PERIODO` y `DIAS_ESTADO_PREVIOS` están en el `case` pero **no** en `Opciones`. (Los dos primeros sí en `Sembrar`.)
-> - La lección [[variables-rotas-valen-cero]] dice que `AÑOS_ANTIG_30JUN` y `MESES_PROM_AUS_*` no tienen `case`: **hoy sí lo tienen** en el código; si las filas siguen valiendo 0, el problema es el `Cód. Cálculo` cargado en la fila, no el AL.
+> - `MESES_PROM_AUS_6` y `MESES_PROM_AUS_12` están en el `case` pero **no** en `Opciones` (sí en `Sembrar`). Los dos cálculos genéricos por estado se incorporaron al lookup el 13/10/2026.
+> - El hallazgo histórico de [[variables-rotas-valen-cero]] sobre `AÑOS_ANTIG_30JUN` y `MESES_PROM_AUS_*` quedó superado: **hoy sí tienen `case`** en el código. Antes de agregar lógica, comprobar el código de cálculo de la fila y el motor publicado.
+
+## Depuración de filas obsoletas — 15/10/2026
+
+Durante la revisión de avisos de la versión **1.0.0.660** se inactivaron cinco filas que
+declaraban códigos de cálculo inexistentes. Se conservaron las filas y sus demás campos;
+no se modificaron fórmulas ni resultados calculados.
+
+| Fila inactivada | Configuración válida o criterio actual |
+|---|---|
+| `DIAS_COBERTURA_30` | No se implementó ese código. Para el prorrateo mensual existente se usa `DIAS_ALTA_30`, basado en fases de alta; cobertura y alta no son equivalentes. |
+| `DIAS_HAB_ANIO` | El código implementado es `DIAS_HAB_AÑO`, con Ñ. |
+| `HAB_EXTORD_ANUAL` | La variable en uso es `YTD_HAB_EXTORD_ANUAL`, con código `YTD_ACUM` y acumulador `BASE_EXT_IG4`. |
+| `HAB_GRAV_ANUAL` | La variable en uso es `YTD_HAB_GRAV_ANUAL`, con código `YTD_ACUM` y acumulador `BASE_IG4`. |
+| `RETENIDO_ANUAL` | La variable en uso es `YTD_RETENIDO_ANUAL`, con código `YTD_ACUM` y acumulador `RETENIDO_IG`. |
+
+Antes de inactivarlas se comprobaron referencias **por identificador completo** en la
+configuración vigente, sus vigencias conservadas, fuentes, filtros y parámetros. No tenían
+consumidores ni declaraciones duplicadas que requirieran migrar un nombre. La comprobación
+se repitió con configuración fresca y bajo bloqueos; las demás tablas y las fórmulas quedaron
+intactas. Por esta depuración **no hace falta recalcular enero**: retira avisos de filas sin uso.
+
+El sembrado actual no incluye esos cinco códigos y no reactiva filas existentes. No corresponde
+ejecutar **Sembrar** como reparación automática de un código desconocido. Primero hay que
+determinar si se trata de un error de escritura, una fila sin uso o un cálculo que falta.
+Desde 660 cada aviso de código desconocido se separa correctamente; el registro conserva en
+`Detalle` el mensaje que excede el campo corto. Ver [[Avisos y advertencias del cálculo]].
 
 ## Variables que **no** son de sistema pero el motor siempre inyecta
 

@@ -2,7 +2,7 @@
 tipo: concepto
 tags: [motor, incidencias, novedades]
 fuente: [src/Codeunits/Cod50014.MotorLiquidacion.al, src/Tables/Tab60020.IncidenciaLiquidacion.al, src/Codeunits/Cod50061.GestionNovedadesLiq.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-20
 ---
 
 # Incidencias en el motor
@@ -47,7 +47,30 @@ La vía de fórmula (CCT, tipo de liquidación, condición) **no se evalúa** si
 Después del bucle, las incidencias cuyo concepto **no generó línea**:
 
 - **Importe ≠ 0**: se escribe una línea con el concepto vigente a `FechaRef` (par de la cabecera, sin `Fórmula Aplicada`), y su aporte a acumuladores se registra como **tardío** (orden `999999999`) porque llega después de todo.
-- **Sólo cantidad (importe 0)**: no hay importe que escribir (lo produce la fórmula, que no corrió). Se avisa al registro: *"Se cargó una cantidad de N en el concepto X pero el concepto no generó línea… Esa cantidad NO se pagó."*
+- **Sólo cantidad (importe 0)**: no hay importe que rescatar. Se conserva el aviso *"Se cargó una cantidad de N en el concepto X pero el concepto no generó línea… Esa cantidad NO se pagó."*, salvo que se acredite la entrada informativa de fuente descrita a continuación.
+
+### Excepción: cantidad informativa de una fuente
+
+`EsCantidadInformativaDeFuente` omite **sólo esa advertencia** cuando se cumplen todas estas guardas:
+
+| Alcance | Condición exacta |
+|---|---|
+| Incidencia | `Desde Novedad = true`, `Importe = 0`, `Cantidad <> 0`, `Valor Unitario = 0` y `Unidad Cantidad` vacía. |
+| Catálogo del concepto | Debe existir. **Todas sus versiones** son `Informativo`, con `Fórmula` vacía al quitar espacios, `Es Acumulador = false`, `Es Devengo = false`, `Rol Franco = Ninguno` y `Fuente Matriz` vacía. |
+| Fuente | Activa, sobre `Novedad Liquidación`, de tipo `Decimal`, función `SUM` y campo valor `Cantidad`. `No. Campo Fecha Inicio = 0`, `No. Campo Fecha Fin = 0` y `Fin Efectivo = false`. |
+| Contexto | El nombre de esa fuente existe en `Ctx` con valor distinto de cero; un nombre sembrado en cero no alcanza. |
+| Filtros | Exactamente tres filas en `Filtro Fuente Datos Liq.`: `No. Empleado = {EMP_NO}`, `Cód. Período = {PERIODO}` y `Cód. Concepto` igual al código literal de la incidencia. No se aceptan filtros adicionales, repetidos o con otro alcance. |
+| Código literal | No contiene operadores de filtro, comillas ni el separador de rango `..`; no se interpreta una expresión como si fuera un código exacto. |
+
+La fuente lee la novedad directamente: esa cantidad puede ser un indicador de entrada sin que su
+concepto emita una línea. Revisar todo el catálogo permite reconocerlo aunque su primera vigencia
+sea posterior al período de la novedad. **No se toma una versión informativa futura para ocultar
+una versión monetaria anterior**: cualquier versión incompatible conserva la advertencia.
+
+Una cantidad pagable, un concepto sin catálogo, una fuente inactiva, un alcance ambiguo o cualquier
+otra guarda incumplida mantienen el aviso. La clasificación no agrega una fórmula, no cambia el
+cálculo ni crea una línea. Tampoco borra advertencias ni resultados históricos: afecta los avisos
+que se generen en una corrida posterior. Ver [[Configurar fuentes de datos]].
 
 ## Las incidencias no son la vía para leer datos de una fuente
 

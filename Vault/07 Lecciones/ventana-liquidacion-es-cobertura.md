@@ -3,7 +3,7 @@ aliases: ["Ventana de liquidación = cobertura"]
 tipo: leccion
 tema: motor-calculo
 tags: [leccion, motor-calculo, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-21
 ---
 
 # Ventana de liquidación = cobertura
@@ -18,8 +18,16 @@ Fuente de Datos**— veía días anteriores al embarque.
 
 Corregido el 17/9/2026 en `Cod50016.ContextoLiquidacion.Init`, que ahora recibe
 `CoberturaDesde` y la usa cuando viene distinta de `0D`. El límite superior no hizo
-falta tocarlo: `Fecha Liquidación = Cobertura Hasta` en las 156 liquidaciones que
-tienen cobertura.
+falta tocarlo en aquella captura: `Fecha Liquidación = Cobertura Hasta` en las 156
+liquidaciones revisadas. Esa coincidencia histórica no es un invariante del motor.
+
+**Puerto posterior al arribo (21/10/2026):** el cierre puede valorar al arribo y
+cubrir un día personal de puerto posterior. `Init` recibe `CoberturaHasta` como
+argumento adicional y sólo extiende el contador de puerto de tipos `Arribo`, hasta
+el menor entre cobertura y fin del período. La extensión respeta los tramos reales
+si existen. `FFechaRef` y los tokens de fuentes conservan la valoración original;
+no se desplazan TC, vigencias ni el viaje. No hay una ampliación global de todas
+las fuentes hasta el fin de cobertura. Ver [[dia-de-puerto-no-estira-la-marea]].
 
 **Por qué:** el 17/9/2026 el legajo 03753 cobró tres días de sueldo de puerto en vez de
 uno. Los dos de más eran guardia en puerto del 1 y 2 de enero, en `PN-128-NOMINA`,

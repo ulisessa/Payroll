@@ -64,3 +64,10 @@ Meta4 (reporta 5,8356 años y aplica 4% donde `entero` da 5). Ver [[antiguedad-d
 - [[a-cuenta-futuros-aumentos-puerto]]
 - [[adicional-art-23-vs-art-33]]
 - [[adicional-tareas-mecanicas]]
+
+## Código unificado desde enero de 2026
+
+Por instrucción del usuario, la regla salarial de Alimentación pasa del 1055 al 1053 desde
+01/01/2026, como rama por convenio 372/04. El historial anterior del 1055 se conserva.
+No cambia la escala ni el porcentaje. Ver [[antiguedad-unificada-1053-por-convenio]].
+

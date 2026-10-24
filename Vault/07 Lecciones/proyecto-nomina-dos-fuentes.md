@@ -4,7 +4,7 @@ tipo: leccion
 tema: estados-fases
 tags: [leccion, estados-fases, project]
 origen: 7aa458fa-440c-4ba2-a50b-60d4d7167eea
-actualizado: 2026-10-01
+actualizado: 2026-10-21
 ---
 
 # Proyecto de nómina: dos fuentes
@@ -45,6 +45,20 @@ PN-PPM-NOMINA y los PN-ADM-* **no** son valores de ese atributo y no sirven para
 proyecto es "de nómina". Tampoco sirve la dimensión 2: 503 proyectos `PN-` la tienen cargada. Ver
 [[tres-capas-fase-estado-asignacion]], [[veda-como-atributo-del-buque]] y
 [[novedad-proyecto-sale-del-estado]].
+
+## El chequeo previo no debe exigir una copia por marea (21/10/2026)
+
+`PROY_NOMINA` vigente y con destino existente de nómina cuenta como configuración
+disponible. No marcar como error comprobado la ausencia de su copia en
+`Job."Proyecto Inactividad Nómina"`. Se confirmó en SQL para los tres buques que
+motivaron la revisión; los atributos estaban cargados y los destinos eran válidos.
+
+Las rutas siguen siendo distintas: `Cod50018.ProyectoNominaDe` prioriza un estado
+fuera de marea dentro del período, luego busca el atributo del último buque y,
+para quien nunca embarcó, el del empleado. `Cod50017.ResolverProyectoInactividad`,
+al insertar una salida sin proyecto, todavía lee el campo de la marea y el
+respaldo de Recursos humanos. No afirmar que esta segunda ruta lee el atributo.
+Una revisión del informe no autoriza a reescribir estados o a cambiar el motor.
 
 ## Relacionado
 

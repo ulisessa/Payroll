@@ -2,7 +2,7 @@
 tipo: tabla
 tags: [modelo-datos, configuracion, variables, motor]
 fuente: [src/Tables/Tab60018.VariableSistemaLiq.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Codeunits/Cod50077.GestionVariablesSistema.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-13
 ---
 
 # Tabla - Variable Sistema Liq. (60018)
@@ -32,16 +32,27 @@ Mapea un **cálculo fijo en código** (`Cód. Cálculo`, resuelto en `ComputeVar
 Significados no obvios: `DIAS_MAREA` = `DIAS_PROYECTO + DIAS_PUERTO`; `DIAS_ENROLAMIENTO` = días calendario en estados que devengan francos en toda la marea; `SALDO_FRANCOS` = devengados − consumidos; `PERIODO_ACUM` es `YTD_ACUM` acotado al período **excluyendo la liquidación en curso** (tope mensual SIPA con más de una liquidación); `TIPO_LIQ` = *Orden* del tipo (cero es "sin tipo" y también el Orden de SALDO_INICIAL); `DIAS_FERIADOS_MAREA` y `DIAS_FERIADOS_GUARDIA` son disjuntos (no pagan dos veces el mismo feriado). Detalle del motor en [[Contexto de liquidación y variables]] y [[Variables de sistema]].
 
 > [!warning] Discrepancia: catálogo documentado vs. código
-> El comentario de cabecera de la tabla y el `StrMenu` de `OnLookup` **no incluyen** `DIAS_MES`, `MESES_PROM_AUS_6`, `MESES_PROM_AUS_12`, `DIAS_ESTADO_PERIODO` ni `DIAS_ESTADO_PREVIOS`, que el motor sí resuelve. Se pueden tipear a mano o sembrarlos (`Cod50077`), pero no aparecen en el lookup. `Cod50077` pide mantener los tres sitios sincronizados.
+> El comentario de cabecera de la tabla y el `StrMenu` de `OnLookup` todavía **no incluyen** `DIAS_MES`, `MESES_PROM_AUS_6` ni `MESES_PROM_AUS_12`, que el motor sí resuelve. `DIAS_ESTADO_PERIODO` y `DIAS_ESTADO_PREVIOS` sí aparecen en el lookup desde el 13/10/2026. La página de variables expone `Cód. Estado` para configurar ambos mecanismos.
 
 ## Triggers
-Sólo validación de nombre. **Ningún proceso escribe esta tabla**: es configuración pura. `Cod50077.GestionVariablesSistema.Sembrar()` la puebla de forma idempotente (por `Cód. Cálculo`, no por nombre, para no duplicar una variable renombrada) y deja afuera `YTD_ACUM`/`YTD_LINEAS` (no tienen nombre canónico). Siembra `DIAS_ENFERMEDAD` (AU1), `DIAS_ACCIDENTE` (ACC) y `DIAS_ACC_PREVIOS`.
+Sólo validación de nombre. Es configuración pura. `Cod50077.GestionVariablesSistema.Sembrar()` agrega los cálculos generales de forma idempotente (por `Cód. Cálculo`, no por nombre, para no duplicar una variable renombrada) y conserva todas las filas existentes. Los mecanismos que requieren un estado, acumulador, concepto o tipo se cargan como datos de la instalación. Ya no siembra las asociaciones `DIAS_ENFERMEDAD`, `DIAS_ACCIDENTE` ni `DIAS_ACC_PREVIOS` a estados concretos, para permitir que esos nombres tengan una fuente de datos configurable.
+
+Desactivar una variable de sistema no libera su nombre para una fuente de datos: `ExigirLibre` también revisa filas inactivas. La migración del origen debe preservar o renombrar la configuración anterior y dejar un solo dueño del nombre; el sembrado no efectúa esa migración ni borra registros.
 
 ## Quién la lee
 `Cod50016.ContextoLiquidacion` (carga), `Cod50014`, `Cod50060.CatalogoVariablesLiq`, `Cod110044/110051`, `Cod50081.ControlMareaLiq`. Página: `Pag50146 Variable Sistema List`, `PagExt50352 ITManagerRCPayrollExt`. Bloquea el borrado de un acumulador que use ([[Tabla - Concepto Liquidación]]).
 
 ## Vigencias
 No tiene.
+
+## Divisor configurable de licencia
+
+`DIV_PROM_LIC` requiere `Cód. Estado`. Su ventana y divisor leen los parámetros vigentes
+`PROM_LIC_MESES`, `PROM_LIC_UMBRAL` y `PROM_LIC_DIAS_MES`. Los filtros de las fuentes pueden
+referirse a la misma fila mediante `{PROM_LIC_DESDE:NOMBRE}` y `{PROM_LIC_HASTA:NOMBRE}`.
+La siembra no crea un divisor activo incompleto: se entrega como configuración junto con sus
+parámetros. Los códigos `DIV_PROM_ENF_6/12` se mantienen por compatibilidad con fuentes antiguas,
+con estado configurado, pero ya no se siembran automáticamente.
 
 ## Trampas conocidas
 > [!danger] Una variable de sistema hay que sembrarla

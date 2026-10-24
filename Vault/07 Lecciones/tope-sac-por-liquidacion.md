@@ -3,7 +3,7 @@ aliases: ["El tope del SAC se aplica por liquidación"]
 tipo: leccion
 tema: descuentos-ganancias-sipa
 tags: [leccion, descuentos-ganancias-sipa, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-12
 ---
 
 # El tope del SAC se aplica por liquidación
@@ -84,6 +84,50 @@ con dos variables de sistema nuevas: `MES_BASE_SINDICAL` (`PERIODO_ACUM` sobre `
 
 En estos dos códigos el motor **ignora `Tipo Concepto`**: `PERIODO_ACUM` lee sólo `Cód. Acumulador`
 y `PERIODO_CONCEPTO` sólo `Cód. Concepto` (Cod50016:811-814).
+
+## Adicional de obra social del SAC devengado: corregido
+
+Revisión en lectura del 12/10/2026: el 4753 de BC contempla solamente el aporte común
+de obra social. Falta el devengo adicional que Meta4 registra como `OB_SOC_ADIC_SAC_MES`.
+La fórmula original de Oracle, concepto **5397**, vigente desde 01/12/2023, calcula en
+la rama mensual normal `(@6032 + @6037) / 12`, siempre que exista base de SAC mensual.
+Lee descuentos reales que ya aplicaron sus topes; no vuelve a consumir un tope virtual.
+
+**Aplicado en ArbuTest el 12/10/2026**, con vigencia única desde 01/01/2026: se configuró
+el concepto existente en el catálogo de Meta4 **5397** como devengo en BC, en orden 934,
+después de 6032/6037 y antes de 5010,
+con fórmula `ROUND((#6032 + #6037) / 12, 0.0001)`, condicionado a base de SAC devengado
+distinta de cero y excluyendo LIQ_FINAL y jubilados. Aporta 100 % a SS_SAC_DEV,
+GAN_NETA_MES y GAN_NETA_A_DEDUC, como 4753, sin imprimir ni descontar del neto.
+Así se conserva el 4753 común y su variable PERIODO_APORTE_OS_SAC: sumar el adicional
+dentro del mismo 4753 sin separar su acumulado mensual haría que la segunda corrida
+restase también el adicional anterior de la provisión común.
+
+El archivo de enero registra el adicional virtual para tres empleados. La suma de
+6032/6037 de BC dividida doce coincide con ese archivo al centavo en los tres.
+Uno no presenta diferencia de Ganancias porque no tiene impuesto a retener; los otros
+dos sí. El caso investigado queda explicado al aplicar la alícuota marginal a la
+deducción omitida. Tras recalcular, ambos casos con impuesto tienen residuos inferiores
+a un centavo contra Meta4; el tercero conserva impuesto cero.
+
+`scripts/CrearObraSocialAdicionalSAC.sql` queda en preview por defecto, valida la plantilla,
+las fracciones y la precedencia, y crea el concepto, tres fracciones y su alta en el
+historial en una transacción. `scripts/AplicarObraSocialAdicionalSAC.ps1 -Aplicar` guarda
+respaldo privado en `.snapshots`, aplica la configuración, reinicia BC252 para invalidar
+la caché de SQL directo y recalcula el mes completo de cada afectado mediante AL.
+No incorpora objetos AL ni cambia la versión de la aplicación. Rechaza configuración
+5397 preexistente, liquidaciones aprobadas/contabilizadas y meses posteriores calculados
+de los afectados; no sobrescribe ni reabre esos casos.
+
+Se recalcularon cuatro documentos de tres empleados. La comparación del respaldo verificó
+que los otros conceptos conservan importes, cantidades, bases y encuadres; sólo cambian
+5397, Ganancias y sus acumuladores fiscales. Haberes brutos y estados quedaron iguales;
+el ledger de francos quedó idéntico. La condición conserva la exclusión de finales.
+
+La fórmula original también tiene ramas de ajuste, reliquidación y egreso; la configuración
+anterior cubre la rama mensual normal. No extrapolar esa rama al cierre anual ni al pago
+del SAC real. Para nuevos recálculos, rehacer todo el mes del empleado, no una corrida
+aislada. Ver [[conciliacion-enero-vigencias-francos-ganancias]].
 
 ## Relacionado
 

@@ -7,6 +7,105 @@ actualizado: 2026-10-04
 
 # Producción y premios
 
+## Precio por tonelada pactado: aplicado (2026-10-13)
+
+Para el acuerdo bruto con fijo de oficiales poteros se incorporó el parámetro vigente
+`USD_TON_PACTADO`, cargado en USD por tonelada por convenio/categoría o empleado,
+según el alcance y fecha del acuerdo. El virtual `PCT_PROD_CALC` obtiene
+`100 * USD_TON_PACTADO / USD_TON_PROD`; ambos precios llevan USD y `TC_COMPRADOR`,
+por lo que el tipo de cambio se cancela en el cociente. La referencia no se escribe como
+un número fijo en la fórmula.
+
+`PROD_EMPRESA` lee `@PCT_PROD_CALC` desde el 01/01/2026 sólo en su rama de cierre
+potero con fijo, sin neto garantizado ni grossing-up. `PCT_PROD` sigue disponible para
+las ramas anteriores y SOMU. El auxiliar replica el par de puesto y la condición del
+consumidor; no imprime ni aporta a acumuladores y detecta precio faltante o referencia
+no positiva mediante `ERROR('mensaje')`.
+
+Los adicionales conservan su representación actual: un precio que ya contiene un plus
+se identifica como total en su nota y no recibe el mismo plus nuevamente. Las versiones
+nuevas se aplicaron inicialmente desde el 03/02/2026. Se verificaron los ocho acuerdos y pasaron
+27 controles con el evaluador publicado, sin recalcular recibos.
+
+Se aplicó mediante `scripts/AplicarPrecioTonPactado.ps1` después de actualizar el
+respaldo con las ediciones/cálculos detenidos, ensayar con rollback y comprobar la firma
+del plan/respaldo. Se reinició `MicrosoftDynamicsNavServer$BC252` y quedó en ejecución.
+La verificación posterior confirmó que los recibos guardados, sus variables, líneas y
+el control global de las seis tablas financieras permanecen intactos; también se
+conservaron los valores y fórmulas anteriores, salvo el cierre de la versión reemplazada.
+No se recalcularon recibos ni se requirieron cambios AL, publicación, campos o tablas.
+
+### Extensión equivalente al 01/01/2026
+
+Por pedido explícito se extendió la conversión a enero mediante
+`scripts/AplicarPrecioTonHistorico.ps1`: diecinueve precios mantienen los alcances y
+fechas de los porcentajes originales, incluidas las clases posteriores de mayo.
+Las ocho filas personales del 03/02 permanecen intactas. No se copia el precio de
+febrero a enero ni se reemplaza un precio de clase por uno personal artificial.
+
+El auxiliar tiene una versión 01/01–02/02. Las tres expresiones anteriores de
+`PROD_EMPRESA` se actualizaron con auditoría, conservando fechas, condiciones y demás
+operaciones. En las ramas generales la referencia usa
+`IF(alcance, @PCT_PROD_CALC, PCT_PROD)`; fuera del alcance conserva el porcentaje previo.
+La expresión del 02/02 coincide con la conversión ya aplicada el 03/02 y conserva su
+ELSE. Esta actualización retroactiva de configuración fue solicitada expresamente;
+las fórmulas anteriores quedan en el historial y el respaldo.
+
+Pasaron las comprobaciones independientes de resolución por fecha/especificidad y nueve
+pruebas de expresiones con el evaluador de BC. El ensayo revertido y la comprobación
+posterior verificaron cabeceras, líneas, variables y control global financiero intactos.
+No se recalcularon recibos: su explicación histórica sigue usando `Fórmula Aplicada`
+y los valores del detalle guardado. BC252 quedó en ejecución con un proceso iniciado
+después de aplicar el cambio, confirmando la renovación de caché.
+
+## Acuerdo bruto con fijo mensual de oficiales poteros (2026-10-13)
+
+La generalización de febrero distingue tres valores: la garantía normativa de convenio
+(`GARANT_POT_CCT`, sin filas personales), el fijo mensual de empresa (`VALOR_NAV_EMP`) y el
+porcentaje de producción (`PCT_PROD`). Las condiciones individuales se verifican en
+`CONDICIONES OFICIALES POTEROS CAMPAÑA 26.xlsx`; las planillas de producción permiten
+comprobar el cierre. No inferir el acuerdo personal desde la categoría ni desde un total
+de recibo compensado por otro concepto.
+
+`APLICA_PROD_FIJO` es una fuente de cabecera por convenio y tipo de liquidación, sin
+empleados ni proyectos escritos en las fórmulas. Las ramas nuevas exigen actividad potera,
+ausencia de neto garantizado y ausencia de grossing-up. Las otras modalidades conservan
+la expresión anterior. Las versiones nuevas se aplican desde febrero; los devengados
+de enero conservan sus importes y fórmulas guardados.
+
+En el cierre, empresa suma producción de la marea completa, fijo de empresa proporcional
+a `DIAS_ENROLAMIENTO` y adicional de pesca; descuenta nominalmente los devengados ya
+pagados. El convenio compara producción normativa con garantía proporcional a ese mismo
+enrolamiento. Su descuento anterior se reconstruye con
+`ACUM_PARAM_CCT('DEV_PREV_MAREA', 'GARANT_POT_CCT', 'DIAS_MAREA', 30)`: tarifa normativa
+a la fecha de cada cabecera, categoría sellada, cantidad y tipo de cambio históricos.
+Esto evita trasladar al cierre un reparto equivocado entre premio y complemento de un
+devengado cuyo total era correcto, sin modificar ese devengado.
+
+El premio `1534` absorbe los básicos y el feriado `1023` del recibo actual. Su orden
+condicional permite leer ese feriado ya calculado. `2003` completa hasta el objetivo de
+empresa y respeta el piso del convenio. No se amplía la aplicabilidad de `1534` al convenio
+de máquinas. Los adicionales pactados se conservan según su parametrización existente;
+no se asigna el adicional de pesca de un contrato a todos los oficiales.
+
+El calendario del convenio también forma parte de la conciliación: un precio diario
+correcto con una cantidad errónea puede quedar escondido por el complemento. Revisar
+calendario y cantidad antes de compensar una diferencia en `2003`.
+
+En esta modalidad, `1023` usa `DIAS_FERIADOS` de la cobertura del recibo. Los días de
+puerto de salida anteriores a la zarpada pertenecen al enrolamiento: `PS` está marcado
+como estado de marea, pero queda antes de la fecha inicial del proyecto. Por eso podía
+quedar fuera tanto de `DIAS_FERIADOS_MAREA` como de `DIAS_FERIADOS_GUARDIA`, mientras
+el premio absorbía el importe y el bruto parecía correcto. La rama nueva de feriado
+conserva el precio diario y el orden, y se limita al mismo alcance de fuentes/modalidad;
+la expresión anterior permanece en las otras ramas.
+
+La configuración y el código publicados en 1.0.0.654 separan empresa y convenio sin
+campos ni tablas nuevos. La comprobación de enero y de los recibos fuera del alcance
+compara cabeceras, líneas, resúmenes, detalles y cuenta corriente de francos. El pago
+de empresa anterior se descuenta nominalmente; el precio normativo histórico conserva
+su propio tipo de cambio, no el del cierre.
+
 La plata que distingue a una liquidación embarcada de una de tierra es lo que **depende de lo pescado**: la producción de la marea paga un porcentaje a cada tripulante, y los CCT fijan un **garantizado** (piso) que la producción debe superar. Esta nota explica cómo entra el dato al motor y cómo se arman los premios. Las cifras y fórmulas concretas están en [[Rubros típicos de una liquidación embarcada]].
 
 > [!note] Alcance de lo verificado
@@ -93,7 +192,7 @@ El nombre del concepto es el mismo patrón: **garantizado prorrateado − lo ya 
 
 ## Trampas conocidas
 
-- **La producción no se prorratea**: `PROD_KN_MAREA` es la marea entera; el garantizado sí está prorrateado por días. En un Cierre coinciden; en un **Devengado** a mitad de marea no, y un `MAX()` entre ambos pagó 12 M de premio a un tripulante con 3 días ([[produccion-no-se-prorratea]]). Discriminar con `TIPO_LIQ` (devuelve el `Orden` del tipo: Cierre de Marea 70, Devengados 60 en la siembra de `Gestión Tipo Liq.`; el código de `Cod50016` la resuelve y `Cod50077` la siembra, así que la lección [[tipo-liq-no-implementada]] **quedó desactualizada**; los Órdenes reales hay que mirarlos en la base, ver [[Tipos de liquidación]]).
+- **La producción no se prorratea**: `PROD_KN_MAREA` es la marea entera; el garantizado sí está prorrateado por días. En un Cierre coinciden; en un **Devengado** a mitad de marea no, y un `MAX()` entre ambos pagó 12 M de premio a un tripulante con 3 días ([[produccion-no-se-prorratea]]). Se discrimina con `TIPO_LIQ`, y desde el 11/10/2026 **por código**: el 1534 y el 2003 dicen `IF(TIPO_LIQ = 'CIERRE_MAREA', …)` y ya no `= 1`, que era un número que había que ir a buscar a la tabla ([[tipo-liq-no-implementada]]).
 - **TC_CERCANO no es lo que dice**: es un `LOOKUP` sin fecha que devuelve la última cotización cargada, no la más cercana; la rama langostino de 2498 lo usa y puede valorizar con un TC equivocado.
 - Un precio en **USD cargado como pesos** no da error: da un importe congelado ([[que-tc-usa-cada-concepto]]).
 - Un concepto que **lee un acumulador** de la producción debe ordenarse **después** de quienes aportan ([[acumuladores-orden-calculo]], [[control-precedencia-formulas]]).

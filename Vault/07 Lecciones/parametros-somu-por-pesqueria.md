@@ -3,18 +3,22 @@ aliases: ["Parámetros SOMU por pesquería"]
 tipo: leccion
 tema: convenios-cct
 tags: [leccion, convenios-cct, reference]
-actualizado: 2026-10-04
+actualizado: 2026-10-09
 ---
 
 # Parámetros SOMU por pesquería
 
-**En una frase:** PRECIO_PUERTO y compañía se parten en _LAN y _CAL; PCT_DOLAR_PROD no
+**En una frase:** PRECIO_PUERTO y compañía se parten en _LAN y _CAL; PCT_DOLAR_PROD no, y PRECIO_NAV / PRECIO_ORDENES dejaron de partirse el 9/10/2026
 
 Los parámetros de importe de SOMU están partidos por pesquería: **`_LAN`**
 (langostino, tangoneros) y **`_CAL`** (calamar, poteros). No existe `PRECIO_PUERTO`
 a secas — aunque haya 45 valores cargados bajo ese nombre, contra un parámetro base
-inexistente que ninguna fórmula lee. Lo mismo con `VALOR_FRANCO_*`,
-`PRECIO_ORDENES_*` y `PRECIO_NAV_*`.
+inexistente que ninguna fórmula lee. Lo mismo con `VALOR_FRANCO_*`.
+
+> [!warning] **`PRECIO_NAV` y `PRECIO_ORDENES` ya NO llevan sufijo.** El 9/10/2026 se
+> fusionaron, porque el eje no los variaba en ninguna de sus 104 filas comparables. Los
+> sufijados siguen existiendo, con sus 212 filas, pero **ninguna fórmula los nombra**: son
+> legado a borrar. Ver [[sufijo-que-no-distingue-nada]].
 
 **`PCT_DOLAR_PROD` NO se parte por pesquería:** es uno solo por convenio y
 categoría —60 para `175/75`, 78 para `729/15`, 90 para `768/19`— y la misma fila

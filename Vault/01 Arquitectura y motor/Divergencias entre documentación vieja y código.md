@@ -2,7 +2,7 @@
 tipo: referencia
 tags: [motor, divergencias, documentacion]
 fuente: [GUIA-LIQUIDACION.md, GROSSING_UP_Y_TC_CONFIGURABLES.md, PROPUESTA_TOPE_SIPA_PERIODO.md, REVISION_RENDIMIENTO_2026-09-18.md, src/Codeunits/Cod50015.EvaluadorFormula.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Codeunits/Cod50014.MotorLiquidacion.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-21
 ---
 
 # Divergencias entre documentación vieja y código
@@ -52,7 +52,8 @@ de la letra. Cada fila nombra la nota del vault que describe el comportamiento r
 
 | Lección | Qué cambió |
 |---|---|
-| [[tipo-liq-no-implementada]] | `TIPO_LIQ` **sí existe**: está en el `case` de `ComputeVariableSistema` y en `Sembrar` (devuelve el `Orden` del tipo) |
+| [[dia-de-puerto-no-estira-la-marea]], [[ventana-liquidacion-es-cobertura]] | Corregidas el 21/10/2026: fuera del viaje el helper usa `Transcurre en Marea` sin distinguir códigos ni exigir el predeterminado del proyecto. El puerto posterior puede superar la fecha de valoración dentro de cobertura; TC, fuentes y viaje conservan su fecha y alcance. |
+| [[tipo-liq-no-implementada]] | **Resuelta el 11/10/2026.** La nota se reescribió: `TIPO_LIQ` existe, y además se compara por código (`TIPO_LIQ = LIQ_FINAL`) |
 | [[variables-rotas-valen-cero]] | `AÑOS_ANTIG_30JUN`, `MESES_PROM_AUS_6` y `MESES_PROM_AUS_12` **tienen `case`** en el motor; si valen 0, revisar el `Cód. Cálculo` cargado en la fila |
 | [[acumuladores-orden-calculo]] | el importe de la línea **ya no pasa por `Abs`**: lleva su signo; el flag es `Invertir Signo`, no `Restar` |
 | [[que-tc-usa-cada-concepto]], [[oficiales-netos-al-70]] | hablan de `NETO_GU` como parámetro: hoy el objetivo es la fórmula del concepto de `Config. RRHH."Cód. Concepto Neto Garantizado"` |

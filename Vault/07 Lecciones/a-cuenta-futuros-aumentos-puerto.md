@@ -4,15 +4,66 @@ tipo: leccion
 tema: conceptos-haberes
 tags: [leccion, conceptos-haberes, project]
 origen: 7aa458fa-440c-4ba2-a50b-60d4d7167eea
-actualizado: 2026-09-28
+actualizado: 2026-10-15
 ---
 
 # A cuenta de futuros aumentos: puerto (2013)
 
-Concepto 2013; prorrateo del neto garantizado menos lo liquidado de puerto, con los operandos identificados pero la base de días sin resolver
+Concepto 2013: complemento del garantizado de puerto para oficiales. La fórmula original y los importes informados por novedad deben distinguirse.
+
+## Original Meta4 verificado el 15/10/2026
+
+Se consultaron las dos fórmulas originales vigentes para enero y febrero de 2026.
+La Fórmula 1 del 01/07/2025 exige convenio `OF`, motivo auxiliar `980 = 15`
+(puerto) y que no sea un anticipo. **El concepto 250 identifica la paga de
+anticipo, no la jubilación.** `980` es `TP_IMPUT_AUX`, asignado por el 290;
+no es el Tipo Imputación de la cabecera ni cualquier día de puerto.
+
+Definiendo `G = 2002` (bruto prorrateado), `H = 1990` (`TOT_HAB_GZDO`) y
+`r = (100 - 4676) / 100`, el cálculo original es:
+
+```text
+si no corresponde OF/puerto o es anticipo: 0
+si G <= H: 0
+en otro caso:
+    diferencia = G - H / r
+    si tipo de buque = CG: diferencia *= r
+    importe = redondear_centavos(MAX(0, diferencia))
+```
+
+Sin reparto no remunerativo se reduce a `MAX(0, G - H)`. El 4676 proviene
+de la configuración sindical y su fórmula lo desactiva para poteros y otros
+supuestos expresos; no se debe aplicar un porcentaje fijo a toda pesquería.
+
+Para oficiales, el 2002 toma el asegurado mensual del 2001, lo prorratea por
+los días del 1651 y convierte al dólar comprador. **Sólo multiplica por 1,4
+si el indicador 2041 vale 1.** En una paga de puerto el 1651 usa los días
+actuales; no agrega los devengados anteriores de una marea. El 2001 distingue
+escala de navegación `AG` y de otros estados `TI` para oficiales de máquinas;
+no se debe sustituir el asegurado de puerto por el de navegación.
+
+El 1990 es una suma explícita de conceptos, no el total remunerativo genérico.
+Incluye, entre otros, básicos, feriado, antigüedad y premios que define su
+fórmula. En un recibo puro de puerto puede coincidir con puerto + feriado +
+antigüedad, pero esa igualdad no debe generalizarse a recibos mixtos.
+
+**Control por entrada:** once pagos positivos de enero/febrero de 2026 cumplen
+el alcance OF/puerto. Cinco, sin novedad original de 2013, coinciden al centavo
+con `2002 - 1990`. Los otros seis tienen novedades originales cuyo valor
+coincide con el pago; son entradas informadas, no fallos demostrados de esta
+fórmula. No se modificaron conceptos ni recibos al hacer este control.
+
+En BC ya existe fórmula: usa `VALOR_PUERTO_EMP`, `DIAS_GP_PERIODO`,
+`COEF_GUARDIA_PUERTO` y `REMUNERATIVO_BRUTO`. Esa aproximación debe contrastarse
+con el subtotal explícito y el indicador original, conservando las novedades
+válidas y el alcance por convenio. La deducción histórica siguiente no
+sustituye la fórmula original recién verificada.
+
+## Deducción histórica de septiembre de 2026
 
 Concepto **2013** (`A_CTA_FUT_AUM_P` en Meta4), hermano del 2083 — ver
-[[a-cuenta-futuros-aumentos-francos]]. En BC existe **sin fórmula**. La regla de negocio es
+[[a-cuenta-futuros-aumentos-francos]]. En el diagnóstico inicial se investigó
+la siguiente identidad; BC ya tiene la fórmula implementada que se describe más abajo:
 
     a cuenta = prorrateo del monto garantizado − total liquidación puerto
 

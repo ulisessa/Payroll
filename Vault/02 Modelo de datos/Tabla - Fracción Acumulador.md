@@ -40,3 +40,11 @@ Línea de tiempo **propia**: no se corresponde una a una con las vigencias del c
 - Faltan en el ConfigPackage `Invertir Signo` y otros: [[configpackage-campos-faltantes]].
 - Comparar una columna de Meta4 contra el total rompió el sindical por 1,78 M: [[comparar-columna-contra-total]].
 - Embargos tipo Retención suman a `YTD_RETENIDO_ANUAL` y anulan Ganancias: [[embargo-cuota-alimentaria-como-retencion]].
+
+## Filtro de convenio
+
+Campo 7, Filtro Convenio (Text250). Vacío mantiene el aporte a todos los convenios; admite
+filtros estándar. AplicaAConvenio utiliza un registro temporal para verificar el código sin
+consultar la tabla física. El motor cachea el filtro con la distribución vigente.
+Ver [[antiguedad-unificada-1053-por-convenio]].
+

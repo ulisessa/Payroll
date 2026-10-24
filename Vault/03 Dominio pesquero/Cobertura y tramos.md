@@ -1,8 +1,8 @@
 ---
 tipo: concepto
 tags: [dominio, cobertura, tramos, control]
-fuente: [src/Codeunits/Cod110054.CoberturaTramosLiq.al, src/Tables/Tab110061.TramoCoberturaLiq.al, src/Tables/Tab60011.Liquidacion.al, src/Codeunits/Cod110030.ControlCoberturaLiq.al, src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Pages/Pag110055.TramosCoberturaSub.al]
-actualizado: 2026-10-04
+fuente: [src/Codeunits/Cod110054.CoberturaTramosLiq.al, src/Tables/Tab110061.TramoCoberturaLiq.al, src/Tables/Tab60011.Liquidacion.al, src/Codeunits/Cod110030.ControlCoberturaLiq.al, src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Pages/Pag110055.TramosCoberturaSub.al, src/Codeunits/Cod50018.ProcesoLiqPorLotes.al, src/Codeunits/Cod50076.LotesLiquidacionLiq.al]
+actualizado: 2026-10-20
 ---
 
 # Cobertura y tramos
@@ -20,13 +20,27 @@ Hay **tres capas** que conviene no confundir:
 ## 1. La ventana (`Liquidación.Cobertura`)
 
 - Parte del período (`Fecha Desde`–`Fecha Hasta`).
-- Si el tipo `CubreSoloElProyecto` (= `Tipo Proyecto` **Productivo**; *no* el disparador: el Devengado corre sobre mareas como el Cierre aunque no se dispare al arribo) y la liquidación tiene proyecto, se **recorta**:
+- Si el tipo `CubreSoloElProyecto` (= `Tipo Proyecto` **Productivo** **o** disparador **Arribo**; el Devengado corre sobre mareas como el Cierre aunque no se dispare al arribo, y el PILOTAJE es Improductivo pero se dispara al arribo de su proyecto) y la liquidación tiene proyecto, se **recorta**:
   1. Primero a los días que **este empleado** estuvo en el proyecto (`RecortarAlTramoDelEmpleado`: primer inicio y último fin efectivo de sus estados con ese `No. Proyecto`). Las fechas del `Job` son las del barco, no las de la persona: el puerto de salida ya pertenece a la marea aunque zarpe al día siguiente.
   2. Si no tiene estados en ese proyecto, contra `Starting Date`/`Ending Date` del `Job`.
 - El mismo procedimiento lo usan el motor (que lo guarda) y `Gestión Novedades` (que reparte novedades entre liquidaciones): dos definiciones de "qué días cubre" se separarían y una novedad entraría en una liquidación que el control da por no cubierta.
 - `FechaReferenciaAprox` (fecha de liquidación, o fin de período, o `WorkDate`) es una aproximación para pantalla y prellenado; la definitiva la fija el motor (fin de período o arribo).
 
 ## 2. Los tramos (`Cobertura Tramos Liq.`)
+
+### Selección previa de liquidaciones por lote
+
+Desde el 20/10/2026, `Proceso Liq. Por Lote.EstadosJustifican` exige que un estado de una línea
+`Exige` coincida a la vez con **su ventana configurada y una fase de alta del empleado**.
+Se utiliza el fin efectivo del estado y `Fase Alta Empleado.EstuvoActivoEntre` sobre la intersección.
+El estado anterior a un reingreso no justifica una liquidación por el solo hecho de tocar el mes.
+Las ventanas del mes anterior o siguiente se contrastan con sus propias fechas.
+
+No cambia la semántica de las líneas de exclusión ni la alternativa para empleados sin fases.
+Tampoco cambia el reparto de cobertura, los días pagados, las fórmulas ni las liquidaciones existentes.
+La comprobación en lectura de enero conservó la justificación de las 316 regulares calculadas y
+descartó únicamente dos borradores vacíos redundantes. La eliminación de borradores usa siempre
+`Liquidación.Delete(true)`: conserva la reversión normal de francos y la limpieza de tramos.
 
 `Recalcular(var Liq)` corre **antes de armar el contexto** en cada cálculo (el contexto lee los tramos para acotar las variables de período).
 

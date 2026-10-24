@@ -1,7 +1,7 @@
 ---
 tipo: guia
 tags: [inicio, moc]
-actualizado: 2026-10-04
+actualizado: 2026-10-16
 ---
 
 # Liquidación Sueldos Pesca — Manual integral
@@ -21,6 +21,7 @@ Extensión AL para **Business Central 25.2 OnPrem** (publisher Grupo Arbumasa, n
 | Estados, fases, atributos, tipos de liquidación | [[Índice Dominio - empleado y condiciones]] |
 | Mareas, francos, novedades, producción | [[Índice Dominio - marea y pagos]] |
 | Sincronizar con NAV, migrar de Meta4, SIRADIG | [[Índice Integraciones]] |
+| Preparar el próximo mes contra Meta4 | [[Preparar un mes contra Meta4]] |
 | Operar una liquidación mensual | [[Índice Interfaz y operación]], [[Flujo operativo mensual de liquidación]] |
 | Compilar, publicar, crear objetos | [[Índice Desarrollo y operaciones]], [[Runbook - tareas frecuentes]] |
 | "Esto da cero y no sé por qué" | [[Índice de lecciones]], [[Resolución de problemas frecuentes]] |
