@@ -687,6 +687,27 @@ codeunit 50017 "Gestión Estado Empleado"
         exit(AnosCompletos);
     end;
 
+    /// <summary>
+    /// Avisa si una pantalla de antigüedad se mide a una fecha que no es el fin de mes.
+    /// </summary>
+    /// <remarks>
+    /// El cálculo de la liquidación mide la antigüedad (AÑOS_ANTIGUEDAD) al fin del período, para que el
+    /// porcentaje sea el mismo en todas las liquidaciones del mes. Una pantalla que el usuario pone a
+    /// otra fecha va a mostrar lo mismo que el recibo salvo que un escalón de antigüedad caiga entre
+    /// las dos fechas. Ver la lección antiguedad-al-fin-de-mes.
+    /// </remarks>
+    procedure AvisarSiNoEsFinDeMes(Fecha: Date)
+    var
+        FinDeMes: Date;
+        TxtFechaDistinta: Label 'La antigüedad se está midiendo al %1 y no al fin de mes (%2), que es la fecha con la que el cálculo de la liquidación la mide. Si un escalón de antigüedad cae entre las dos fechas, lo que ves acá va a diferir del recibo.', Comment = '%1 = fecha elegida, %2 = fin de ese mes';
+    begin
+        if Fecha = 0D then
+            exit;
+        FinDeMes := CalcDate('<CM>', Fecha);
+        if Fecha <> FinDeMes then
+            Message(TxtFechaDistinta, Fecha, FinDeMes);
+    end;
+
     // Fractional seniority (whole completed years + fraction of the current year, rounded to
     // 0.1) — used by the AÑOS_ANTIGUEDAD system variable. CalcAntiguedadAlFecha above keeps
     // whole completed years only, on purpose: Art. 164/150 LCT vacation-day brackets need the

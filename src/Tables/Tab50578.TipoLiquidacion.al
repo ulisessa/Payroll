@@ -24,10 +24,15 @@ table 50578 "Tipo Liquidación"
         }
         field(3; Orden; Integer)
         {
-            Caption = 'Orden';
+            Caption = 'Orden (valor de TIPO_LIQ)';
             DataClassification = CustomerContent;
             // Also feeds the TIPO_LIQ formula variable (Cod50016) — must stay unique so two types never
             // resolve to the same number in a concept's Fórmula/Condición.
+            //
+            // El caption lo anuncia porque antes no lo decía en ningún lado: una fórmula con
+            // IF(TIPO_LIQ = 40, …) no tenía manera de leerse, y el número sólo se podía averiguar
+            // entrando a esta tabla a contar. Hoy la forma recomendada es TIPO_LIQ = 'LIQ_FINAL',
+            // pero el número sigue valiendo y las fórmulas viejas lo usan.
             trigger OnValidate()
             begin
                 ValidarOrdenUnico();
@@ -306,12 +311,20 @@ table 50578 "Tipo Liquidación"
     /// Y un día tapado no lo reclama nadie: el control de cobertura lo ve cubierto y no pide otra
     /// liquidación, así que los días de guardia en puerto anteriores al embarque se quedaban sin
     /// pagar, sin hueco visible y sin error.
+    ///
+    /// TAMBIÉN LOS QUE SE DISPARAN AL ARRIBO, sea cual sea el tipo de proyecto. El pilotaje es una
+    /// liquidación aparte con su propio proyecto —de dos o tres días— pero Improductivo, porque
+    /// Productivo lo habría tomado también el cierre de marea (mismo disparador). Con sólo el tipo
+    /// de proyecto cubría el mes entero: arrancaba el 1, tapaba los días de la regular y ésta no se
+    /// generaba. Un tipo que liquida AL ARRIBO de un proyecto cubre el tramo de ese proyecto.
     /// </remarks>
     procedure CubreSoloElProyecto(Codigo: Code[20]): Boolean
     var
         TipoLiq: Record "Tipo Liquidación";
     begin
-        exit(TipoLiq.Get(Codigo) and (TipoLiq."Tipo Proyecto" = TipoLiq."Tipo Proyecto"::Productivo));
+        if not TipoLiq.Get(Codigo) then
+            exit(false);
+        exit((TipoLiq."Tipo Proyecto" = TipoLiq."Tipo Proyecto"::Productivo) or (TipoLiq.Disparador = TipoLiq.Disparador::Arribo));
     end;
 
     procedure EsBajaEmpleado(Codigo: Code[20]): Boolean

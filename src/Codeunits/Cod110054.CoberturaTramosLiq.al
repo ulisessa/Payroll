@@ -81,6 +81,11 @@ codeunit 110054 "Cobertura Tramos Liq."
             // Sin estados declarados se queda con lo que sobra. Es el papel de la Regular.
             MarcarDiasLibres(Desde, Hasta, Tomado, MiosPorDia);
 
+        // NINGÚN DÍA FUERA DE LA FASE SE CUBRE. Va después de repartir y no antes: el reparto decide
+        // de QUIÉN es cada día, y esto decide si el día existe. Separarlo evita que un día cedido a
+        // una liquidación y después descartado vuelva a quedar libre para otra.
+        QuitarDiasFueraDeFase(Liq."No. Empleado", Desde, Hasta, MiosPorDia);
+
         // De días sueltos a tramos: se recorre el período y se corta cada vez que el día deja de ser
         // suyo o cambia el motivo. Guardar un tramo por día sería correcto y también ilegible.
         for Dia := Desde to Hasta do
@@ -165,13 +170,70 @@ codeunit 110054 "Cobertura Tramos Liq."
             exit;
         repeat
             Tramo.SetRange("No. Liquidación", Otra."No.");
-            if Tramo.FindSet() then
-                repeat
-                    for Dia := Tramo.Desde to Tramo.Hasta do
-                        if not Tomado.ContainsKey(DiaEntero(Dia)) then
-                            Tomado.Add(DiaEntero(Dia), true);
-                until Tramo.Next() = 0;
+            if ReclamaAntes(Liq, Otra) then
+                if Tramo.FindSet() then
+                    repeat
+                        for Dia := Tramo.Desde to Tramo.Hasta do
+                            if not Tomado.ContainsKey(DiaEntero(Dia)) then
+                                Tomado.Add(DiaEntero(Dia), true);
+                    until Tramo.Next() = 0;
         until Otra.Next() = 0;
+    end;
+
+    /// <summary>¿Esa otra liquidación tiene prioridad sobre ésta para reclamar días? Manda el Orden del tipo.</summary>
+    /// <remarks>
+    /// Sin esto el reparto dependía de CUÁL SE CALCULÓ ÚLTIMA: recalcular la Final después de la
+    /// Regular la dejaba sin días, porque la Regular ya se había quedado con todo el "resto del
+    /// período". Un tipo de Orden menor (Final = 40) le gana a uno de Orden mayor (Regular = 100) sin
+    /// importar el orden en que se calculen. Con el mismo Orden —dos Devengados de mareas distintas—
+    /// sigue valiendo quien reclamó primero, como antes. Si falta alguno de los dos tipos no se
+    /// discrimina.
+    /// </remarks>
+    local procedure ReclamaAntes(Liq: Record "Liquidación"; Otra: Record "Liquidación"): Boolean
+    var
+        TipoMio: Record "Tipo Liquidación";
+        TipoOtro: Record "Tipo Liquidación";
+        TengoMio: Boolean;
+        TengoOtro: Boolean;
+    begin
+        TengoMio := TipoMio.Get(Liq."Cód. Tipo Liq.");
+        TengoOtro := TipoOtro.Get(Otra."Cód. Tipo Liq.");
+        if not (TengoMio and TengoOtro) then
+            exit(true);
+        exit(TipoOtro.Orden <= TipoMio.Orden);
+    end;
+
+    /// <summary>
+    /// ¿Hay otra liquidación del empleado, en el período, que ya reclamó días? Devuelve cuáles.
+    /// </summary>
+    /// <remarks>
+    /// Es lo que el motor pregunta cuando a una liquidación no le queda ningún día propio: si la
+    /// respuesta es que sí, calcularla pagaría por segunda vez estados que otra ya liquidó (la cabecera
+    /// conserva el período entero cuando no hay tramos). Cuenta sólo las de igual o mayor prioridad.
+    /// </remarks>
+    procedure QuienReclamoLosDias(Liq: Record "Liquidación"; var Detalle: Text): Boolean
+    var
+        Otra: Record "Liquidación";
+        Tramo: Record "Tramo Cobertura Liq.";
+        Hay: Boolean;
+    begin
+        Detalle := '';
+        Otra.SetRange("Cód. Período", Liq."Cód. Período");
+        Otra.SetRange("No. Empleado", Liq."No. Empleado");
+        Otra.SetFilter("No.", '<>%1', Liq."No.");
+        if not Otra.FindSet() then
+            exit(false);
+        repeat
+            Tramo.SetRange("No. Liquidación", Otra."No.");
+            if ReclamaAntes(Liq, Otra) then
+                if not Tramo.IsEmpty() then begin
+                    Hay := true;
+                    if Detalle <> '' then
+                        Detalle += ', ';
+                    Detalle += StrSubstNo('%1 (%2)', Otra."No.", Otra."Cód. Tipo Liq.");
+                end;
+        until Otra.Next() = 0;
+        exit(Hay);
     end;
 
     /// <summary>Los días libres en que el empleado tiene el estado que la línea exige.</summary>
@@ -235,6 +297,64 @@ codeunit 110054 "Cobertura Tramos Liq."
         for Dia := Desde to Hasta do
             if not Tomado.ContainsKey(DiaEntero(Dia)) then
                 MiosPorDia.Add(DiaEntero(Dia), 'Resto del período');
+    end;
+
+    /// <summary>Saca de la cobertura los días en los que el empleado no estaba de alta.</summary>
+    /// <remarks>
+    /// EL "RESTO DEL PERÍODO" NO ES EL RESTO DEL MES. Quien se da de baja el 16 no genera cobertura
+    /// del 17 al 31: en esos días no hay vínculo, y cubrirlos le hace pagar días que nadie trabajó
+    /// —y, peor, le hace DEVENGAR por ellos—.
+    ///
+    /// MEDIDO en enero de 2026: la liquidación final de un tripulante dado de baja el 16 cubría el
+    /// mes entero, y la de otro dado de baja el 28 llegaba al 31 mientras su recibo de Meta4 dice
+    /// "Período Pagado: 25/01/2026 al 28/01/2026".
+    ///
+    /// Se recorre día por día y no se recorta un rango porque un reingreso parte el mes en dos: entre
+    /// la baja y el alta nueva hay días sin vínculo EN EL MEDIO del período, y un recorte por los
+    /// extremos los dejaría adentro. En esta dotación de temporada eso no es un caso raro: hay
+    /// empleados con doce fases.
+    ///
+    /// Sin ninguna fase cargada no se toca nada: no hay con qué decidir, y vaciar la cobertura
+    /// entera por falta de un dato sería peor que dejarla ancha. El control de cobertura muestra las
+    /// liquidaciones sin días.
+    /// </remarks>
+    local procedure QuitarDiasFueraDeFase(EmployeeNo: Code[20]; Desde: Date; Hasta: Date; var MiosPorDia: Dictionary of [Integer, Text])
+    var
+        Fase: Record "Fase Alta Empleado";
+        EnFase: Dictionary of [Integer, Boolean];
+        Dia: Date;
+        D: Date;
+        H: Date;
+    begin
+        if EmployeeNo = '' then
+            exit;
+        Fase.SetRange("No. Empleado", EmployeeNo);
+        if Fase.IsEmpty() then
+            exit;
+
+        Fase.SetFilter("Fecha Alta", '<=%1', Hasta);
+        if Fase.FindSet() then
+            repeat
+                if (Fase."Fecha Baja" = 0D) or (Fase."Fecha Baja" >= Desde) then begin
+                    D := Fase."Fecha Alta";
+                    H := Fase."Fecha Baja";
+                    // Una fase abierta no tiene baja: llega hasta el fin de la ventana.
+                    if H = 0D then
+                        H := Hasta;
+                    if D < Desde then
+                        D := Desde;
+                    if H > Hasta then
+                        H := Hasta;
+                    for Dia := D to H do
+                        if not EnFase.ContainsKey(DiaEntero(Dia)) then
+                            EnFase.Add(DiaEntero(Dia), true);
+                end;
+            until Fase.Next() = 0;
+
+        for Dia := Desde to Hasta do
+            if MiosPorDia.ContainsKey(DiaEntero(Dia)) then
+                if not EnFase.ContainsKey(DiaEntero(Dia)) then
+                    MiosPorDia.Remove(DiaEntero(Dia));
     end;
 
     local procedure GuardarTramo(NoLiq: Code[20]; var Linea: Integer; Desde: Date; Hasta: Date; Origen: Text)

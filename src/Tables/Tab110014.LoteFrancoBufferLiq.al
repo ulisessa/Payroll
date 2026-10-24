@@ -1,20 +1,11 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.Projects.Project.Job;
 
 table 110014 "Lote Franco Buffer Liq."
 {
-    // Buffer temporal del desglose FIFO de un pago de francos: qué lotes se consumieron, cuántos días
-    // se tomó de cada uno, a qué precio y con qué coeficiente.
-    //
-    // No persiste nada. El desglose se reconstruye llamando a "Gestión Francos", que recorre los lotes
-    // en el mismo orden y con la misma exclusión de la liquidación en curso que usó el cálculo, así que
-    // lo que se ve acá es lo que se pagó. Tener una tabla real sería peor: habría que mantenerla
-    // sincronizada con recálculos, anulaciones y borrados, y quedaría mintiendo en cuanto alguno de
-    // esos pasos fallara.
-    //
-    // Es el detalle que le faltaba al 1063: hasta ahora el importe salía del motor sin que se pudiera
-    // ver de dónde, y una diferencia contra el recibo no tenía por dónde empezar a mirarse.
+    // Matriz temporal por lote. Los identificadores enlazan con la cuenta corriente cuando está activa.
+    // Los movimientos se asientan al cerrar el cálculo; armar o valuar esta matriz no consume días.
 
     Caption = 'Lotes de franco consumidos';
     TableType = Temporary;
@@ -22,6 +13,13 @@ table 110014 "Lote Franco Buffer Liq."
 
     fields
     {
+        field(16; "No. Lote"; Integer) { }
+        field(17; "No. Empleado"; Code[20]) { }
+        field(18; "Cód. Puesto"; Code[20]) { }
+        field(19; "Cód. Estado"; Code[20]) { }
+        field(20; "Cód. Período"; Code[10]) { }
+        field(21; "No. Línea Origen"; Integer) { }
+        field(22; "Id. Selección"; Guid) { }
         field(1; "No. Línea"; Integer)
         {
             Caption = 'No. línea';
@@ -46,12 +44,12 @@ table 110014 "Lote Franco Buffer Liq."
         field(5; "Cód. Convenio"; Code[20])
         {
             Caption = 'Convenio';
-            ToolTip = 'Convenio del lote. Los francos NO son fungibles: cada lote se valúa con el convenio y la categoría que tenía el empleado cuando lo devengó.';
+            ToolTip = 'Convenio del lote. La fila conserva el convenio y la categoría en que se devengó el lote. El precio usa el par de la liquidación que paga.';
         }
         field(6; "Cód. Categoría"; Code[20])
         {
             Caption = 'Categoría';
-            ToolTip = 'Categoría del lote, que es la que fija el valor del franco. No es necesariamente la categoría actual del empleado.';
+            ToolTip = 'Categoría de origen del lote, conservada para la trazabilidad. El precio utiliza la categoría de la liquidación que paga.';
         }
         field(7; "Descripción Categoría"; Text[100])
         {

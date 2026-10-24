@@ -164,6 +164,13 @@ page 50139 "Asistente Fórmula Liq."
                         GuardarTextoDeEditor(Campo, Texto);
                         EnviarDiagnostico(Campo);
                     end;
+
+                    trigger OnAbrirFicha(Tipo: Text; Nombre: Text)
+                    var
+                        AbrirFicha: Codeunit "Abrir Ficha Fórmula Liq.";
+                    begin
+                        AbrirFicha.Abrir(Tipo, Nombre);
+                    end;
                 }
                 group(GrpTextoPlano)
                 {

@@ -129,6 +129,13 @@ codeunit 50066 "Gestión Novedades Liq."
     // Regla única de correspondencia novedad → liquidación. Campo selector en blanco = cualquiera.
     local procedure NovedadAplica(Nov: Record "Novedad Liquidación"; Liq: Record "Liquidación"; RangoDesde: Date; RangoHasta: Date): Boolean
     begin
+        // FECHA_TC no es un importe: fija la fecha de la cotización y la lee el contexto de cálculo
+        // (FechaTipoCambio). No se materializa en ninguna incidencia, y por eso no es candidata acá.
+        if Nov."Cód. Concepto" = 'FECHA_TC' then
+            exit(false);
+        // DIAS_FRANCO tampoco: son días de franco que suma DIAS_FRANCOS_PERIODO (ver DiasFrancoNovedad).
+        if Nov."Cód. Concepto" = 'DIAS_FRANCO' then
+            exit(false);
         if (Nov."Cód. Tipo Liq." <> '') and (Nov."Cód. Tipo Liq." <> Liq."Cód. Tipo Liq.") then
             exit(false);
         // El encuadre filtra SOLO en las novedades colectivas. Con un empleado nombrado, comparar
@@ -220,6 +227,15 @@ codeunit 50066 "Gestión Novedades Liq."
         EmpNo := Nov."No. Empleado";
         if EmpNo = '' then
             EmpNo := Liq."No. Empleado";
+
+        // UN TIPO DE LIQUIDACIÓN EXPLÍCITO YA DECIDE, y el historial no tiene nada que desempatar. Es la
+        // misma excepción que la fecha más abajo, y por el mismo motivo: el tipo lo puso alguien a mano.
+        // Sin esto una novedad PILOTAJE de un tripulante cuyo estado de ese día apunta a su nómina
+        // (PN-802-NOMINA, que tiene su Regular) se rechazaba en el pilotaje —"esa es de la Regular"— y
+        // sólo entraba si la Regular todavía no existía cuando se calculaba: el 2033 de 04826, 03664 y
+        // 04455 quedó Pendiente y la fórmula corrió en su lugar, sin error y sin motivo anotado.
+        if (Nov."No. Proyecto" = '') and (Nov."Cód. Tipo Liq." <> '') then
+            exit(true);
 
         if Nov."No. Proyecto" <> '' then begin
             if Nov."No. Proyecto" = Liq."No. Proyecto" then

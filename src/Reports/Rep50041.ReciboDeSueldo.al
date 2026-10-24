@@ -1,7 +1,10 @@
 namespace UAS.Payroll;
 
 using Microsoft.Foundation.Company;
+using Microsoft.Finance.Dimension;
+using Microsoft.Finance.GeneralLedger.Setup;
 using Microsoft.HumanResources.Employee;
+using Microsoft.Projects.Project.Job;
 
 report 50041 "Recibo de Sueldo"
 {
@@ -119,9 +122,20 @@ report 50041 "Recibo de Sueldo"
                 column(LinImporteCostoTrabajador; LinImporteDescuento) { }
                 column(LinEsPrimeraLinea; LinEsPrimeraLinea) { }
                 column(LinNetoGrafico; LinNetoGrafico) { }
+                // Una fila por tramo de franco. El consumo de francos genera una línea por lote (FIFO), y el recibo agrupa por
+                // concepto: sin esta clave las tajadas se juntaban en una sola fila que mostraba el importe de la primera.
+                column(LinClaveFila; LinClaveFila) { }
+                column(LinFrancoDetalle; LinFrancoDetalle) { }
 
                 trigger OnAfterGetRecord()
                 begin
+                    LinClaveFila := '';
+                    LinFrancoDetalle := '';
+                    if LinLiq."No. Lote Franco" <> 0 then begin
+                        LinClaveFila := '|' + Format(LinLiq."No. Línea");
+                        LinFrancoDetalle := DetalleLoteFranco(LinLiq."No. Lote Franco", LinLiq."No. Empleado");
+                    end;
+
                     // Sin negaciones por tipo: el importe ya viene con su signo, así que un haber que
                     // corrige hacia abajo se imprime negativo en la columna de haberes.
                     case LinLiq."Tipo Concepto" of
@@ -345,6 +359,75 @@ report 50041 "Recibo de Sueldo"
         vCostoSCVOEmpl: Decimal;
         vCostoSCVOTrab: Decimal;
         EmpAntiguedad: Integer;
+        LinClaveFila: Text[30];
+        LinFrancoDetalle: Text[250];
+
+/// <summary>
+    /// De dónde sale un tramo de franco: puesto, buque, marea y fecha de devengamiento del lote.
+    /// </summary>
+    /// <remarks>
+    /// El lote es el devengo (Movimiento Franco Liq., tipo Devengo o Inicio), que guarda el puesto con el que se devengó y el proyecto
+    /// de ESA marea. Un saldo inicial no tiene marea: queda sólo el puesto y la fecha. Si el proyecto es de nómina se muestra tal cual.
+    /// </remarks>
+    local procedure DetalleLoteFranco(LoteNo: Integer; EmpNo: Code[20]): Text[250]
+    var
+        Mov: Record "Movimiento Franco Liq.";
+        Cat: Record "Categoría CCT";
+        Job: Record Job;
+        GLSetup: Record "General Ledger Setup";
+        DimVal: Record "Dimension Value";
+        Partes: List of [Text];
+        Texto: Text;
+        Puesto: Text;
+        Parte: Text;
+    begin
+        Mov.SetCurrentKey("No. Lote", "Fecha Devengamiento");
+        Mov.SetRange("No. Lote", LoteNo);
+        Mov.SetRange("No. Empleado", EmpNo);
+        Mov.SetRange(Tipo, Mov.Tipo::Devengo);
+        if not Mov.FindFirst() then begin
+            Mov.SetRange(Tipo, Mov.Tipo::Inicio);
+            if not Mov.FindFirst() then
+                exit('');
+        end;
+
+        Puesto := Mov."Cód. Puesto";
+        if Puesto = '' then
+            Puesto := Mov."Cód. Categoría";
+        if Puesto <> '' then begin
+            if Cat.Get(Mov."Cód. Convenio", Puesto) and (Cat.Descripción <> '') then
+                Puesto := Cat.Descripción + ' (' + Puesto + ')';
+            Partes.Add('Puesto ' + Puesto);
+        end;
+
+        if (Mov."No. Proyecto" <> '') and Job.Get(Mov."No. Proyecto") then begin
+            GLSetup.Get();
+            Parte := Job."Global Dimension 1 Code";
+            if DimVal.Get(GLSetup."Global Dimension 1 Code", Job."Global Dimension 1 Code") and (DimVal.Name <> '') then
+                Parte := DimVal.Name;
+            if Parte <> '' then
+                Partes.Add(Parte);
+            Parte := Job."Global Dimension 2 Code";
+            if DimVal.Get(GLSetup."Global Dimension 2 Code", Job."Global Dimension 2 Code") and (DimVal.Name <> '') then
+                Parte := DimVal.Name;
+            if Parte <> '' then
+                Partes.Add(Parte)
+            else
+                Partes.Add(Job."No.");
+        end else
+            if Mov."No. Proyecto" <> '' then
+                Partes.Add(Mov."No. Proyecto");
+
+        if Mov."Fecha Devengamiento" <> 0D then
+            Partes.Add('devengado el ' + Format(Mov."Fecha Devengamiento", 0, '<Day,2>/<Month,2>/<Year4>'));
+
+        foreach Parte in Partes do begin
+            if Texto <> '' then
+                Texto += ' · ';
+            Texto += Parte;
+        end;
+        exit(CopyStr(Texto, 1, 250));
+    end;
 
     local procedure CalcCostoLaboral(LiqNo: Code[20])
     var

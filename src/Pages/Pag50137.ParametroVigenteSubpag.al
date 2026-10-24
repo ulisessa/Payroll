@@ -42,6 +42,22 @@ page 50137 "Parámetro Vigente Subpag"
     {
         area(Processing)
         {
+            action(VerUsos)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Navigate;
+                ToolTip = 'Muestra las liquidaciones que resolvieron este valor, que es lo que lo mantiene "En Uso".';
+
+                trigger OnAction()
+                var
+                    Uso: Record "Uso Parámetro Liq.";
+                begin
+                    Uso.SetRange("Cód. Parámetro", Rec."Cód. Parámetro");
+                    Uso.SetRange("Vigencia Desde", Rec."Vigencia Desde");
+                    Page.Run(Page::"Usos Valor Parámetro", Uso);
+                end;
+            }
             action(NuevoValor)
             {
                 ApplicationArea = All;

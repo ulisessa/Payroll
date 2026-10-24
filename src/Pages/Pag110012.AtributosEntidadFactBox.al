@@ -37,6 +37,10 @@ page 110012 "Atributos Entidad FactBox"
                     ApplicationArea = All;
                     Caption = 'Valor';
                     Style = Strong;
+                    trigger OnDrillDown()
+                    begin
+                        AbrirHistorial();
+                    end;
                 }
                 field("Vigencia Desde"; Rec."Vigencia Desde")
                 {
@@ -113,13 +117,12 @@ page 110012 "Atributos Entidad FactBox"
 
     local procedure AbrirHistorial()
     var
-        Todos: Record "Atributo Entidad Liq.";
+        AtributosUI: Codeunit "Atributos Entidad UI";
     begin
         if FCodEntidad = '' then
             exit;
-        Todos.SetRange("Tipo Entidad", FTipoEntidad);
-        Todos.SetRange("Cód. Entidad", FCodEntidad);
-        Page.Run(Page::"Atributos de Entidad", Todos);
+        AtributosUI.AbrirHistorialEntidad(FTipoEntidad, FCodEntidad);
+        Cargar();
     end;
 
     var

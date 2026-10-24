@@ -312,15 +312,29 @@ page 50013 "Novedades Liquidación"
         else
             CodPeriodoFiltro := Periodo.PeriodoPorDefecto();
         AplicarFiltroPeriodo();
+        // Si nos abrieron desde un empleado —la ficha, la lista o la Ficha Liquidación filtran por
+        // "No. Empleado"—, ese legajo se hereda en cada línea nueva. Se guarda acá y no se lee en
+        // OnNewRecord porque para entonces el filtro puede haber cambiado.
+        //
+        // SÓLO SI EL FILTRO ES UN LEGAJO SOLO. GetFilter devuelve la expresión tal cual, así que un
+        // rango o una lista —'00100..00200', 'A|B'— llegarían enteros y Validate los rechazaría, o
+        // peor, cargarían basura. Con varios empleados a la vista no hay un valor por defecto que
+        // tenga sentido, así que no se pone ninguno.
+        FiltroEmpleado := CopyStr(Rec.GetFilter("No. Empleado"), 1, MaxStrLen(FiltroEmpleado));
+        if (FiltroEmpleado <> '') and (DelChr(FiltroEmpleado, '=', '|..*<>&()''') <> FiltroEmpleado) then
+            FiltroEmpleado := '';
         ContarEstados();
     end;
 
     // El período de la hoja se hereda en cada línea nueva: es el único campo obligatorio que el
-    // usuario no debería tener que repetir fila por fila.
+    // usuario no debería tener que repetir fila por fila. Y el empleado, cuando la página se abrió
+    // desde uno: ahí tampoco hay nada que elegir.
     trigger OnNewRecord(BelowxRec: Boolean)
     begin
         if CodPeriodoFiltro <> '' then
             Rec.Validate("Cód. Período", CodPeriodoFiltro);
+        if FiltroEmpleado <> '' then
+            Rec.Validate("No. Empleado", FiltroEmpleado);
     end;
 
     trigger OnAfterGetRecord()
@@ -419,6 +433,7 @@ page 50013 "Novedades Liquidación"
 
     var
         CodPeriodoFiltro: Code[10];
+        FiltroEmpleado: Code[20];
         CantPendientes: Integer;
         CantAplicadas: Integer;
         CantAnuladas: Integer;

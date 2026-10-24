@@ -110,6 +110,21 @@ page 110008 "Ficha Tipo Atributo"
     {
         area(Processing)
         {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué fórmulas y condiciones nombran a este atributo, y qué conceptos lo usan como tipo de atributo de detalle o de precio.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec."Nombre Variable");
+                    PagUsos.Run();
+                end;
+            }
             action(Resincronizar)
             {
                 ApplicationArea = All;
@@ -129,6 +144,19 @@ page 110008 "Ficha Tipo Atributo"
                         Message(MsgEspejoAlDia)
                     else
                         Message(MsgEspejoTocados, Tocados);
+                end;
+            }
+            action(VerParametros)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del atributo';
+                Image = Setup;
+                ToolTip = 'Consulta y carga las vigencias de los parámetros que usan este atributo como eje. Podés elegir el parámetro en la vista que se abre.';
+                trigger OnAction()
+                var
+                    UI: Codeunit "Atributos Entidad UI";
+                begin
+                    UI.AbrirParametrosAtributo(Rec.Código, '');
                 end;
             }
             action(VerValores)
@@ -158,6 +186,7 @@ page 110008 "Ficha Tipo Atributo"
             {
                 Caption = 'Proceso';
                 actionref(VerValoresProm; VerValores) { }
+                actionref(VerParametrosProm; VerParametros) { }
             }
         }
     }

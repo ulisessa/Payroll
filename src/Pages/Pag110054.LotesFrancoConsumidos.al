@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
 
@@ -55,6 +55,10 @@ page 110054 "Lotes Franco Consumidos"
 
             repeater(Lotes)
             {
+                field("No. Lote"; Rec."No. Lote") { ApplicationArea = All; }
+                field("Cód. Período"; Rec."Cód. Período") { ApplicationArea = All; }
+                field("Cód. Puesto"; Rec."Cód. Puesto") { ApplicationArea = All; }
+                field("Cód. Estado"; Rec."Cód. Estado") { ApplicationArea = All; }
                 field("No. Línea"; Rec."No. Línea") { ApplicationArea = All; }
                 field("Fecha Lote"; Rec."Fecha Lote") { ApplicationArea = All; }
                 field("No. Liquidación Origen"; Rec."No. Liquidación Origen") { ApplicationArea = All; }
@@ -111,6 +115,7 @@ page 110054 "Lotes Franco Consumidos"
     var
         FrancosMgt: Codeunit "Gestión Francos";
         CtxBuilder: Codeunit "Contexto Liquidación";
+        Lote: Record "Movimiento Franco Liq.";
         Empl: Record Employee;
         TiposCambioFrancos: Dictionary of [Text, Decimal];
     begin
@@ -136,7 +141,28 @@ page 110054 "Lotes Franco Consumidos"
         FDiasPagados := LinLiq.Cantidad;
         FImporteLinea := LinLiq.Importe;
 
-        FrancosMgt.DetallePorLote(LinLiq."No. Empleado", LinLiq.Cantidad, LinLiq."Fecha Liquidación", LinLiq."No. Liquidación", Rec);
+        if LinLiq."No. Lote Franco" > 0 then begin
+            Lote.Get(LinLiq."No. Lote Franco");
+            Rec.Init();
+            Rec."No. Línea" := 1;
+            Rec."No. Lote" := Lote."No. Lote";
+            Rec."No. Empleado" := Lote."No. Empleado";
+            Rec."Fecha Lote" := Lote."Fecha Devengamiento";
+            Rec."No. Liquidación Origen" := Lote."No. Liquidación";
+            Rec."No. Línea Origen" := Lote."No. Línea Origen";
+            Rec."No. Proyecto" := Lote."No. Proyecto";
+            Rec."Cód. Convenio" := Lote."Cód. Convenio";
+            Rec."Cód. Categoría" := Lote."Cód. Categoría";
+            Rec."Cód. Puesto" := Lote."Cód. Puesto";
+            Rec."Cód. Estado" := Lote."Cód. Estado";
+            Rec."Cód. Período" := Lote."Cód. Período";
+            Rec."Días del Lote" := Lote.Cantidad;
+            Rec."Días Tomados" := LinLiq.Cantidad;
+            Rec.Importe := LinLiq.Importe;
+            if LinLiq.Cantidad <> 0 then Rec."Valor Franco" := LinLiq.Importe / LinLiq.Cantidad;
+            Rec.Insert();
+        end else
+            FrancosMgt.DetallePorLote(LinLiq."No. Empleado", LinLiq.Cantidad, LinLiq."Fecha Liquidación", LinLiq."No. Liquidación", Rec);
 
         FTotalDias := 0;
         FTotalImporte := 0;

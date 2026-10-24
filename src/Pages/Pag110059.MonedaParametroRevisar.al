@@ -13,7 +13,8 @@ namespace UAS.Payroll;
 // más chico—. Ocho de las dieciséis filas de USD_MAREA estaban así.
 //
 // Mezclar es LEGÍTIMO en los parámetros que de verdad convive en dos monedas: el básico de tierra
-// está en dólares para cuatro empleados y en pesos para el resto, y los dos PRECIO_PUERTO_* igual.
+// está en dólares para cuatro empleados y en pesos para el resto, y PRECIO_PUERTO igual: ARS para
+// marinería y USD para oficiales, en el mismo parámetro.
 // Por eso la pantalla no corrige sola ni ordena corregir: muestra las dos cuentas —cuántas filas en
 // divisa y cuántas en pesos— y deja la lectura a quien sabe qué se pactó.
 page 110059 "Moneda de Parámetro a Revisar"

@@ -57,6 +57,27 @@ page 50155 "Lanzador Liquidaciones"
     {
         area(Processing)
         {
+            action(RevisarPreparacion)
+            {
+                Caption = 'Revisar preparación';
+                ApplicationArea = All;
+                Image = Check;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                ToolTip = 'Abre la revisión manual del período y tipo elegidos sin crear ni calcular liquidaciones.';
+
+                trigger OnAction()
+                var
+                    Control: Page "Control Previo Liquidación";
+                begin
+                    if FCodPeriodo = '' then
+                        Error(ErrSinPeriodo);
+                    Control.SetPeriodo(FCodPeriodo);
+                    Control.SetTipo(FTipoLiq);
+                    Control.Run();
+                end;
+            }
             action(ACrear)
             {
                 Caption = 'Crear Liquidaciones';

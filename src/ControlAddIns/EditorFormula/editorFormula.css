@@ -415,3 +415,18 @@ html, body {
     color: var(--rojo);
     border-color: var(--rojo);
 }
+
+/* ── Menú contextual (abrir ficha) ─────────────────────────────────────── */
+
+/* Reusa .uas-popup para el fondo, el borde y la sombra —también en tema oscuro—; acá sólo se le
+   quita el ancho mínimo de 320px, pensado para la lista de sugerencias. */
+.uas-menu {
+    min-width: 0;
+    width: max-content;
+    z-index: 60;
+}
+
+.uas-menu-item:hover {
+    background: var(--fondo-alt);
+    box-shadow: inset 2px 0 0 var(--borde-foco);
+}

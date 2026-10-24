@@ -127,6 +127,25 @@ tableextension 52001 "HR Setup Liq. Ext." extends "Human Resources Setup"
             // porcentajes que esa maquinaria ya tiene. Mismo patrón que "Cód. Acum. Haberes
             // Gravados".
         }
+        field(52024; "Motivos Baja Liq. Final"; Text[250])
+        {
+            Caption = 'Motivos de baja que generan Liquidación Final';
+            DataClassification = CustomerContent;
+            // QUÉ BAJAS DISPARAN LA LIQUIDACIÓN FINAL. Es una EXPRESIÓN DE FILTRO sobre el
+            // "Cód. Motivo Baja" de la fase de alta, así que admite varios: BAJ-1|BAJ-2.
+            // EN BLANCO CUENTA CUALQUIER BAJA, que es el comportamiento sin configurar.
+            //
+            // Hace falta porque no toda fecha de baja es una desvinculación. En enero de 2026 nueve
+            // empleados tenían una, y Meta4 liquidó final --su Tipo Imputación 14-- a SIETE: los
+            // siete BAJ-1. Los otros dos no: uno con BAJ-0 que se dio de alta otra vez el mismo mes
+            // --una corrección, no una salida-- y otro con BAJ-12, que repite las mismas fechas
+            // todos los años y parece un contrato de temporada. El motivo discrimina los nueve
+            // casos sin un solo error; "no volvió en el mes" no, porque dejaría entrar al BAJ-12.
+            //
+            // No hay catálogo donde poner una bandera: "Grounds for Termination" está vacía y el
+            // campo de la fase es un Code[20] libre. Por eso la lista vive acá, en la configuración,
+            // y no se hardcodea un código de negocio en el motor.
+        }
         field(52018; "Cód. Var. Es Grossing-Up"; Code[60])
         {
             Caption = 'Variable "Es Grossing-up"';

@@ -49,6 +49,11 @@ pageextension 50353 "HR Setup Liq. Ext." extends "Human Resources Setup"
                     ApplicationArea = All;
                     ToolTip = 'Acumulador que junta los conceptos que NO deben pesar cuando el grossing-up mide si alcanzó el neto objetivo. El caso típico es el anticipo de llegada: como es un descuento baja el neto, y sin esto la convergencia lo compensa inflando el bruto, de modo que el empleado cobra el objetivo completo MÁS el anticipo que ya tenía. Qué conceptos entran se define en las Fracciones de ese acumulador. En blanco cuentan todos.';
                 }
+                field("Motivos Baja Liq. Final"; Rec."Motivos Baja Liq. Final")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Qué bajas disparan la Liquidación Final. Es una expresión de filtro sobre el Cód. Motivo Baja de la fase de alta, así que admite varios separados por "|" (por ejemplo BAJ-1|BAJ-2). En blanco cuenta cualquier fecha de baja dentro del período. Hace falta porque no toda baja es una desvinculación: hay bajas de corrección —alta y baja el mismo día, con reingreso en el mismo mes— y de fin de temporada, y a ésas no les corresponde liquidación final.';
+                }
                 field("Convertir Param. por TC"; Rec."Convertir Param. por TC")
                 {
                     ApplicationArea = All;

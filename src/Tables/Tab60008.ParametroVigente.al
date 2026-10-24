@@ -145,6 +145,94 @@ table 60008 "Parámetro Vigente"
             Editable = false;
             // 0 base, 1 convenio o empleado, 2 convenio + categoría. Es la columna de indentación
             // del árbol de parámetros: se calcula junto con la clave y no se carga a mano.
+            //
+            // Los ejes NO suben el nivel: _CAL y _LAN del mismo convenio son hermanos, no uno hijo
+            // del otro. Ver Claves Parámetro Liq..NivelDeFila.
+        }
+        // Los tres ejes de atributo. Qué TIPO de atributo es cada uno lo declara el Parámetro —la
+        // cabecera—, y acá va el SUFIJO que ese atributo aporta a la clave.
+        //
+        // POR QUÉ EL SUFIJO Y NO EL CÓDIGO DEL VALOR. Varios valores de un mismo tipo pueden aportar
+        // el mismo segmento: `TA` Tangonero y `ML` Arrastrero/Merlucero tienen los dos
+        // `Sufijo Parámetro = LAN`, así que una sola fila `_LAN` sirve a los dos. Guardando el código
+        // del valor habría que cargar una fila por valor, y la que faltara daría cero sin aviso —es
+        // exactamente lo que dejó al Puente Mayor sin precio de franco el 6/10/2026—.
+        //
+        // LA TableRelation SÍ SE PUEDE, Y ESTÁ PUESTA. El obstáculo aparente es que el TIPO del eje
+        // vive en la cabecera y el `where` de una TableRelation sólo ve campos de la propia tabla; lo
+        // resuelve un FlowField de lookup —los tres de abajo— que lo trae de "Parámetro". Compilado y
+        // verificado el 9/10/2026.
+        //
+        // PERO EL LOOKUP NATIVO NO ALCANZA, y por eso la página igual define su OnLookup: como el
+        // sufijo no es único —`TA` y `ML` dan los dos LAN—, la lista de la plataforma muestra "LAN"
+        // DOS VECES, una por cada valor. El OnLookup de "Parámetro Sufijo Sub" ofrece en cambio los
+        // tres valores con su descripción —Potero, Tangonero, Arrastrero/Merlucero— y guarda el
+        // sufijo del que se elija: el usuario elige un concepto del negocio, no una convención.
+        //
+        // Y LA RELACIÓN NO REEMPLAZA A ValidarSufijoEje: no sabe nada de la DENSIDAD de la lista —el
+        // eje 2 cargado con el 1 vacío—, que es el modo de falla silencioso y el que de verdad
+        // importa. La relación es la red; el OnValidate es el control.
+        field(15; "Sufijo Atributo 1"; Code[10])
+        {
+            Caption = 'Sufijo Atributo 1';
+            DataClassification = CustomerContent;
+            TableRelation = "Valor Atributo Liq."."Sufijo Parámetro"
+                WHERE("Cód. Tipo Atributo" = FIELD("Tipo Atr. Eje 1"), "Sufijo Parámetro" = FILTER(<> ''));
+
+            trigger OnValidate()
+            begin
+                ValidarSufijoEje(1, "Sufijo Atributo 1");
+                RecalcularClave();
+            end;
+        }
+        field(16; "Sufijo Atributo 2"; Code[10])
+        {
+            Caption = 'Sufijo Atributo 2';
+            DataClassification = CustomerContent;
+            TableRelation = "Valor Atributo Liq."."Sufijo Parámetro"
+                WHERE("Cód. Tipo Atributo" = FIELD("Tipo Atr. Eje 2"), "Sufijo Parámetro" = FILTER(<> ''));
+
+            trigger OnValidate()
+            begin
+                ValidarSufijoEje(2, "Sufijo Atributo 2");
+                RecalcularClave();
+            end;
+        }
+        field(17; "Sufijo Atributo 3"; Code[10])
+        {
+            Caption = 'Sufijo Atributo 3';
+            DataClassification = CustomerContent;
+            TableRelation = "Valor Atributo Liq."."Sufijo Parámetro"
+                WHERE("Cód. Tipo Atributo" = FIELD("Tipo Atr. Eje 3"), "Sufijo Parámetro" = FILTER(<> ''));
+
+            trigger OnValidate()
+            begin
+                ValidarSufijoEje(3, "Sufijo Atributo 3");
+                RecalcularClave();
+            end;
+        }
+        // Los tipos declarados en la cabecera, traídos acá para que la TableRelation de arriba pueda
+        // filtrar por ellos. No se muestran en ninguna página: existen sólo para eso.
+        field(18; "Tipo Atr. Eje 1"; Code[20])
+        {
+            Caption = 'Tipo de Atributo del eje 1';
+            FieldClass = FlowField;
+            Editable = false;
+            CalcFormula = lookup("Parámetro"."Cód. Tipo Atributo 1" where(Código = field("Cód. Parámetro Base")));
+        }
+        field(19; "Tipo Atr. Eje 2"; Code[20])
+        {
+            Caption = 'Tipo de Atributo del eje 2';
+            FieldClass = FlowField;
+            Editable = false;
+            CalcFormula = lookup("Parámetro"."Cód. Tipo Atributo 2" where(Código = field("Cód. Parámetro Base")));
+        }
+        field(20; "Tipo Atr. Eje 3"; Code[20])
+        {
+            Caption = 'Tipo de Atributo del eje 3';
+            FieldClass = FlowField;
+            Editable = false;
+            CalcFormula = lookup("Parámetro"."Cód. Tipo Atributo 3" where(Código = field("Cód. Parámetro Base")));
         }
     }
 
@@ -177,6 +265,91 @@ table 60008 "Parámetro Vigente"
             exit;
         "Cód. Parámetro" := Claves.ArmarDeFila(Rec);
         Nivel := Claves.NivelDeFila(Rec);
+    end;
+
+    /// <summary>
+    /// El Tipo de Atributo que la cabecera declara para el eje N, o vacío si no declara ninguno.
+    /// </summary>
+    procedure TipoAtributoDeclarado(Indice: Integer): Code[20]
+    var
+        Param: Record "Parámetro";
+    begin
+        if "Cód. Parámetro Base" = '' then
+            exit('');
+        if not Param.Get("Cód. Parámetro Base") then
+            exit('');
+        case Indice of
+            1:
+                exit(Param."Cód. Tipo Atributo 1");
+            2:
+                exit(Param."Cód. Tipo Atributo 2");
+            3:
+                exit(Param."Cód. Tipo Atributo 3");
+        end;
+    end;
+
+    local procedure SufijoEje(Indice: Integer): Code[10]
+    begin
+        case Indice of
+            1:
+                exit("Sufijo Atributo 1");
+            2:
+                exit("Sufijo Atributo 2");
+            3:
+                exit("Sufijo Atributo 3");
+        end;
+    end;
+
+    /// <summary>
+    /// Valida un sufijo de eje contra el tipo que declara la cabecera, y la densidad de la lista.
+    /// </summary>
+    /// <remarks>
+    /// LOS EJES NO PUEDEN TENER HUECOS. La clave los concatena en orden salteando los vacíos, así que
+    /// una fila con el eje 2 cargado y el 1 vacío derivaría la misma clave que una con sólo el eje 1
+    /// —el sufijo ocupa la primera posición igual—, y las dos se pisarían. Peor: la cascada arma sus
+    /// candidatas desde los ejes DECLARADOS en orden, así que el valor quedaría inalcanzable sin un
+    /// solo error. Corta acá.
+    /// </remarks>
+    local procedure ValidarSufijoEje(Indice: Integer; Sufijo: Code[10])
+    var
+        Claves: Codeunit "Claves Parámetro Liq.";
+        CodTipo: Code[20];
+        Validos: List of [Code[10]];
+        i: Integer;
+    begin
+        if Sufijo = '' then begin
+            // Al vaciar un eje, no puede quedar uno posterior cargado.
+            for i := Indice + 1 to 3 do
+                if SufijoEje(i) <> '' then
+                    Error(ErrEjeConHueco, i, Indice);
+            exit;
+        end;
+
+        CodTipo := TipoAtributoDeclarado(Indice);
+        if CodTipo = '' then
+            Error(ErrEjeSinTipo, Indice, "Cód. Parámetro Base");
+
+        // Y los anteriores tienen que estar cargados: la lista se lee como prefijo.
+        for i := 1 to Indice - 1 do
+            if SufijoEje(i) = '' then
+                Error(ErrEjeConHueco, Indice, i);
+
+        Validos := Claves.SufijosDelTipo(CodTipo);
+        if Validos.Count() = 0 then
+            Error(ErrTipoSinSufijos, CodTipo);
+        if not Validos.Contains(Sufijo) then
+            Error(ErrSufijoDesconocido, Sufijo, CodTipo, FormatearLista(Validos));
+    end;
+
+    local procedure FormatearLista(var Lista: List of [Code[10]]) Texto: Text
+    var
+        Item: Code[10];
+    begin
+        foreach Item in Lista do begin
+            if Texto <> '' then
+                Texto += ', ';
+            Texto += Item;
+        end;
     end;
 
     /// <summary>
@@ -282,4 +455,8 @@ table 60008 "Parámetro Vigente"
         ErrEnUso: Label 'No se puede modificar ni eliminar un parámetro que ya fue utilizado en una liquidación registrada.';
         ErrClaveDuplicada: Label 'Ya existe un valor con la clave %1 y vigencia %2. Cambiá el convenio, la categoría o el empleado, o modificá la fila existente.';
         ErrCategoriaSinConvenio: Label 'La categoría se carga junto con el convenio: primero indicá el convenio.';
+        ErrEjeConHueco: Label 'El eje %1 no puede quedar cargado con el eje %2 vacío: los ejes se cargan en orden y sin huecos. Con un hueco, el valor deriva la misma clave que otra fila y el cálculo no lo alcanza.', Comment = '%1 = índice del eje cargado; %2 = índice del eje vacío';
+        ErrEjeSinTipo: Label 'El parámetro %2 no declara un Tipo de Atributo para el eje %1. Cargalo primero en la ficha del parámetro.', Comment = '%1 = índice del eje; %2 = código del parámetro base';
+        ErrTipoSinSufijos: Label 'Ningún valor del atributo %1 tiene cargado un "Sufijo Parámetro", así que no puede usarse como eje. Cargá el sufijo en los valores que correspondan.', Comment = '%1 = código del tipo de atributo';
+        ErrSufijoDesconocido: Label 'El sufijo %1 no corresponde a ningún valor del atributo %2. Los válidos son: %3.', Comment = '%1 = sufijo tipeado; %2 = tipo de atributo; %3 = lista de sufijos válidos';
 }

@@ -19,4 +19,5 @@ enum 50302 "Función Agregado Liq."
     value(7; "DURACION_AÑO") { Caption = 'Duración en el año'; }
     value(8; "FILA_MAS_RECIENTE") { Caption = 'Fila más reciente'; }
     value(9; "FILA_MAS_ANTIGUA") { Caption = 'Fila más antigua'; }
+    value(10; "DIAS_OVERLAP_30") { Caption = 'Días solapados (mes comercial de 30)'; }
 }

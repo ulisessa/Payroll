@@ -430,6 +430,13 @@ codeunit 50064 "Catálogo Variables Liq."
         Arr: JsonArray;
         Obj: JsonObject;
     begin
+        // TIPO_LIQ no es un atributo, pero se compara con la misma sintaxis —TIPO_LIQ = 'LIQ_FINAL'—
+        // así que viaja por el mismo canal. Es lo que hace que el editor ofrezca la lista de tipos al
+        // escribir la comilla, y lo que convierte un Orden que había que memorizar en algo que se
+        // elige de una lista.
+        if EsVariableTipoLiq(Nombre) then
+            exit(BuildValoresTipoLiqJson());
+
         Tipo.SetRange("Nombre Variable", Nombre);
         Tipo.SetRange("Tipo Dato", Tipo."Tipo Dato"::Lista);
         if not Tipo.FindFirst() then
@@ -443,6 +450,40 @@ codeunit 50064 "Catálogo Variables Liq."
                 Obj.Add('padre', Valor."Cód. Valor Padre");
                 Arr.Add(Obj);
             until Valor.Next() = 0;
+        exit(Arr);
+    end;
+
+    /// <remarks>
+    /// Por Cód. Cálculo y no por el literal: el Nombre Variable es configurable (ver Cod50077).
+    /// </remarks>
+    local procedure EsVariableTipoLiq(Nombre: Text): Boolean
+    var
+        VarSis: Record "Variable Sistema Liq.";
+    begin
+        if not VarSis.Get(CopyStr(Nombre, 1, MaxStrLen(VarSis."Nombre Variable"))) then
+            exit(false);
+        exit(VarSis."Cód. Cálculo" = CodCalcTipoLiqTok);
+    end;
+
+    // Los tipos de liquidación, con el Orden a la vista: es el valor numérico que la variable
+    // devuelve, y verlo al lado del código deja leer las fórmulas viejas que todavía comparan números.
+    local procedure BuildValoresTipoLiqJson(): JsonArray
+    var
+        TipoLiq: Record "Tipo Liquidación";
+        Arr: JsonArray;
+        Obj: JsonObject;
+    begin
+        // Sin filtro de Activo: un tipo dado de baja sigue apareciendo en fórmulas y en
+        // liquidaciones viejas, y el catálogo es un diccionario de nombres, no el conjunto vigente.
+        TipoLiq.SetCurrentKey(Orden);
+        if TipoLiq.FindSet() then
+            repeat
+                Clear(Obj);
+                Obj.Add('codigo', TipoLiq.Código);
+                Obj.Add('desc', StrSubstNo(TxtDescTipoLiq, TipoLiq.Descripción, TipoLiq.Orden));
+                Obj.Add('padre', '');
+                Arr.Add(Obj);
+            until TipoLiq.Next() = 0;
         exit(Arr);
     end;
 
@@ -488,6 +529,7 @@ codeunit 50064 "Catálogo Variables Liq."
         FInicializado := true;
 
         DefFunc('TRAMO', 'TRAMO(código, valor)', 'código|valor', AyudaTramo, true);
+        DefFunc('ACUM_PARAM_CCT', 'ACUM_PARAM_CCT(fuente, parámetro, cantidad_histórica, divisor)', 'fuente|parámetro|cantidad_histórica|divisor', 'Suma precio CCT por cantidad en cabeceras históricas del empleado/proyecto. Los tres nombres van entre comillas simples. Usa convenio/categoría y vigencia de cada cabecera, sin precio personal; cantidad y TC guardados. No modifica los documentos históricos.', true);
         DefFunc('ROUND', 'ROUND(valor, precisión)', 'valor|precisión', AyudaRound, false);
         DefFunc('REDONDEAR', 'REDONDEAR(valor, decimales)', 'valor|decimales', AyudaRedondear, false);
         DefFunc('ERROR', 'ERROR("mensaje")', 'mensaje', AyudaError, false);
@@ -529,6 +571,8 @@ codeunit 50064 "Catálogo Variables Liq."
         TxtOrigenAtributo: Label 'tipo de atributo';
         TxtOrigenConcepto: Label 'concepto';
         TxtConflicto: Label '%1  —  es %2 y también %3', Comment = '%1=nombre, %2 y %3=orígenes';
+        TxtDescTipoLiq: Label '%1 (Orden %2)', Comment = '%1=descripción del tipo de liquidación, %2=su Orden, que es el valor numérico de la variable';
+        CodCalcTipoLiqTok: Label 'TIPO_LIQ', Locked = true;
         AyudaTramo: Label 'Consulta una tabla escalonada vigente. El código va entre comillas simples. Ej: TRAMO(''TAB_IMP_4CAT'', BASE_IG4 * 12)';
         AyudaRound: Label 'Redondea al múltiplo indicado. Ej: ROUND(x, 0.01) redondea a centavos.';
         AyudaError: Label 'Detiene la liquidación con un mensaje y revierte el cálculo. Va dentro de un IF, que evalúa sólo la rama elegida. Ej: IF(DIAS_MAREA > 31, ERROR("La marea no puede durar más que el mes"), 0). No dispara en la validación previa, donde todo vale cero.';

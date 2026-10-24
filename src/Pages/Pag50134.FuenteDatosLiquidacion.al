@@ -37,6 +37,37 @@ page 50134 "Fuente Datos Liquidación"
         }
     }
 
+    actions
+    {
+        area(Processing)
+        {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué fórmulas y condiciones nombran a la fuente seleccionada. Sin usos, nadie la lee.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec."Nombre Variable");
+                    PagUsos.Run();
+                end;
+            }
+        }
+        area(Promoted)
+        {
+            group(Category_Process)
+            {
+                actionref(DondeSeUsa_Promoted; DondeSeUsa)
+                {
+                }
+            }
+        }
+    }
+
     trigger OnAfterGetRecord()
     begin
         NombreTabla := GetTableName(Rec."Id. Tabla");

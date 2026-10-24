@@ -337,6 +337,14 @@ page 110052 "Detalle Comp. Meta4"
         // BSAC_MES_RG3976 es AX y su equivalencia con el concepto 4750 se verificó aritméticamente.
         if Col."Mapeo Verificado" then
             exit(true);
+        // SIN CLASIFICAR + CON CONCEPTO DE BC = SE COMPARA. Una columna con clasificación P (precio) o
+        // AX (cantidad auxiliar) sigue afuera, que es lo que el comentario de arriba quiere evitar;
+        // pero la que no tiene NINGUNA clasificación y alguien mapeó a mano no es una cantidad
+        // disfrazada, es una columna que nadie clasificó. Dejarla afuera dejaba a SUELDO (1003) como
+        // "Sólo BC" con Meta4 en cero, 21 M de diferencia que no existían, y a los cuatro aportes
+        // del SAC (JUB/LEY/OS/SIND_SAC_MES) sin contraparte. Son las cinco que hoy hay así.
+        if (Col."Clasificación Meta4" = '') and (Col."Cód. Concepto BC" <> '') then
+            exit(true);
         exit(Col."Clasificación Meta4" in ['DV', 'RT', 'SS']);
     end;
 

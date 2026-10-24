@@ -37,14 +37,24 @@ table 110057 "Comp. Meta4 Buffer"
             // legajo 03664 de enero de 2026, donde TOT_REMUN_27617 va 250.000 → 37.034.483,70 →
             // 38.227.779,31 → 39.642.779,68 mientras TOT_DEVENGO da 250.000 / 37.034.484,31 /
             // 1.193.295,37 / 1.415.000,40, que son justamente las diferencias.
+            //
+            // Y LLEVA SUMADO SAC_ABONADO, porque TOT_REMUN_27617 NO INCLUYE EL SAC y el bruto de BC
+            // sí (el 3813 aporta a REMUNERATIVO_BRUTO). Sin eso, los ocho egresados de enero de 2026
+            // daban 2.060.565 de brecha, y en cinco la diferencia era exactamente su SAC al centavo.
+            // Con el SAC sumado, seis de los ocho cierran con un resto de 0,86 o menos.
         }
         field(7; "Importe BC"; Decimal)
         {
             Caption = 'Bruto BC';
             DataClassification = CustomerContent;
-            // El acumulador REMUNERATIVO_BRUTO de las liquidaciones que calculó el motor. Se suma
-            // porque un empleado puede tener varias liquidaciones en el mes (regular, marea, SAC) y
-            // cada una lleva su propia línea de acumulador.
+            // Los acumuladores REMUNERATIVO_BRUTO **y NO_REMUNERATIVO** de las liquidaciones que
+            // calculó el motor. Los dos, porque la columna de Meta4 contra la que se compara incluye
+            // el acuerdo sindical del Dto 633/18, que es no remunerativo: enfrentar sólo la parte
+            // remunerativa mostraba un -70% inexistente, y justo en los tripulantes, donde el 70/30
+            // del convenio 729/15 hace que la parte no remunerativa sea la más grande.
+            //
+            // Se suma porque un empleado puede tener varias liquidaciones en el mes (regular, marea,
+            // SAC) y cada una lleva su propia línea de acumulador.
         }
         field(8; Diferencia; Decimal) { Caption = 'Dif. Bruto'; DataClassification = CustomerContent; }
         field(9; "% Diferencia"; Decimal) { Caption = '% Dif.'; DataClassification = CustomerContent; DecimalPlaces = 2 : 2; }

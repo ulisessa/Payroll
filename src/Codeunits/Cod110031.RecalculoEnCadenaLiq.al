@@ -21,6 +21,65 @@ codeunit 110031 "Recálculo En Cadena Liq."
 {
     Access = Public;
 
+    /// <summary>Entrada para administración: rehace el documento y sus posteriores atómicamente.</summary>
+    procedure EjecutarNumero(Numero: Code[20])
+    var
+        Liq: Record "Liquidación";
+    begin
+        Liq.Get(Numero);
+        Ejecutar(Liq);
+    end;
+
+    /// <summary>Rehace atómicamente las calculadas del mes y empleado del documento indicado.</summary>
+    procedure EjecutarMesEmpleado(Numero: Code[20])
+    var
+        Origen: Record "Liquidación";
+        Cab: Record "Liquidación";
+        Posterior: Record "Liquidación";
+        Motor: Codeunit "Motor Liquidación";
+        Pendientes: List of [Code[20]];
+        Ordenados: List of [Code[20]];
+        Documento: Code[20];
+        Primero: Code[20];
+        FechaPrimero: Date;
+        i: Integer;
+    begin
+        Origen.Get(Numero);
+        if PrimeraPosterior(Origen, Posterior) then
+            Error('Existe una liquidación posterior al mes: %1. Usá el recálculo de la cadena completa.', Posterior."No.");
+        Cab.SetRange("No. Empleado", Origen."No. Empleado");
+        Cab.SetRange("Cód. Período", Origen."Cód. Período");
+        if Cab.FindSet() then repeat
+            if Cab.Estado in [Cab.Estado::Aprobada, Cab.Estado::Contabilizada] then
+                Error(ErrPosteriorCerrada, Cab."No.", Cab."Cód. Período", Format(Cab.Estado));
+            if Cab.Estado = Cab.Estado::Calculada then Pendientes.Add(Cab."No.");
+        until Cab.Next() = 0;
+        // Fecha y número hacen el orden estable; no se agregan claves ni tablas auxiliares.
+        while Pendientes.Count() > 0 do begin
+            Primero := '';
+            foreach Documento in Pendientes do begin
+                Cab.Get(Documento);
+                if (Primero = '') or (Cab."Fecha Liquidación" < FechaPrimero) or
+                    ((Cab."Fecha Liquidación" = FechaPrimero) and (Documento < Primero)) then begin
+                    Primero := Documento;
+                    FechaPrimero := Cab."Fecha Liquidación";
+                end;
+            end;
+            Ordenados.Add(Primero);
+            Pendientes.Remove(Primero);
+        end;
+        // Los topes por período leen todos los documentos calculados, incluso los del mismo mes.
+        // Todos deben quedar Borrador antes de calcular el primero, no sólo los de meses posteriores.
+        for i := Ordenados.Count() downto 1 do begin
+            Cab.Get(Ordenados.Get(i));
+            Reabrir(Cab);
+        end;
+        foreach Documento in Ordenados do begin
+            Cab.Get(Documento);
+            Motor.LiquidarRecord(Cab);
+        end;
+    end;
+
     /// <summary>Devuelve cuántas liquidaciones se recalcularon, contando la de partida.</summary>
     procedure Ejecutar(var Liq: Record "Liquidación"): Integer
     var

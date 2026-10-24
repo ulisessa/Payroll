@@ -1,4 +1,7 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
+
+using Microsoft.HumanResources.Employee;
+using Microsoft.Projects.Project.Job;
 
 codeunit 50015 "Evaluador Fórmula"
 {
@@ -16,7 +19,8 @@ codeunit 50015 "Evaluador Fórmula"
     //   Primary    = Number | StringLit | '(' OrExpr ')' | Ident ('(' ArgList ')')?
     //   ArgList    = OrExpr (',' OrExpr)*
     //
-    // Built-in functions: TRAMO(code, value)
+    // Built-in functions include TRAMO(code, value) and
+    // ACUM_PARAM_CCT(source, parameter, historical_quantity, divisor).
     // All other identifiers are resolved from the variable context dictionary.
     // String literals use single quotes: 'RET_4CAT'
 
@@ -61,6 +65,9 @@ codeunit 50015 "Evaluador Fórmula"
         // referenciada — evitaba esto una recomputación entera por cada @ en cada línea, que con
         // referencias anidadas se multiplica rápido y puede volver el cálculo muy pesado.
         FLastConceptoRefValues: Dictionary of [Text, Decimal];
+        FContextoLiquidacion: Codeunit "Contexto Liquidación";
+        FContextoLiquidacionVinculado: Boolean;
+        FAcumParametroCCT: Dictionary of [Text, Decimal];
 
     procedure Init(var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date)
     begin
@@ -77,6 +84,25 @@ codeunit 50015 "Evaluador Fórmula"
         Clear(FTramoLogCache);
         Clear(FResolvingConceptos);
         Clear(FLastConceptoRefValues);
+        Clear(FAcumParametroCCT);
+        // No Clear del codeunit enlazado: la instancia pertenece al motor que nos la presta.
+        FContextoLiquidacionVinculado := false;
+    end;
+
+    procedure SetContextoLiquidacion(Contexto: Codeunit "Contexto Liquidación")
+    begin
+        FContextoLiquidacion := Contexto;
+        FContextoLiquidacionVinculado := true;
+    end;
+
+    procedure SembrarAcumParametroCCTGuardado(Fuente: Code[30]; Parametro: Code[20]; Cantidad: Code[30]; Divisor: Decimal; Valor: Decimal)
+    begin
+        FAcumParametroCCT.Set(ClaveAcumParametroCCT(Fuente, Parametro, Cantidad, Divisor), Valor);
+    end;
+
+    local procedure ClaveAcumParametroCCT(Fuente: Code[30]; Parametro: Code[20]; Cantidad: Code[30]; Divisor: Decimal): Text
+    begin
+        exit('ACUMCCT:' + Fuente + '~' + Parametro + '~' + Cantidad + '~' + Format(Divisor, 0, 9));
     end;
 
     // Lee el valor calculado en la última evaluación real de @CÓDIGO (misma línea, sin recalcular).
@@ -309,7 +335,10 @@ codeunit 50015 "Evaluador Fórmula"
                 exit(0);
             Error('No se cargó el código vigente de %1. Cargá el contexto completo del empleado para evaluar esta comparación.', Nombre);
         end;
-        Coincide := UpperCase(Actual) = Codigo;
+        // Las dos puntas en mayúsculas. La validación filtra un campo Code con collation CI, así que
+        // aceptaba 'potero' como código válido; la comparación, que iba contra el literal crudo, no
+        // coincidía nunca. La fórmula quedaba impecable y la condición era falsa siempre, sin aviso.
+        Coincide := UpperCase(Actual) = UpperCase(Codigo);
         if Distinto then
             Coincide := not Coincide;
         exit(BoolToDecimal(Coincide));
@@ -324,9 +353,22 @@ codeunit 50015 "Evaluador Fórmula"
         Valor: Record "Valor Atributo Liq.";
         Clave: Text;
     begin
+        if Nombre.StartsWith('FILA_') then begin
+            ValidarCodigoFila(Nombre, Codigo);
+            exit;
+        end;
         Clave := Nombre + '|' + Codigo;
         if FCodigosValidos.ContainsKey(Clave) then
             exit;
+
+        // TIPO_LIQ no es un atributo pero se compara igual: TIPO_LIQ = 'LIQ_FINAL'. Sus códigos
+        // válidos son los tipos de liquidación, así que la validación va contra esa tabla.
+        if EsVariableTipoLiq(Nombre) then begin
+            ValidarCodigoTipoLiq(Nombre, Codigo);
+            FCodigosValidos.Add(Clave, true);
+            exit;
+        end;
+
         Tipo.SetRange("Nombre Variable", NombreBaseAtributo(Nombre));
         Tipo.SetRange("Tipo Dato", Tipo."Tipo Dato"::Lista);
         if not Tipo.FindFirst() then
@@ -336,6 +378,75 @@ codeunit 50015 "Evaluador Fórmula"
         if (Codigo = '') or Valor.IsEmpty() then
             Error('El código %1 no existe entre los valores del atributo %2.', Codigo, Nombre);
         FCodigosValidos.Add(Clave, true);
+    end;
+
+    local procedure ValidarCodigoFila(Nombre: Text; Codigo: Text)
+    var
+        Empleado: Record Employee;
+        Proyecto: Record Job;
+        Periodo: Record "Período Liquidación";
+        Estado: Record "Cód. Estado Empleado";
+        Convenio: Record "Convenio Colectivo";
+        Categoria: Record "Categoría CCT";
+        ConvenioFila: Text;
+    begin
+        case Nombre of
+            'FILA_EMPLEADO': if not Empleado.Get(Codigo) then Error('Empleado inexistente: %1.', Codigo);
+            'FILA_PROYECTO': if Codigo <> '' then if not Proyecto.Get(Codigo) then Error('Proyecto inexistente: %1.', Codigo);
+            'FILA_PERIODO': if not Periodo.Get(Codigo) then Error('Período inexistente: %1.', Codigo);
+            'FILA_ESTADO': if Codigo <> '' then if not Estado.Get(Codigo) then Error('Estado inexistente: %1.', Codigo);
+            'FILA_CONVENIO': if not Convenio.Get(Codigo) then Error('Convenio inexistente: %1.', Codigo);
+            'FILA_CATEGORIA': begin
+                if FModoValidacion then begin
+                    Categoria.SetRange(Código, Codigo);
+                    if not Categoria.FindFirst() then Error('Categoría inexistente: %1.', Codigo);
+                    exit;
+                end;
+                FCodigosAtributos.Get('FILA_CONVENIO', ConvenioFila);
+                if not Categoria.Get(ConvenioFila, Codigo) then Error('Categoría inexistente: %1 / %2.', ConvenioFila, Codigo);
+            end;
+            'FILA_PUESTO': if Codigo <> '' then ValidarCodigoAtributo('PUESTO', Codigo);
+            'FILA_PESQUERIA': if not (Codigo in ['', 'CAL', 'LAN']) then Error('Pesquería inexistente: %1.', Codigo);
+            else Error('La variable %1 no es una dimensión de la matriz.', Nombre);
+        end;
+    end;
+
+    /// <summary>
+    /// El nombre corresponde a la variable de sistema TIPO_LIQ.
+    /// </summary>
+    /// <remarks>
+    /// Se pregunta por el Cód. Cálculo y no por el literal porque el Nombre Variable es
+    /// CONFIGURABLE: una instalación puede renombrarla para que las fórmulas se lean mejor, y
+    /// Cod50077 lo documenta. Comparar contra 'TIPO_LIQ' a secas dejaría de funcionar justo en la
+    /// instalación que se tomó el trabajo de ponerle un nombre claro.
+    /// </remarks>
+    local procedure EsVariableTipoLiq(Nombre: Text): Boolean
+    var
+        VarSis: Record "Variable Sistema Liq.";
+        CodCalcTipoLiqTok: Label 'TIPO_LIQ', Locked = true;
+    begin
+        if not VarSis.Get(CopyStr(Nombre, 1, MaxStrLen(VarSis."Nombre Variable"))) then
+            exit(false);
+        exit(VarSis."Cód. Cálculo" = CodCalcTipoLiqTok);
+    end;
+
+    local procedure ValidarCodigoTipoLiq(Nombre: Text; Codigo: Text)
+    var
+        TipoLiq: Record "Tipo Liquidación";
+        Disponibles: TextBuilder;
+    begin
+        if (Codigo <> '') and TipoLiq.Get(CopyStr(Codigo, 1, MaxStrLen(TipoLiq.Código))) then
+            exit;
+
+        // El mensaje lista los tipos: es el dato que el que escribe la fórmula no tiene a mano, y
+        // enumerarlos cuesta una lectura que sólo ocurre cuando ya hay un error.
+        if TipoLiq.FindSet() then
+            repeat
+                if Disponibles.Length() > 0 then
+                    Disponibles.Append(', ');
+                Disponibles.Append(TipoLiq.Código);
+            until TipoLiq.Next() = 0;
+        Error(ErrTipoLiqInexistente, Codigo, Nombre, Disponibles.ToText());
     end;
 
     /// <summary>
@@ -601,6 +712,10 @@ codeunit 50015 "Evaluador Fórmula"
     local procedure CallFunction(FuncName: Text): Decimal
     var
         Arg1: Text;
+        FuenteCCT: Code[30];
+        ParametroCCT: Code[20];
+        CantidadCCT: Code[30];
+        ClaveCCT: Text;
         Mensaje: Text;
         Arg2: Decimal;
         Arg3: Decimal;
@@ -608,6 +723,36 @@ codeunit 50015 "Evaluador Fórmula"
         BaseEscalaAnterior: Boolean;
     begin
         case FuncName of
+            'ACUM_PARAM_CCT':
+                begin
+                    FuenteCCT := LeerNombreAcumParametroCCT(MaxStrLen(FuenteCCT));
+                    Expect(FTokKind::Comma);
+                    ParametroCCT := LeerNombreAcumParametroCCT(MaxStrLen(ParametroCCT));
+                    Expect(FTokKind::Comma);
+                    CantidadCCT := LeerNombreAcumParametroCCT(MaxStrLen(CantidadCCT));
+                    Expect(FTokKind::Comma);
+                    Arg2 := ParseOr();
+                    Expect(FTokKind::RPar);
+                    ClaveCCT := ClaveAcumParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT, Arg2);
+                    if FAcumParametroCCT.ContainsKey(ClaveCCT) then
+                        Result := FAcumParametroCCT.Get(ClaveCCT)
+                    else begin
+                        // Una línea guardada se reproduce con su resultado persistido. No consulta
+                        // fuentes ni precios de hoy para presentarlos como si fueran los originales.
+                        if FHistorico then
+                            Error('Falta el resultado guardado de %1 para reproducir la fórmula histórica.', ClaveCCT);
+                        FContextoLiquidacion.ValidarAcumulacionParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT);
+                        if FModoValidacion or FLenient then
+                            Result := 0
+                        else begin
+                            if not FContextoLiquidacionVinculado then
+                                Error('ACUM_PARAM_CCT necesita el contexto de liquidación enlazado.');
+                            Result := FContextoLiquidacion.AcumularParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT, Arg2);
+                            FAcumParametroCCT.Set(ClaveCCT, Result);
+                        end;
+                    end;
+                    AppendParamLog(ClaveCCT + '~' + Format(Result, 0, 9));
+                end;
             'TRAMO':
                 begin
                     // TRAMO('TABLE_CODE', numeric_expression)
@@ -1085,6 +1230,19 @@ codeunit 50015 "Evaluador Fórmula"
         exit(FContext.Get(VarName));
     end;
 
+    local procedure LeerNombreAcumParametroCCT(LargoMaximo: Integer): Text
+    var
+        Nombre: Text;
+    begin
+        Nombre := FTokText;
+        Expect(FTokKind::StrLit);
+        if (Nombre = '') or (StrLen(Nombre) > LargoMaximo) or Nombre.Contains('#') or Nombre.Contains('@') or
+           Nombre.Contains('~') or Nombre.Contains('|')
+        then
+            Error('ACUM_PARAM_CCT requiere nombres entre comillas, sin referencias de concepto ni separadores de log. Máximo: %1 caracteres.', LargoMaximo);
+        exit(Nombre);
+    end;
+
     // @CÓDIGO referencia OTRO concepto directamente: evalúa su Condición y Fórmula ahora mismo
     // (no lee un importe ya calculado), así no depende del Orden Cálculo relativo entre ambos.
     // Reentrante: como el tokenizer vive en variables de instancia, hay que guardar y restaurar
@@ -1476,6 +1634,7 @@ codeunit 50015 "Evaluador Fórmula"
         ErrErrorPideTexto: Label 'ERROR() espera un mensaje entre comillas dobles. Ej: ERROR("La marea no puede durar más que el mes").';
         ErrRedondearDecimales: Label 'REDONDEAR espera una CANTIDAD DE DECIMALES (0, 2, 4…) y recibió %1. Si lo que tenés es una precisión —0,01 o 0,0001, como PRECISION_REDONDEO— usá ROUND(valor, precisión), que la toma tal cual.', Comment = '%1 = el valor recibido';
         ErrTokenInesperado: Label 'Token inesperado: "%1".';
+        ErrTipoLiqInexistente: Label 'El código ''%1'' no es un tipo de liquidación. %2 admite: %3.', Comment = '%1 = código escrito en la fórmula, %2 = nombre de la variable, %3 = lista de códigos válidos';
         ErrTokenEsperado: Label 'Se esperaba token %1 pero se encontró "%2".';
         ErrVariableDesconocida: Label 'Variable desconocida en la fórmula: "%1". Ningún Parámetro, Variable de Sistema, Fuente de Datos ni Tipo de Atributo la define con ese Nombre Variable.';
         ErrFuncionDesconocida: Label 'Función desconocida: "%1".';

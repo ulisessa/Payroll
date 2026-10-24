@@ -108,6 +108,7 @@ page 110004 "Historial Fórmulas Concepto"
             {
                 ApplicationArea = All;
                 Caption = 'Restaurar texto anterior';
+                Enabled = Rec."Tipo Cambio" <> Rec."Tipo Cambio"::Orden;
                 Image = Undo;
                 Promoted = true;
                 PromotedCategory = Process;

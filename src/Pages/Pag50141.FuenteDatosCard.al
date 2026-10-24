@@ -202,7 +202,7 @@ page 50141 "Fuente Datos Card"
                 field("Fin Efectivo"; Rec."Fin Efectivo")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Para tablas effective-dated (ej. Estado Empleado, sin campo Fecha Fin): el fin de cada intervalo se deriva como el inicio del registro siguiente de la misma entidad − 1. La entidad se define por los filtros con token ({EMP_NO}, {JOB_NO}…); los filtros constantes (ej. Cód. Estado) se ignoran para el fin. Reemplaza al "Campo Fecha Fin".';
+                    ToolTip = 'Si el campo Fecha Fin está cargado, usa esa fecha. Si está vacío, deriva el fin del inicio siguiente de la misma entidad menos un día. La entidad se define por filtros con token ({EMP_NO}, {JOB_NO}…); los filtros constantes se ignoran al buscar el siguiente registro.';
                 }
             }
             part(Filtros; "Filtro Fuente Datos Liq. Sub")
@@ -218,6 +218,21 @@ page 50141 "Fuente Datos Card"
     {
         area(Processing)
         {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué fórmulas y condiciones nombran a esta fuente de datos. En blanco, nadie la usa: borrarla no rompe nada, pero tampoco hace falta.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec."Nombre Variable");
+                    PagUsos.Run();
+                end;
+            }
             action(Copiar)
             {
                 ApplicationArea = All;
@@ -313,6 +328,7 @@ page 50141 "Fuente Datos Card"
     begin
         exit(Rec."Función Agregado" in [
             Rec."Función Agregado"::"DIAS_OVERLAP",
+            Rec."Función Agregado"::"DIAS_OVERLAP_30",
             Rec."Función Agregado"::"DURACION_INICIO",
             Rec."Función Agregado"::"DURACION_AÑO"]);
     end;

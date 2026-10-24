@@ -52,6 +52,11 @@ table 60017 "Fracción Acumulador"
             Caption = 'Descripción';
             DataClassification = CustomerContent;
         }
+        field(7; "Filtro Convenio"; Text[250])
+        {
+            Caption = 'Filtro de convenio';
+            DataClassification = CustomerContent;
+        }
     }
 
     keys
@@ -59,5 +64,16 @@ table 60017 "Fracción Acumulador"
         key(PK; "Cód. Concepto", "Vigencia Desde", "Cód. Acumulador") { Clustered = true; }
         key(K2; "Cód. Acumulador", "Vigencia Desde") { }
     }
+
+    procedure AplicaAConvenio(CodConvenio: Code[20]): Boolean
+    var
+        Convenio: Record "Convenio Colectivo" temporary;
+    begin
+        if "Filtro Convenio" = '' then exit(true);
+        Convenio.Código := CodConvenio;
+        Convenio.Insert(false);
+        Convenio.SetFilter(Código, "Filtro Convenio");
+        exit(not Convenio.IsEmpty());
+    end;
 
 }

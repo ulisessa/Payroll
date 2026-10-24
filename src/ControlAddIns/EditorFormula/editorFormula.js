@@ -42,6 +42,7 @@ var UASEditorFormula = (function () {
     var MAX_RECONSTRUCCIONES = 20;
     var editores = {};
     var popup = null;
+    var menu = null;
     var pop = { abierto: false, ed: null, items: [], sel: 0, rango: null };
 
     // ── Tokenizador (espejo de NextTok en Cod50015) ───────────────────────────
@@ -314,11 +315,22 @@ var UASEditorFormula = (function () {
             var c = clasificar(tk, toks, i);
             html += tramo(c.cls, tk.texto);
 
-            var sigla = tk.tipo === 'ident' ? tk.texto.charAt(0) : '';
-            if (sigla !== '@' && sigla !== '#') continue;
-            hayRefs = true;
-            if (c.ref && c.ref.desc) html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
-            else html += '<span class="uas-nom uas-nom-falta">no existe</span>';
+            if (tk.tipo !== 'ident') continue;
+            var sigla = tk.texto.charAt(0);
+            if (sigla === '@' || sigla === '#') {
+                hayRefs = true;
+                if (c.ref && c.ref.desc) html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
+                else html += '<span class="uas-nom uas-nom-falta">no existe</span>';
+                continue;
+            }
+            // Las VARIABLES (parámetros, variables de sistema, fuentes de datos, atributos) también
+            // llevan su descripción. Antes sólo salía la de los conceptos @/#, y justo las variables
+            // son lo que más cuesta reconocer por el nombre. Una variable sin descripción no muestra
+            // nada, y una desconocida tampoco: ya sale subrayada como error en la vista normal.
+            if (c.ref && c.ref.tipo && c.ref.desc) {
+                hayRefs = true;
+                html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
+            }
         }
 
         // Sin referencias el botón no tiene nada que mostrar, así que desaparece en vez de quedar
@@ -540,6 +552,46 @@ var UASEditorFormula = (function () {
         popup.style.left = x + 'px';
     }
 
+    // ── Menú contextual: abrir la ficha de lo que hay bajo el cursor ──────────
+
+    // Qué ficha corresponde a un token, o null si no tiene. Los tipos son los del catálogo; AL los
+    // resuelve contra su tabla (Cod110071), porque acá sólo se conocen nombres.
+    function destinoDeFicha(info) {
+        if (!info || !info.ref) return null;
+        if (info.cls === 'concepto')
+            return { tipo: 'concepto', nombre: String(info.ref.codigo), etiqueta: 'Abrir ficha del concepto ' + info.ref.codigo };
+        var t = info.ref.tipo;
+        // Un acumulador (BASE_PROMEDIO, REMUNERATIVO_BRUTO...) ES un concepto con "Es Acumulador": su
+        // ficha es la del concepto, y por eso se manda como 'concepto' y no con su tipo de catálogo.
+        if (t === 'Acumulador')
+            return { tipo: 'concepto', nombre: String(info.ref.nombre), etiqueta: 'Abrir ficha del acumulador ' + info.ref.nombre };
+        if (t === 'Parámetro' || t === 'Fuente Datos' || t === 'Sistema' || t === 'Atributo')
+            return { tipo: t, nombre: String(info.ref.nombre), etiqueta: 'Abrir ficha de ' + info.ref.nombre + ' (' + t + ')' };
+        return null;
+    }
+
+    function cerrarMenu() {
+        if (menu) menu.style.display = 'none';
+    }
+
+    function abrirMenu(ed, destino, x, y) {
+        menu.innerHTML = '<div class="uas-item uas-menu-item">' + escapar(destino.etiqueta) + '</div>';
+        menu.firstChild.addEventListener('mousedown', function (e) {
+            // preventDefault: que el textarea no pierda el foco, o el blur emitiría el texto sin motivo.
+            e.preventDefault();
+            cerrarMenu();
+            invocar('OnAbrirFicha', [destino.tipo, destino.nombre]);
+        });
+        menu.style.display = 'block';
+        // Coordenadas respecto de la raíz del editor, que es el contenedor posicionado del menú; y
+        // sin salirse del borde derecho/inferior, que en un iframe angosto se come el texto.
+        var r = raiz.getBoundingClientRect();
+        var left = Math.max(0, Math.min(x - r.left, raiz.clientWidth - menu.offsetWidth - 4));
+        var top = Math.max(0, Math.min(y - r.top, raiz.clientHeight - menu.offsetHeight - 4));
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+    }
+
     function cerrarPopup() {
         if (!pop.abierto) return;
         pop.abierto = false;
@@ -628,7 +680,9 @@ var UASEditorFormula = (function () {
                 ((codigo + ' ' + desc + ' ' + (v.padre || '')).toUpperCase().indexOf(q) >= 0 ? 1 : -1);
             if (pun < 0) return;
             var ins = "'" + codigo.replace(/'/g, "''") + "'";
-            items.push({ pun: pun, it: { nombre: codigo, tipo: 'Valor de atributo',
+            // "Código válido" y no "Valor de atributo": por este mismo canal viajan ahora los tipos
+            // de liquidación (TIPO_LIQ = 'LIQ_FINAL'), que no son un atributo.
+            items.push({ pun: pun, it: { nombre: codigo, tipo: 'Código válido',
                 valor: v.padre || '', desc: desc, insertar: ins, caretRel: ins.length } });
         });
         return { rango: { ini: ini, fin: fin }, items: ordenar(items) };
@@ -840,6 +894,7 @@ var UASEditorFormula = (function () {
         var ta = ed.ta;
 
         ta.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') cerrarMenu();
             if (pop.abierto && pop.ed === ed) {
                 if (e.key === 'ArrowDown') { mover(1); e.preventDefault(); e.stopPropagation(); return; }
                 if (e.key === 'ArrowUp') { mover(-1); e.preventDefault(); e.stopPropagation(); return; }
@@ -903,7 +958,23 @@ var UASEditorFormula = (function () {
             }
         });
 
+        // Botón derecho sobre un concepto, parámetro, fuente, variable de sistema o atributo: menú
+        // para abrir su ficha. Sobre cualquier otra cosa NO se intercepta, para no quitarle al usuario
+        // el menú del navegador (copiar, pegar, cortar).
+        ta.addEventListener('contextmenu', function (e) {
+            var x = e.clientX, y = e.clientY;
+            // El mousedown derecho ya movió el cursor, pero se lee en el mismo turno del evento:
+            // el token se ubica con la posición actual del cursor, no con las coordenadas del clic.
+            if (!ed.toks) ed.toks = tokenizar(ta.value);
+            var destino = destinoDeFicha((tokenEnCursor(ed) || {}).info);
+            if (!destino) { cerrarMenu(); return; }
+            e.preventDefault();
+            cerrarPopup();
+            abrirMenu(ed, destino, x, y);
+        });
+
         ta.addEventListener('click', function () {
+            cerrarMenu();
             cerrarPopup();
             render(ed);
             actualizarEstado(ed);
@@ -1117,6 +1188,13 @@ var UASEditorFormula = (function () {
             popup.style.display = 'none';
             raiz.appendChild(popup);
             conectarPopup();
+
+            menu = document.createElement('div');
+            menu.className = 'uas-popup uas-menu';
+            menu.style.display = 'none';
+            raiz.appendChild(menu);
+            // Cualquier clic fuera del menú lo cierra; el de adentro actúa en su mousedown.
+            raiz.addEventListener('mousedown', function (e) { if (!menu.contains(e.target)) cerrarMenu(); });
 
             var pista = document.createElement('div');
             pista.className = 'uas-pista';

@@ -12,4 +12,6 @@ enum 50323 "Tipo Cambio Fórmula"
     // distintas: "quién tocó este número" y "por qué este texto se ve distinto al de la planilla".
     // Confundirlas en un solo tipo haría que la primera —la que importa— se pierda entre las otras.
     value(3; Formato) { Caption = 'Formato'; }
+    // Los textos anterior/nuevo corresponden a la fórmula de orden, no al importe.
+    value(4; Orden) { Caption = 'Orden de cálculo'; }
 }

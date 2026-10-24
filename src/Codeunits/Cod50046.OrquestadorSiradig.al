@@ -12,6 +12,9 @@ codeunit 50046 "Orquestador SIRADIG"
         ProcesadorSiradig: Codeunit "Procesador Importación SIRADIG";
         AuditoriaAfip: Codeunit "Auditoria AFIP Interface";
         ErrorArchivoYaImportado: Label 'El archivo ya ha sido importado anteriormente.';
+        ErrTipoArchivo: Label 'El archivo debe ser .xml, .xml.zip o un .zip con las presentaciones: %1', Comment = '%1=nombre del archivo';
+        ErrEmpleadoSinCuil: Label 'No hay un empleado con el CUIL %1: no se pudo procesar.', Comment = '%1=CUIL';
+        MsgResumenProcesadas: Label 'Se procesaron %1 importación(es). %2 sin empleado en BC (quedaron con error).%3', Comment = '%1=procesadas, %2=sin empleado, %3=detalle';
         MsgResumenImportacion: Label 'Se importaron %1 archivo(s) SIRADIG. %2 archivo(s) con errores.';
         MsgResumenProcesado: Label '\Se procesaron %1 deducción(es) y %2 carga(s) de familia.';
         MsgResumenErrores: Label '\\Errores:%1';
@@ -123,9 +126,12 @@ codeunit 50046 "Orquestador SIRADIG"
         Importador: Codeunit "Importador Archivo SIRADIG";
         ArchivoActual: FileUpload;
         InStreamArchivo: InStream;
+        Nombres: List of [Text];
+        Contenidos: List of [Text];
         NombreArchivo: Text;
         Errores: Text;
         Resumen: Text;
+        i: Integer;
         ImportadosOk: Integer;
         ImportadosError: Integer;
         Deducciones: Integer;
@@ -135,11 +141,23 @@ codeunit 50046 "Orquestador SIRADIG"
     begin
         // Un solo resumen al final: ni el detalle por archivo ni los errores se muestran de a uno,
         // porque con una selección grande obligaba a cerrar un cuadro de diálogo por archivo.
+        //
+        // Primero se LEE todo lo subido a una lista de (nombre, XML): un ZIP con las presentaciones de
+        // todos los trabajadores (resultadosXML.zip) se abre acá y cada XML pasa a ser un archivo más.
+        // Un archivo ilegible se anota como error y no frena a los demás.
         foreach ArchivoActual in Files do begin
             NombreArchivo := ArchivoActual.FileName();
             ArchivoActual.CreateInStream(InStreamArchivo);
+            if not TryLeerArchivoSubido(NombreArchivo, InStreamArchivo, Nombres, Contenidos) then begin
+                ImportadosError += 1;
+                Errores += '\· ' + NombreArchivo + ': ' + GetLastErrorText();
+            end;
+        end;
+
+        for i := 1 to Nombres.Count() do begin
+            NombreArchivo := Nombres.Get(i);
             Clear(Importador);
-            Importador.SetParametros(NombreArchivo, InStreamArchivo, AutoProcesar);
+            Importador.SetContenido(NombreArchivo, Contenidos.Get(i), AutoProcesar);
 
             // Commit antes del Run: BC no deja leer el valor de retorno de Codeunit.Run() con una
             // transacción de escritura abierta, y acá ese valor es lo que separa el archivo que
@@ -174,6 +192,82 @@ codeunit 50046 "Orquestador SIRADIG"
         Message(Resumen);
     end;
 
+    // Qué XML trae cada archivo subido. Un .xml.zip es UNA presentación (el CUIL sale del nombre del
+    // zip, como siempre); un .zip a secas trae muchas, y el CUIL sale del nombre de cada entrada.
+    // Sólo lee —no escribe nada en la base—, así que puede ser TryFunction.
+    [TryFunction]
+    local procedure TryLeerArchivoSubido(NombreArchivo: Text; var InStreamArchivo: InStream; var Nombres: List of [Text]; var Contenidos: List of [Text])
+    var
+        Minusculas: Text;
+    begin
+        Minusculas := NombreArchivo.ToLower();
+        case true of
+            Minusculas.EndsWith('.xml.zip'):
+                begin
+                    Nombres.Add(NombreArchivo);
+                    Contenidos.Add(GestorArchivos.DescomprimirArchivoZipDesdeStream(InStreamArchivo));
+                end;
+            Minusculas.EndsWith('.zip'):
+                GestorArchivos.ExtraerXmlsDelZip(InStreamArchivo, Nombres, Contenidos);
+            Minusculas.EndsWith('.xml'):
+                begin
+                    Nombres.Add(NombreArchivo);
+                    Contenidos.Add(GestorArchivos.LeerArchivoXmlDesdeStream(InStreamArchivo));
+                end;
+            else
+                Error(ErrTipoArchivo, NombreArchivo);
+        end;
+    end;
+
+    // Procesa las importaciones PENDIENTES del conjunto que llegue filtrado o marcado, en una sola
+    // pasada y con un único resumen. Devuelve cuántas se procesaron.
+    //
+    // Se arma primero la lista de números y después se recorre con Get: procesar cambia el Estado, y un
+    // bucle que modifica el campo con el que se filtra deja de recorrer sin avisar.
+    //
+    // La importación de alguien que no existe en BC (el CUIL no aparece) queda en "Error en
+    // Procesamiento" con el motivo, y el resto sigue. Cualquier otro error inesperado corta todo y
+    // deshace la pasada completa —no queda nada a medias—, con el mensaje del error.
+    procedure ProcesarFiltradas(var Filtradas: Record "Importación SIRADIG") Procesadas: Integer
+    var
+        Imp: Record "Importación SIRADIG";
+        Numeros: List of [Integer];
+        Numero: Integer;
+        Errores: Text;
+        XmlContent: Text;
+        SinEmpleado: Integer;
+    begin
+        if Filtradas.FindSet() then
+            repeat
+                if Filtradas.Estado = Filtradas.Estado::"Pendiente Procesar" then
+                    Numeros.Add(Filtradas."No.");
+            until Filtradas.Next() = 0;
+
+        if Numeros.Count() = 0 then begin
+            Message('No hay importaciones pendientes de procesar.');
+            exit(0);
+        end;
+
+        // Un solo resumen al final.
+        ProcesadorSiradig.SetSilencioso(true);
+
+        foreach Numero in Numeros do
+            if Imp.Get(Numero) then
+                if not ProcesadorSiradig.ExisteEmpleado(Imp."CUIL Empleado") then begin
+                    Imp.Estado := "Estado Importación SIRADIG"::"Error en Procesamiento";
+                    Imp."Mensajes Error" := CopyStr(StrSubstNo(ErrEmpleadoSinCuil, Imp."CUIL Empleado"), 1, MaxStrLen(Imp."Mensajes Error"));
+                    Imp.Modify();
+                    SinEmpleado += 1;
+                    Errores += '\· ' + Imp."CUIL Empleado";
+                end else begin
+                    XmlContent := LeerXmlDeLaImportacion(Imp);
+                    ProcesadorSiradig.ProcesarImportacionSiradig(Imp, XmlContent);
+                    Procesadas += 1;
+                end;
+
+        Message(MsgResumenProcesadas, Procesadas, SinEmpleado, Errores);
+    end;
+
     procedure ProcesarImportacionesPendientes()
     var
         RegistroImportacion: Record "Importación SIRADIG";
@@ -203,18 +297,30 @@ codeunit 50046 "Orquestador SIRADIG"
         Message('Se procesaron %1 importación(es) pendiente(s) exitosamente.', RegistrosProcesados);
     end;
 
-    [TryFunction]
-    local procedure TryProcesarImportacionPendiente(var RegistroImportacion: Record "Importación SIRADIG")
+    // El XML de una importación: primero el que se guardó al importar (en el registro de auditoría), que
+    // es el único que existe para los archivos subidos desde la PC —de ésos sólo se conserva el
+    // nombre—, y si no está, el archivo del servidor de la importación por carpeta.
+    procedure LeerXmlDeLaImportacion(var RegistroImportacion: Record "Importación SIRADIG") XmlContent: Text
     var
         RutaArchivo: Text;
-        XmlContent: Text;
     begin
-        RutaArchivo := RegistroImportacion."Archivo Origen";
+        XmlContent := AuditoriaAfip.LeerXmlRegistrado(RegistroImportacion."AFIP Register Entry No.");
+        if XmlContent <> '' then
+            exit;
 
+        RutaArchivo := RegistroImportacion."Archivo Origen";
         if RutaArchivo.EndsWith('.zip') then
             XmlContent := GestorArchivos.DescomprimirArchivoZip(RutaArchivo)
         else
             XmlContent := GestorArchivos.LeerArchivoXml(RutaArchivo);
+    end;
+
+    [TryFunction]
+    local procedure TryProcesarImportacionPendiente(var RegistroImportacion: Record "Importación SIRADIG")
+    var
+        XmlContent: Text;
+    begin
+        XmlContent := LeerXmlDeLaImportacion(RegistroImportacion);
 
         // Procesar importación
         ProcesadorSiradig.ProcesarImportacionSiradig(RegistroImportacion, XmlContent);

@@ -111,6 +111,23 @@ codeunit 50050 "Proceso Liq. Por Lote"
             exit(false);
 
         FProgreso.Registro(Liq."No.", Liq."No. Empleado" + '  ' + Liq."Nombre Empleado");
+
+        // SIN DÍAS PROPIOS NO CORRESPONDE, y se descarta ANTES de calcular. Otra liquidación del empleado
+        // ya se llevó todos los días del período (una DEVENGADOS, unas VACACIONES, una Final): el motor se
+        // niega a calcularla para no pagar dos veces, y si se la dejaba calcular, la que falla queda en
+        // Borrador "porque se rompió" cuando no se rompió nada: no hay nada que pagar. Casos de marzo de
+        // 2026: las Regulares de 04139 y 04360. No es un error, así que tampoco deja un fallo en el
+        // registro de procesos; y como está sin calcular se descarta sin consumir el número de la serie.
+        if Motor.SinDiasPropios(Liq) then begin
+            Liq.Get(NoLiq);
+            Liq.Delete(true);
+            FDescartadas += 1;
+            FProgreso.FinalizarRegistro();
+            exit(false);
+        end;
+        // SinDiasPropios recalculó la cobertura sobre la copia en memoria: se vuelve a leer la grabada.
+        Liq.Get(NoLiq);
+
         // Sin relanzar: una que falla queda anotada en su registro y el lote sigue. Una que falló no
         // se descarta —no se sabe si está vacía porque no corresponde o porque se rompió—.
         if not Motor.LiquidarConRegistro(Liq) then begin
@@ -864,14 +881,22 @@ codeunit 50050 "Proceso Liq. Por Lote"
             // realmente estaban navegando el 31 —90 tripulantes— marcadas como Completed. El filtro
             // por Status devolvía exactamente el conjunto equivocado.
             //
-            // Lo que queda es la fecha, que sí es un dato: el proyecto arrancó antes de que el
-            // período terminara. Quién entra de verdad lo termina de decidir AplicarFiltroPersonal,
-            // que pide una asignación vigente — por eso los proyectos viejos sin nadie asignado no
-            // generan nada aunque pasen este filtro.
+            // Quién entra de verdad lo decide AplicarFiltroPersonal, que pide una asignación vigente
+            // en el período — por eso los proyectos viejos sin nadie asignado no generan nada aunque
+            // pasen este filtro.
+            //
+            // NO SE FILTRA POR "Starting Date" <= FIN DEL PERÍODO. Antes sí, y dejaba afuera la marea
+            // que arranca el día siguiente al cierre pero ya tiene gente asignada: el tripulante sube
+            // el 31/3 a hacer trabajos de puerto, la marea zarpa el 1/4, y ese día de puerto se
+            // devenga en marzo (Meta4 lo paga en marzo). Sin Devengado para esa marea, el 31/3 no lo
+            // pagaba nadie: ni el Cierre de la marea anterior, que arribó el 30/3, ni la Regular, que
+            // excluye los estados de marea. El cálculo ya sabe pagarlo —CalcDiasPuertoMarea cuenta los
+            // días de víspera dentro de la ventana—; lo que faltaba era crear la liquidación.
+            // Los proyectos futuros sin asignación vigente al cierre no generan nada: los corta
+            // AplicarFiltroPersonal ("Fecha Alta Asignación" <= fin del período).
             //
             // La fecha de inicio EN BLANCO pasa a propósito: los proyectos de nómina no tienen, y son
             // los que la Regular necesita recorrer para encontrar a su gente.
-            Job.SetFilter("Starting Date", '<=%1', Periodo."Fecha Hasta");
             // Y si el tipo lo pide, sólo los que al cierre todavía no arribaron.
             if SoloEnCurso then
                 Job.SetFilter("Ending Date", '%1|>%2', 0D, Periodo."Fecha Hasta");
@@ -925,7 +950,7 @@ codeunit 50050 "Proceso Liq. Por Lote"
     /// si el empleado las toma este mes O si las va a tomar el que viene, y son dos líneas del mismo
     /// tipo en vez de dos tipos duplicados.
     /// </remarks>
-    local procedure EstadosJustifican(EmpNo: Code[20]; CodPeriodo: Code[10]; TipoLiq: Code[20]; JobNo: Code[20]): Boolean
+    internal procedure EstadosJustifican(EmpNo: Code[20]; CodPeriodo: Code[10]; TipoLiq: Code[20]; JobNo: Code[20]): Boolean
     var
         Linea: Record "Estado Tipo Liq.";
         Estado: Record "Estado Empleado";
@@ -941,6 +966,17 @@ codeunit 50050 "Proceso Liq. Por Lote"
             if Linea.Modo = Linea.Modo::Exige then
                 HayExige := true;
         until Linea.Next() = 0;
+
+        // LAS EXCLUSIONES POR PERSONA SE RESUELVEN PRIMERO Y CORTAN, y por eso van en su propia
+        // pasada en vez de dentro del bucle de abajo. Ahí la decisión es por estado —alcanza con que
+        // UNO justifique y no esté excluido— y una exclusión que vale para el empleado entero no se
+        // puede expresar así: el que se dio de baja tiene estados de trabajo que justifican la
+        // Regular por su cuenta, y tacharle el estado de baja no la impide.
+        //
+        // Medido en enero de 2026: seis de los siete dados de baja tenían liquidación final Y
+        // regular, dos de ellos pagando exactamente lo mismo.
+        if HayExclusionDePersona(EmpNo, CodPeriodo, TipoLiq, JobNo) then
+            exit(false);
 
         // SE DECIDE POR ESTADO Y NO POR EMPLEADO. Antes bastaba con que UNA exclusión diera en
         // cualquier punto del período para descartar a la persona entera, y eso dejaba sin Regular a
@@ -979,6 +1015,78 @@ codeunit 50050 "Proceso Liq. Por Lote"
         exit(false);
     end;
 
+    /// <summary>¿Algún estado del empleado dispara una exclusión que vale para la persona entera?</summary>
+    /// <remarks>
+    /// Basta UNO. Al revés que el modo Excluye —que tacha el estado y deja que otro justifique—,
+    /// acá un solo estado que cumpla descarta la liquidación completa.
+    ///
+    /// Se recorren los estados por fuera y las líneas por dentro, igual que EstadosJustifican, para
+    /// que las dos usen la misma resolución de ventana y de proyecto: si divergieran, una línea
+    /// significaría una cosa al excluir y otra al exigir.
+    /// </remarks>
+    local procedure HayExclusionDePersona(EmpNo: Code[20]; CodPeriodo: Code[10]; TipoLiq: Code[20]; JobNo: Code[20]): Boolean
+    var
+        Linea: Record "Estado Tipo Liq.";
+        Estado: Record "Estado Empleado";
+        Periodo: Record "Período Liquidación";
+    begin
+        Linea.SetRange("Cód. Tipo Liq.", TipoLiq);
+        Linea.SetRange(Modo, Linea.Modo::ExcluyePersona);
+        if Linea.IsEmpty() then
+            exit(false);
+
+        // SE MIRA EL ESTADO VIGENTE AL CIERRE DEL PERÍODO, no cualquier estado del historial.
+        //
+        // Recorrer todos excluía a quien REINGRESÓ: su baja vieja sigue en el historial, cumple la
+        // línea, y la persona queda sin Regular aunque hoy esté trabajando. Medido en enero de 2026:
+        // cuatro empleados —04703, 04901, 90331 y 04382— se quedaron sin NINGUNA liquidación, con
+        // once novedades sin aplicar por 1,07 M, y los cuatro habían vuelto a entrar ese mismo mes:
+        // su BAJ terminaba el 1, el 13, el 4 y el 30, y arrancaban de nuevo al día siguiente.
+        //
+        // "Se fue" y "se fue y volvió" no son lo mismo, y lo que distingue a uno del otro es en qué
+        // situación está al terminar el período.
+        //
+        // NO ALCANZA CON "no hay un alta posterior a esa baja": el que se da de baja el 31 de enero
+        // y reingresa en febrero tiene un alta posterior, y sin embargo en ENERO se fue —su final
+        // cubre el mes y no le corresponde además una Regular—.
+        //
+        // Un reingreso dentro del mismo mes sigue funcionando: la baja le genera su liquidación
+        // final por el primer tramo, esta exclusión no corre, y la Regular toma el tramo de después.
+        // El reparto de cobertura ya los separa y los días del medio no los cubre nadie.
+        if not Periodo.Get(CodPeriodo) then
+            exit(false);
+        if Periodo."Fecha Hasta" = 0D then
+            exit(false);
+
+        Estado.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        Estado.SetRange("Tipo Entidad", Estado."Tipo Entidad"::Empleado);
+        Estado.SetRange("No. Empleado", EmpNo);
+        Estado.SetFilter("Fecha Inicio", '<=%1', Periodo."Fecha Hasta");
+        if not Estado.FindLast() then
+            exit(false);
+
+        if Linea.FindSet() then
+            repeat
+                if EstadoCumpleLinea(Estado, CodPeriodo, TipoLiq, JobNo, Linea) then
+                    exit(true);
+            until Linea.Next() = 0;
+
+        // LA BAJA DEL ÚLTIMO DÍA DEL MES. El estado de baja arranca el día SIGUIENTE a la fecha de
+        // baja de la fase, así que quien se va el 31/3 tiene el BAJ el 1/4: en marzo el último estado
+        // es otro (Franco, GP) y la línea no daba. Su Final cubre todo marzo y la Regular lo pagaba
+        // por segunda vez (04486 y 04513, marzo de 2026). Se mira entonces el estado que arranca
+        // justo al día siguiente del cierre.
+        Estado.SetRange("Fecha Inicio", Periodo."Fecha Hasta" + 1);
+        if Estado.FindFirst() then
+            if Linea.FindSet() then
+                repeat
+                    if CoincideEstadoConCache(Linea, Estado."Cód. Estado") then
+                        if EstadoCumpleProyecto(Estado, Linea) then
+                            exit(true);
+                until Linea.Next() = 0;
+        exit(false);
+    end;
+
     /// <summary>¿Este estado concreto cumple esta línea? Misma semántica que HayEstado, fila a fila.</summary>
     /// <remarks>
     /// HayEstado arma un filtro y pregunta si queda alguno; acá el estado ya está elegido y sólo hay
@@ -992,8 +1100,10 @@ codeunit 50050 "Proceso Liq. Por Lote"
     /// </remarks>
     local procedure EstadoCumpleLinea(Estado: Record "Estado Empleado"; CodPeriodo: Code[10]; TipoLiq: Code[20]; JobNo: Code[20]; Linea: Record "Estado Tipo Liq."): Boolean
     var
+        Fase: Record "Fase Alta Empleado";
         Desde: Date;
         Hasta: Date;
+        Inicio: Date;
         Fin: Date;
     begin
         VentanaDe(CodPeriodo, TipoLiq, JobNo, Linea.Ventana, Desde, Hasta);
@@ -1013,6 +1123,24 @@ codeunit 50050 "Proceso Liq. Por Lote"
             // Fecha Fin en blanco = estado abierto, que sigue vigente y por lo tanto toca la ventana.
             Fin := Estado.FechaFinEfectiva();
             if (Fin <> 0D) and (Fin < Desde) then
+                exit(false);
+        end;
+
+        // Un estado sólo JUSTIFICA si tiene algún día dentro de un vínculo activo. Comprobar
+        // que el empleado estuvo de alta en algún momento del mes no alcanza: la baja anterior
+        // al reingreso también toca el mes, no tiene proyecto y parecía justificar una Regular.
+        // Las exclusiones no se recortan: BAJ debe poder excluir aunque esté fuera de la fase.
+        if Linea.Modo = Linea.Modo::Exige then begin
+            Inicio := Estado."Fecha Inicio";
+            if Inicio < Desde then
+                Inicio := Desde;
+            Fin := Estado.FechaFinEfectiva();
+            if (Fin = 0D) or (Fin > Hasta) then
+                Fin := Hasta;
+            if Fin < Inicio then
+                exit(false);
+            // Sin fases modeladas se conserva el criterio permisivo de EstuvoActivoEntre.
+            if not Fase.EstuvoActivoEntre(Estado."No. Empleado", Inicio, Fin) then
                 exit(false);
         end;
 
@@ -1174,6 +1302,14 @@ codeunit 50050 "Proceso Liq. Por Lote"
                     Liq."Cód. Tipo Liq." := TipoLiq;
                     Liq."No. Proyecto" := JobNo;
                     Liq.Cobertura(Desde, Hasta);
+                    // Una marea que arranca DESPUÉS del cierre (zarpa el 1/4, con gente asignada desde el 31/3)
+                    // deja la ventana invertida: Cobertura recorta el desde contra el inicio del proyecto y
+                    // queda 1/4 .. 31/3, que no toca ningún estado. Para decidir si CORRESPONDE crear la
+                    // liquidación alcanza con el período; el tramo propio de cada empleado lo recorta Cobertura
+                    // cuando la liquidación ya tiene empleado.
+                    if (Hasta <> 0D) and (Desde > Hasta) then
+                        if Periodo.Get(CodPeriodo) then
+                            Desde := Periodo."Fecha Desde";
                 end;
             Ventana::Periodo:
                 if Periodo.Get(CodPeriodo) then begin
@@ -1191,19 +1327,43 @@ codeunit 50050 "Proceso Liq. Por Lote"
 
     /// <summary>¿El empleado se dio de baja dentro del período? Para el disparador Baja.</summary>
     /// <remarks>
-    /// Mira la fecha de egreso de la ficha. La fase de alta dice si PERTENECÍA a la empresa; esto
-    /// dice si DEJÓ de pertenecer, que es otra pregunta y la única que hace que corresponda una
-    /// liquidación final.
+    /// LA BAJA VIVE EN LA FASE DE ALTA, NO EN LA FICHA. Esto antes leía "Termination Date" del
+    /// Employee, con el argumento de que la fase dice si PERTENECÍA y la ficha si DEJÓ de
+    /// pertenecer. El argumento es razonable y el dato le dio la contra: ese campo está en CERO en
+    /// los 4.810 empleados, mientras "Fase Alta Empleado" tiene 9.351 fechas de baja cargadas. El
+    /// disparador nunca se cumplía y la Liquidación Final no salió para nadie: siete empleados y
+    /// 20,9 M en enero de 2026, sin un solo aviso, porque "no se dio de baja" es una respuesta
+    /// perfectamente válida.
+    ///
+    /// La fase es además el lugar correcto: un empleado puede entrar y salir varias veces, y cada
+    /// ciclo es una fase con su propia alta y su propia baja. La ficha sólo podría guardar la
+    /// última.
+    ///
+    /// SE PREGUNTA POR CUALQUIER FASE QUE HAYA CERRADO EN EL PERÍODO, no por la última: quien se
+    /// fue el 9 de enero y volvió el 9 de febrero tiene la baja en una fase que ya no es la vigente.
+    ///
+    /// Y NO TODA BAJA ES UNA DESVINCULACIÓN. El motivo lo decide la configuración --ver
+    /// "Motivos Baja Liq. Final"--, porque hay bajas de corrección y de fin de temporada que no
+    /// generan final. En blanco cuenta cualquiera.
     /// </remarks>
     local procedure SeDioDeBajaEnElPeriodo(EmpNo: Code[20]; Periodo: Record "Período Liquidación"): Boolean
     var
-        Emp: Record Employee;
+        Fase: Record "Fase Alta Empleado";
+        HRSetup: Record "Human Resources Setup";
     begin
-        if not Emp.Get(EmpNo) then
+        if Periodo."Fecha Desde" = 0D then
             exit(false);
-        if Emp."Termination Date" = 0D then
-            exit(false);
-        exit((Emp."Termination Date" >= Periodo."Fecha Desde") and (Emp."Termination Date" <= Periodo."Fecha Hasta"));
+
+        Fase.SetRange("No. Empleado", EmpNo);
+        // Las fases abiertas quedan afuera solas: su "Fecha Baja" en blanco es 0D y ningún período
+        // real la contiene. No se agrega un "<>0D" aparte porque un segundo filtro sobre el MISMO
+        // campo PISA al primero en vez de sumarse, y el rango de fechas se perdería entero.
+        Fase.SetRange("Fecha Baja", Periodo."Fecha Desde", Periodo."Fecha Hasta");
+
+        if HRSetup.Get() and (HRSetup."Motivos Baja Liq. Final" <> '') then
+            Fase.SetFilter("Cód. Motivo Baja", HRSetup."Motivos Baja Liq. Final");
+
+        exit(not Fase.IsEmpty());
     end;
 
     local procedure LiqExiste(EmpNo: Code[20]; JobNo: Code[20]; CodPeriodo: Code[10]; TipoLiq: Code[20]): Boolean

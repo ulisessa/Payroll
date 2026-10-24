@@ -142,6 +142,58 @@ codeunit 50047 "Gestor Archivos SIRADIG"
         XmlContent := ReadStreamAsText(XmlInStream);
     end;
 
+    /// <summary>
+    /// Todos los XML de un ZIP: el nombre de cada uno (sin la carpeta) y su contenido.
+    /// </summary>
+    /// <remarks>
+    /// Es el ZIP que baja AFIP con las presentaciones de todos los trabajadores (por ejemplo
+    /// resultadosXML.zip): un XML por trabajador, cada uno con el nombre CUIL_PERIODO_presentacion_NRO.xml.
+    /// A diferencia de DescomprimirArchivoZipDesdeStream —que toma el PRIMER xml y saca el CUIL del nombre
+    /// del ZIP—, acá el CUIL sale del nombre de cada entrada.
+    ///
+    /// Se devuelve el TEXTO y no el stream: el que importa lo corre un Codeunit.Run por archivo, y los
+    /// streams de las entradas no sobreviven al cierre del ZIP. Los XML de una presentación son chicos
+    /// (unos pocos KB), así que tenerlos todos en memoria no cuesta nada.
+    /// </remarks>
+    procedure ExtraerXmlsDelZip(var ZipInStream: InStream; var Nombres: List of [Text]; var Contenidos: List of [Text])
+    var
+        DataCompression: Codeunit "Data Compression";
+        XmlTempBlob: Codeunit "Temp Blob";
+        XmlInStream: InStream;
+        EntryList: List of [Text];
+        EntryName: Text;
+        Encontrados: Integer;
+    begin
+        DataCompression.OpenZipArchive(ZipInStream, false);
+        DataCompression.GetEntryList(EntryList);
+
+        foreach EntryName in EntryList do
+            if EntryName.ToLower().EndsWith('.xml') and not EntryName.StartsWith('__MACOSX') then begin
+                Clear(XmlTempBlob);
+                DataCompression.ExtractEntry(EntryName, XmlTempBlob);
+                XmlTempBlob.CreateInStream(XmlInStream, TextEncoding::UTF8);
+                Nombres.Add(NombreSinCarpeta(EntryName));
+                Contenidos.Add(ReadStreamAsText(XmlInStream));
+                Encontrados += 1;
+            end;
+
+        DataCompression.CloseZipArchive();
+
+        if Encontrados = 0 then
+            Error(ErrorSinXmlEnZip, '(archivo subido)');
+    end;
+
+    local procedure NombreSinCarpeta(Entrada: Text) Nombre: Text
+    var
+        Pos: Integer;
+    begin
+        // Un ZIP armado desde una carpeta guarda la ruta ("2026-01/2023...xml"), con barra o contrabarra.
+        Nombre := Entrada.Replace('\', '/');
+        Pos := Nombre.LastIndexOf('/');
+        if Pos > 0 then
+            Nombre := Nombre.Substring(Pos + 1);
+    end;
+
     procedure LeerArchivoXmlDesdeStream(var XmlInStream: InStream) XmlContent: Text
     begin
         XmlContent := ReadStreamAsText(XmlInStream);

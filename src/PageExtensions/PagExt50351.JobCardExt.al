@@ -50,6 +50,28 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
 
     actions
     {
+        addfirst(processing)
+        {
+            action(VerAtributosProyecto)
+            {
+                ApplicationArea = All;
+                Caption = 'Atributos';
+                Image = Dimensions;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                Enabled = Rec."No." <> '';
+                ToolTip = 'Consulta, modifica y agrega atributos de este proyecto, con sus vigencias anteriores, actuales y futuras.';
+
+                trigger OnAction()
+                var
+                    AtributosUI: Codeunit "Atributos Entidad UI";
+                begin
+                    Rec.TestField("No.");
+                    AtributosUI.AbrirHistorialEntidad("Tipo Entidad Estado"::Proyecto, Rec."No.");
+                end;
+            }
+        }
         addlast(reporting)
         {
             action(ControlLiquidacionExcel)

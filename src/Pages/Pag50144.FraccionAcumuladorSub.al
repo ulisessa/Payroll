@@ -14,6 +14,11 @@ page 50144 "Fracción Acumulador Sub"
         {
             repeater(Lines)
             {
+                field("Filtro Convenio"; Rec."Filtro Convenio")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Convenios a los que aporta esta fracción. Vacío aplica a todos. Admite filtros, por ejemplo <>372/04.';
+                }
                 field(Vigente; Vigente)
                 {
                     ApplicationArea = All;

@@ -18,6 +18,21 @@ page 110011 "Atributos de Entidad"
     {
         area(Content)
         {
+            group(Vista)
+            {
+                ShowCaption = false;
+                field(HistorialCompleto; VerTodasActivo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mostrar historial completo';
+                    ToolTip = 'Incluye las vigencias anteriores y futuras. Desactivado muestra sólo las vigentes a la fecha de trabajo.';
+                    trigger OnValidate()
+                    begin
+                        SoloActuales := not VerTodasActivo;
+                        AplicarFiltros();
+                    end;
+                }
+            }
             repeater(Lines)
             {
                 field("Tipo Entidad"; Rec."Tipo Entidad") { ApplicationArea = All; }
@@ -122,6 +137,17 @@ page 110011 "Atributos de Entidad"
     {
         area(Processing)
         {
+            action(ParametrosDelAtributo)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del atributo';
+                Image = Setup;
+                ToolTip = 'Consulta o carga las vigencias de los parámetros vinculados al atributo o valor seleccionado.';
+                trigger OnAction()
+                begin
+                    AtributosUI.AbrirParametrosAsignacion(Rec);
+                end;
+            }
             // Dos acciones que se turnan la visibilidad: en AL el Caption de una acción es constante
             // y no admite expresión, así que es la única forma de que el botón diga qué va a hacer.
             action(VerTodas)
@@ -151,11 +177,28 @@ page 110011 "Atributos de Entidad"
                 end;
             }
         }
+        area(Promoted)
+        {
+            actionref(HistorialProm; VerTodas) { }
+            actionref(ActualesProm; VerActuales) { }
+            actionref(ParametrosProm; ParametrosDelAtributo) { }
+        }
     }
+
+    procedure MostrarHistorial()
+    begin
+        AbrirConHistorial := true;
+    end;
+
+    procedure SetEntidad(TipoEntidad: Enum "Tipo Entidad Estado"; CodEntidad: Code[20])
+    begin
+        TipoEntidadOrigen := TipoEntidad;
+        EntidadOrigen := CodEntidad;
+    end;
 
     trigger OnOpenPage()
     begin
-        SoloActuales := true;
+        SoloActuales := not AbrirConHistorial;
         AplicarFiltros();
     end;
 
@@ -194,6 +237,11 @@ page 110011 "Atributos de Entidad"
         FiltroTipo: Text;
         FiltroCodigo: Text;
     begin
+        if EntidadOrigen <> '' then begin
+            Rec."Tipo Entidad" := TipoEntidadOrigen;
+            Rec."Cód. Entidad" := EntidadOrigen;
+            exit;
+        end;
         FiltroTipo := Rec.GetFilter("Tipo Entidad");
         if (FiltroTipo <> '') and EsValorUnico(FiltroTipo) then
             if Evaluate(Rec."Tipo Entidad", FiltroTipo) then;
@@ -251,4 +299,7 @@ page 110011 "Atributos de Entidad"
         SoloActualesActivo: Boolean;
         VerTodasActivo: Boolean;
         ValorEntrada: Text;
+        AbrirConHistorial: Boolean;
+        TipoEntidadOrigen: Enum "Tipo Entidad Estado";
+        EntidadOrigen: Code[20];
 }

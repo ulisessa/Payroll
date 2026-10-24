@@ -81,6 +81,9 @@ codeunit 110035 "Atributos Entidad UI"
     procedure ElegirValorDeLista(var Atr: Record "Atributo Entidad Liq."; TextoTipeado: Text; var ValorAtr: Record "Valor Atributo Liq."): Boolean
     var
         Busqueda: Text;
+        Actual: Record "Valor Atributo Liq.";
+        Valores: Page "Valores de Atributo";
+        SeleccionarActual: Boolean;
     begin
         Atr.TestField("Cód. Tipo Atributo");
         ValorAtr.FilterGroup(4);
@@ -91,7 +94,9 @@ codeunit 110035 "Atributos Entidad UI"
         if not Atr.PadreSegunElValor() then
             ValorAtr.SetRange("Cód. Valor Padre", Atr.ValorPadreVigente());
         ValorAtr.FilterGroup(0);
-        if TextoTipeado <> '' then begin
+        // Abrir un valor existente no es buscar ese código: se muestran las alternativas.
+        // Sólo se filtra cuando el usuario escribió algo distinto del valor ya asignado.
+        if (TextoTipeado <> '') and (TextoTipeado <> Atr."Cód. Valor") then begin
             // El filtro se arma a mano y NO con la sustitución de SetFilter: con '@*%1*' el
             // placeholder se coló sin reemplazar y quedó como filtro literal sobre Código, que no
             // matchea nada. La lista se abría vacía teniendo valores, y el motivo sólo se veía
@@ -108,8 +113,19 @@ codeunit 110035 "Atributos Entidad UI"
                     ValorAtr.SetRange(Código);
             end;
         end;
-        if Page.RunModal(Page::"Valores de Atributo", ValorAtr) <> Action::LookupOK then
+        Valores.SetTableView(ValorAtr);
+        Valores.LookupMode(true);
+        if Actual.Get(Atr."Cód. Tipo Atributo", Atr."Cód. Valor Padre", Atr."Cód. Valor") then
+            if ValorAtr.GetFilter(Código) = '' then begin
+                SeleccionarActual := Atr.PadreSegunElValor();
+                if not SeleccionarActual then
+                    SeleccionarActual := Actual."Cód. Valor Padre" = Atr.ValorPadreVigente();
+                if SeleccionarActual then
+                    Valores.SetRecord(Actual);
+            end;
+        if Valores.RunModal() <> Action::LookupOK then
             exit(false);
+        Valores.GetRecord(ValorAtr);
 
         // EL PADRE SE GUARDA ACÁ, no después. Lo que las páginas devuelven de un lookup es un
         // Text, así que de la fila elegida sólo sobrevive el código — y el código solo no la
@@ -118,6 +134,62 @@ codeunit 110035 "Atributos Entidad UI"
         Atr."Cód. Valor Padre" := ValorAtr."Cód. Valor Padre";
         exit(true);
     end;
+
+    /// Abre el historial sin que OnOpenPage vuelva a imponer la vista de vigentes.
+    procedure AbrirHistorialEntidad(TipoEntidad: Enum "Tipo Entidad Estado"; CodEntidad: Code[20])
+    var
+        Atr: Record "Atributo Entidad Liq.";
+        Historial: Page "Atributos de Entidad";
+    begin
+        if CodEntidad = '' then
+            exit;
+        Atr.FilterGroup(4);
+        Atr.SetRange("Tipo Entidad", TipoEntidad);
+        Atr.SetRange("Cód. Entidad", CodEntidad);
+        Atr.FilterGroup(0);
+        Historial.SetTableView(Atr);
+        Historial.SetEntidad(TipoEntidad, CodEntidad);
+        Historial.MostrarHistorial();
+        Historial.RunModal();
+    end;
+
+    procedure AbrirParametrosOrigen(Empleado: Code[20]; Convenio: Code[20]; Categoria: Code[20])
+    var
+        Valores: Page "Parámetros Vigentes";
+    begin
+        if (Empleado = '') and (Convenio = '') then
+            exit;
+        Valores.SetOrigen(Empleado, Convenio, Categoria);
+        Valores.RunModal();
+    end;
+
+    procedure AbrirParametrosAtributo(TipoAtributo: Code[20]; Sufijo: Code[10])
+    var
+        Valores: Page "Parámetros Vigentes";
+    begin
+        Valores.SetAtributo(TipoAtributo, Sufijo);
+        Valores.RunModal();
+    end;
+
+    procedure AbrirParametrosValor(TipoAtributo: Code[20]; Padre: Code[20]; CodigoValor: Code[20])
+    var
+        Valor: Record "Valor Atributo Liq.";
+    begin
+        Valor.Get(TipoAtributo, Padre, CodigoValor);
+        Valor.TestField("Sufijo Parámetro");
+        AbrirParametrosAtributo(TipoAtributo, Valor."Sufijo Parámetro");
+    end;
+
+    procedure AbrirParametrosAsignacion(var Atr: Record "Atributo Entidad Liq.")
+    begin
+        Atr.TestField("Cód. Tipo Atributo");
+        Atr.CalcFields("Tipo Dato");
+        if (Atr."Tipo Dato" = Atr."Tipo Dato"::Lista) and (Atr."Cód. Valor" <> '') then
+            AbrirParametrosValor(Atr."Cód. Tipo Atributo", Atr."Cód. Valor Padre", Atr."Cód. Valor")
+        else
+            AbrirParametrosAtributo(Atr."Cód. Tipo Atributo", '');
+    end;
+
 
     /// <summary>Apenas se sabe que el atributo es de lista, abre la lista de valores.</summary>
     procedure AbrirListaSiCorresponde(var Atr: Record "Atributo Entidad Liq."; var ValorEntrada: Text)

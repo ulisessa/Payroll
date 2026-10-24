@@ -37,6 +37,20 @@ page 50105 "Convenios Colectivos"
     {
         area(Navigation)
         {
+            action(ParametrosOrigen)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del convenio';
+                Image = Setup;
+                Promoted = true; PromotedCategory = Process;
+                ToolTip = 'Consulta, modifica y agrega valores de parámetros vinculados al registro seleccionado, con sus vigencias.';
+                trigger OnAction()
+                var
+                    UI: Codeunit "Atributos Entidad UI";
+                begin
+                    UI.AbrirParametrosOrigen('', Rec.Código, '');
+                end;
+            }
             action(Categorías)
             {
                 ApplicationArea = All;

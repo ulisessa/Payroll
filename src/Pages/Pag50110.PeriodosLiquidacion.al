@@ -66,6 +66,21 @@ page 50110 "Períodos Liquidación"
                 Image = NewDocument;
                 ToolTip = 'Genera las liquidaciones del período, para todos los empleados o para uno solo.';
 
+                action(RevisarPreparacion)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Revisar preparación';
+                    Image = Check;
+                    ToolTip = 'Abre la revisión manual de parámetros y datos del período antes de crear o calcular liquidaciones.';
+
+                    trigger OnAction()
+                    var
+                        Control: Page "Control Previo Liquidación";
+                    begin
+                        Control.SetPeriodo(Rec.Código);
+                        Control.Run();
+                    end;
+                }
                 action(CrearLiquidaciones)
                 {
                     ApplicationArea = All;
@@ -175,11 +190,7 @@ page 50110 "Períodos Liquidación"
                     trigger OnAction()
                     var
                         Liq: Record "Liquidación";
-                        LiqAct: Record "Liquidación";
                         GestionLiq: Codeunit "Gestión Liquidación";
-                        Posterior: Record "Liquidación";
-                        Numeros: List of [Code[20]];
-                        Numero: Code[20];
                         Revertidas: Integer;
                         Bloqueadas: Integer;
                     begin
@@ -193,25 +204,7 @@ page 50110 "Períodos Liquidación"
                         if not Confirm(QstRevertirCalculadas, false, Rec.Código) then
                             exit;
     
-                        // Claves primero: Reabrir pasa el Estado a Borrador, que es el campo filtrado, y
-                        // el registro se cae del filtro dejando el Next() en 0. Iterando directo, esto
-                        // revertía solo la primera y avisaba "1 revertida" como si estuviera todo bien.
-                        Liq.FindSet();
-                        repeat
-                            Numeros.Add(Liq."No.");
-                        until Liq.Next() = 0;
-    
-                        foreach Numero in Numeros do
-                            if LiqAct.Get(Numero) then
-                                if LiqAct.Estado = LiqAct.Estado::Calculada then
-                                    // Las que tienen posteriores se saltean: revertir el período no
-                                    // puede cortarse por la mitad ni llevarse puestas las novedades y
-                                    // cuotas que un período más nuevo ya consumió.
-                                    if GestionLiq.PuedeReabrir(LiqAct, Posterior) then begin
-                                        GestionLiq.Reabrir(LiqAct);
-                                        Revertidas += 1;
-                                    end else
-                                        Bloqueadas += 1;
+                        GestionLiq.ReabrirPeriodo(Rec.Código, Revertidas, Bloqueadas);
 
                         CurrPage.Update(false);
                         if Bloqueadas > 0 then
@@ -521,6 +514,7 @@ page 50110 "Períodos Liquidación"
             {
                 Caption = 'Proceso';
 
+                actionref(RevisarPreparacionProm; RevisarPreparacion) { }
                 actionref(CrearYCalcularProm; CrearYCalcular) { }
                 actionref(CrearLiquidacionesProm; CrearLiquidaciones) { }
                 actionref(CalcularPeriodoProm; CalcularPeriodo) { }
