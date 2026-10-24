@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(\"/c/Program Files/SqlCmd/sqlcmd.exe\" -S mimir:*)",
       "Bash(Get-ChildItem -Path \"D:\\\\Users\\\\ulises.sasovsky\\\\OneDrive\\\\Personal\\\\OneDrive\\\\Documentos\\\\Proyectos\\\\25.2\\\\25.2 - Custom Extensiones\\\\Payroll\" -Recurse -File)",
       "Bash(Select-Object FullName)",
       "Bash(Sort-Object FullName)",
