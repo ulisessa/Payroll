@@ -68,6 +68,11 @@ codeunit 50015 "Evaluador Fórmula"
         FContextoLiquidacion: Codeunit "Contexto Liquidación";
         FContextoLiquidacionVinculado: Boolean;
         FAcumParametroCCT: Dictionary of [Text, Decimal];
+        // Precios faltantes: parámetros sin ninguna fila para este contexto que una fórmula leyó como VALOR, no como condición ni
+        // como primer argumento de IFZERO, que es donde la ausencia es legítima. FEnSelector cuenta la profundidad de esas
+        // posiciones. Ver RegistrarPrecioFaltante.
+        FPreciosFaltantes: List of [Text];
+        FEnSelector: Integer;
 
     procedure Init(var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date)
     begin
@@ -85,6 +90,8 @@ codeunit 50015 "Evaluador Fórmula"
         Clear(FResolvingConceptos);
         Clear(FLastConceptoRefValues);
         Clear(FAcumParametroCCT);
+        Clear(FPreciosFaltantes);
+        FEnSelector := 0;
         // No Clear del codeunit enlazado: la instancia pertenece al motor que nos la presta.
         FContextoLiquidacionVinculado := false;
     end;
@@ -153,9 +160,33 @@ codeunit 50015 "Evaluador Fórmula"
         if Condicion.Trim() = '' then
             exit(true);
         BeginParse(Condicion.ToUpper().Trim());
+        // La condición del concepto decide si aplica: un parámetro sin fila ahí es "no aplica", no un precio que falta.
+        FEnSelector += 1;
         Resultado := ParseOr();
+        FEnSelector -= 1;
         Expect(FTokKind::EOF);
         exit(Resultado <> 0);
+    end;
+
+    /// <summary>
+    /// Devuelve los parámetros sin fila que las fórmulas leyeron como valor desde la última llamada, y vacía la lista.
+    /// </summary>
+    procedure TomarPreciosFaltantes(var Nombres: List of [Text])
+    begin
+        Nombres := FPreciosFaltantes;
+        Clear(FPreciosFaltantes);
+    end;
+
+    // Un parámetro sin ninguna fila vale cero y la fórmula no lo nota: multiplica por cero y paga de menos sin error. Se anota acá
+    // sólo cuando se lo lee como valor; en una condición o en el primer argumento de IFZERO la ausencia es parte de la fórmula.
+    local procedure RegistrarPrecioFaltante(VarName: Text)
+    begin
+        if (FEnSelector > 0) or FModoValidacion or FHistorico or not FContextoLiquidacionVinculado then
+            exit;
+        if not FContextoLiquidacion.EsParametroSinFila(VarName) then
+            exit;
+        if not FPreciosFaltantes.Contains(VarName) then
+            FPreciosFaltantes.Add(VarName);
     end;
 
     procedure UsarDatosGuardados()
@@ -195,6 +226,8 @@ codeunit 50015 "Evaluador Fórmula"
         // @CÓDIGO: arranca "fresca" para esta fórmula/concepto, pero se reutiliza dentro de toda
         // la cadena de referencias anidadas que dispare (ver ResolveConceptoRef).
         Clear(FLastConceptoRefValues);
+        // Un error a mitad de una fórmula anterior pudo dejar el contador de selectores arriba.
+        FEnSelector := 0;
         Result := EvalFormula(Formula);
     end;
 
@@ -210,6 +243,7 @@ codeunit 50015 "Evaluador Fórmula"
     procedure TryEvalCondicion(Condicion: Text; var Result: Boolean)
     begin
         Clear(FLastConceptoRefValues);
+        FEnSelector := 0;
         Result := EvalCondicion(Condicion);
     end;
 
@@ -872,7 +906,9 @@ codeunit 50015 "Evaluador Fórmula"
                     // Lazy: only the selected branch is evaluated; the other is skipped
                     // without invoking the formula engine, so division-by-zero and other
                     // errors in the dead branch will not surface.
+                    FEnSelector += 1;
                     Arg2 := ParseOr();
+                    FEnSelector -= 1;
                     Expect(FTokKind::Comma);
                     if Arg2 <> 0 then begin
                         Result := ParseOr();
@@ -904,7 +940,11 @@ codeunit 50015 "Evaluador Fórmula"
                     // el neutro sea realmente el valor correcto para la ausencia del dato.
                     //
                     // Perezosa como el IF: la alternativa no se evalúa si el valor no es cero.
+                    //
+                    // El primer argumento es justamente "¿está cargado?": un parámetro sin fila ahí no es un precio que falta.
+                    FEnSelector += 1;
                     Arg2 := ParseOr();
+                    FEnSelector -= 1;
                     Expect(FTokKind::Comma);
                     if Arg2 <> 0 then begin
                         SaltearOValidar();
@@ -1114,7 +1154,10 @@ codeunit 50015 "Evaluador Fórmula"
         Pares: Integer;
     begin
         while true do begin
+            // Puede ser una condición o el default; se trata como condición. Un precio faltante en el default de un CASE no se anota.
+            FEnSelector += 1;
             Cond := ParseOr();
+            FEnSelector -= 1;
 
             if FTokKind = FTokKind::RPar then begin
                 // Argumento sin par = default. Con un solo argumento no hay ninguna condición y la
@@ -1227,6 +1270,7 @@ codeunit 50015 "Evaluador Fórmula"
             FResolvedVars.Add(VarName, true);
             AppendParamLog('VAR:' + VarName);
         end;
+        RegistrarPrecioFaltante(VarName);
         exit(FContext.Get(VarName));
     end;
 

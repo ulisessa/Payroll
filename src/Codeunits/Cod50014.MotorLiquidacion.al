@@ -329,6 +329,7 @@ codeunit 50014 "Motor Liquidación"
         // Avisos de la última pasada de RunConceptos (las intermedias de grossing-up se descartan
         // junto con sus líneas, ver el Clear al inicio del bucle).
         AcumularAdvertencias(Liq."No.", FAvisosOrden);
+        RegistrarPreciosFaltantes(Liq);
 
         // Lo mismo al registro, pero una entrada por aviso y con su categoría: así se puede filtrar
         // "mostrame todos los problemas de orden de cálculo del período" en vez de leer un bloque
@@ -558,6 +559,45 @@ codeunit 50014 "Motor Liquidación"
         Clear(FCategoriaPuesto);
         FIncidencias.Reset();
         FIncidencias.DeleteAll(false);
+        Clear(FPreciosFaltantes);
+        Clear(FConceptoEnCurso);
+    end;
+
+    /// <summary>
+    /// Los parámetros que una fórmula leyó como valor sin que tuvieran ninguna fila para este contexto, con los conceptos que los leyeron.
+    /// Lo usa el control previo al simular el cálculo.
+    /// </summary>
+    procedure GetPreciosFaltantes(var Faltantes: Dictionary of [Text, Text])
+    begin
+        Faltantes := FPreciosFaltantes;
+    end;
+
+    // Lo que el evaluador anotó desde el concepto anterior queda a nombre de ése. Se llama al empezar cada concepto y al cerrar el
+    // recorrido; en las vueltas de grossing-up se repite lo mismo y el diccionario lo deduplica.
+    local procedure RecogerPreciosFaltantes(var Evaluador: Codeunit "Evaluador Fórmula")
+    var
+        Nombres: List of [Text];
+        Nombre: Text;
+        Conceptos: Text;
+    begin
+        Evaluador.TomarPreciosFaltantes(Nombres);
+        foreach Nombre in Nombres do
+            if not FPreciosFaltantes.Get(Nombre, Conceptos) then
+                FPreciosFaltantes.Add(Nombre, FConceptoEnCurso)
+            else
+                if (FConceptoEnCurso <> '') and not ('|' + Conceptos + '|').Contains('|' + FConceptoEnCurso + '|') then
+                    FPreciosFaltantes.Set(Nombre, Conceptos + '|' + FConceptoEnCurso);
+    end;
+
+    // Un precio que una fórmula usó sin fila liquida en cero sin error. Queda en el registro del cálculo, una entrada por parámetro.
+    local procedure RegistrarPreciosFaltantes(var Liq: Record "Liquidación")
+    var
+        Nombre: Text;
+    begin
+        foreach Nombre in FPreciosFaltantes.Keys() do
+            Registro.AgregarTexto(
+                "Severidad Registro Liq."::Advertencia, "Categoría Registro Liq."::Parámetro,
+                StrSubstNo(AvisoPrecioFaltanteTxt, Nombre, Liq."Cód. Convenio", Liq."Cód. Categoría", FPreciosFaltantes.Get(Nombre).Replace('|', ', ')));
     end;
 
     internal procedure CompartirIncidencias(var Destino: Record "Incidencia Liquidación" temporary)
@@ -636,6 +676,8 @@ codeunit 50014 "Motor Liquidación"
             exit;
 
         repeat
+            RecogerPreciosFaltantes(Evaluador);
+            FConceptoEnCurso := Concepto.Código;
             IniciarTrazaConcepto(Evaluador);
             // Se lee primero la incidencia porque decide si el concepto se recorre: una incidencia
             // manual entra aunque el concepto no le aplique a este empleado ni a este convenio, y
@@ -831,6 +873,8 @@ codeunit 50014 "Motor Liquidación"
                     RestaurarParBase(Liq, ConvenioEval, CategoriaEval, Ctx, CtxBuilder, Evaluador);
             end;
         until Concepto.Next() = 0;
+        RecogerPreciosFaltantes(Evaluador);
+        Clear(FConceptoEnCurso);
 
         WriteIncidenciasRestantes(Liq, FechaRef, FFracAccumList, FFracAccumPct, Ctx);
         WriteAccumulatorLines(Liq, FechaRef, Ctx, FLatestVersionMap);
@@ -3559,6 +3603,10 @@ codeunit 50014 "Motor Liquidación"
         FDetalleDif: Record "Detalle Variable Línea Liq." temporary;
         FDiferirDetalle: Boolean;
         FSoloLimpiar: Boolean;
+        // Precio faltante → conceptos que lo leyeron ("1003|1043"). Ver RecogerPreciosFaltantes.
+        FPreciosFaltantes: Dictionary of [Text, Text];
+        FConceptoEnCurso: Code[20];
+        AvisoPrecioFaltanteTxt: Label 'Precio sin valor: %1 no tiene ninguna fila vigente para %2/%3 y la fórmula lo leyó como valor (vale cero). Conceptos: %4.', Comment = '%1=parámetro, %2=convenio, %3=categoría, %4=conceptos';
         FCCTAplicabilidad: Dictionary of [Text, Boolean];
         FParPuestoCargado: Boolean;
         FParPuestoExiste: Boolean;

@@ -76,6 +76,12 @@ report 110080 "Preparación de Liquidaciones"
                         Caption = 'Proyecto';
                         ToolTip = 'Opcional. Admite un proyecto o una expresión de filtro de Business Central.';
                     }
+                    field(SimularCalculo; SimularCalculo)
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Simular cálculo';
+                        ToolTip = 'Calcula cada liquidación del alcance en una prueba que se deshace al terminar e informa los precios que una fórmula usó sin valor y los errores del cálculo. Tarda lo que una corrida completa.';
+                    }
                     field(VistaAvisos; VistaAvisos)
                     {
                         ApplicationArea = All;
@@ -111,6 +117,7 @@ report 110080 "Preparación de Liquidaciones"
             Error(ErrSinPeriodo);
         if not UsarBuffer then begin
             Clear(FiltrosLista);
+            Control.SetSimularCalculo(SimularCalculo);
             Control.Analizar(CodPeriodo, TipoLiq, FiltroEmpleado, FiltroProyecto, Filas);
             FechaRevision := CurrentDateTime();
         end;
@@ -237,6 +244,7 @@ report 110080 "Preparación de Liquidaciones"
         TipoLiq: Code[20];
         FiltroEmpleado: Text;
         FiltroProyecto: Text;
+        SimularCalculo: Boolean;
         VistaAvisos: Option "Errores comprobados","Errores y revisiones","Diagnóstico completo";
         FiltrosLista: Text;
         FechaRevision: DateTime;

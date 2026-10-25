@@ -48,6 +48,7 @@ codeunit 50016 "Contexto Liquidación"
         FParamBaseMap: Dictionary of [Text, Code[20]];  // NombreVar → CódParámetroBase
         FParamCodMap: Dictionary of [Text, Code[50]];   // NombreVar → CódParámetro real en DB
         FParamVigMap: Dictionary of [Text, Date];       // NombreVar → VigenciaDesde
+        FParamSinFila: Dictionary of [Text, Boolean];   // NombreVar sin ninguna fila para este empleado/par/fecha
         FParametrosCCTHistoricos: Record "Parámetro Vigente" temporary;
         FMoneda: Code[10];
         // Qué variable convierte cada parámetro en divisa, por Nombre Variable. Se llena en
@@ -555,6 +556,12 @@ codeunit 50016 "Contexto Liquidación"
         exit(FMoneda);
     end;
 
+    /// <summary>¿El parámetro con ese nombre de variable quedó sin ninguna fila para este empleado, par y fecha?</summary>
+    procedure EsParametroSinFila(Nombre: Text): Boolean
+    begin
+        exit(FParamSinFila.ContainsKey(Nombre));
+    end;
+
     procedure GetParamLog(): Text
     begin
         exit(FParamLog);
@@ -656,6 +663,9 @@ codeunit 50016 "Contexto Liquidación"
         // La lista de nombres que esta pasada escribe en el contexto. La usa la caché por par para
         // saber qué copiar y qué restaurar sin volver a la base.
         Clear(FNombresParam);
+        // Los que esta pasada no pudo resolver a ninguna fila: valen cero. El evaluador los anota cuando una fórmula los lee
+        // como valor (precio faltante). Se rehace en cada pasada, igual que FParamTC: otro par puede tenerlos.
+        Clear(FParamSinFila);
 
         Param.SetFilter("Nombre Variable", '<>%1', '');
         if not Param.FindSet() then exit;
@@ -680,6 +690,12 @@ codeunit 50016 "Contexto Liquidación"
                 Ctx.Set(Param."Nombre Variable", Valor);
             SetTipo(Param."Nombre Variable", 'Parámetro');
             CheckVigenciaDesactualizada(Param, VigDate);
+            if VigDate = 0D then begin
+                if not FParamSinFila.ContainsKey(Param."Nombre Variable") then
+                    FParamSinFila.Add(Param."Nombre Variable", true);
+            end else
+                if FParamSinFila.ContainsKey(Param."Nombre Variable") then
+                    FParamSinFila.Remove(Param."Nombre Variable");
 
             // {VarName}_ESFCY = 1 when the parameter value is stored in foreign currency,
             // 0 when it is already in local currency. Lets formulas gate TC multiplication:

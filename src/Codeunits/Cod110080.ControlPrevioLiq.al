@@ -1,5 +1,6 @@
 namespace UAS.Payroll;
 
+using Microsoft.Finance.Currency;
 using Microsoft.HumanResources.Employee;
 using Microsoft.HumanResources.Setup;
 using Microsoft.Projects.Project.Job;
@@ -38,6 +39,7 @@ codeunit 110080 "Control Previo Liq."
         Fase: Record "Fase Alta Empleado";
         Empleado: Record Employee;
         Prevuelo: Codeunit "Prevuelo Fuentes Liq.";
+        Progreso: Codeunit "Progreso Liq.";
         Vistos: Dictionary of [Code[20], Boolean];
         FiltroJob: Record Job;
     begin
@@ -77,6 +79,8 @@ codeunit 110080 "Control Previo Liq."
         FAnalizando := true;
         RevisarReglasVigencia(Buffer);
         Prevuelo.RevisarConfiguracion(FDesde, FHasta, Buffer);
+        // Total desconocido: los candidatos salen recién al recorrer fases y asignaciones.
+        Progreso.AbrirLote(0);
         Fase.SetFilter("Fecha Alta", '<=%1', FHasta);
         Fase.SetFilter("Fecha Baja", '%1|>=%2', 0D, FDesde);
         if Fase.FindSet() then
@@ -85,12 +89,15 @@ codeunit 110080 "Control Previo Liq."
                     Vistos.Add(Fase."No. Empleado", true);
                     Empleado.SetRange("No.", Fase."No. Empleado");
                     // El filtro del usuario queda en otro grupo: SetRange nunca puede ampliarlo.
-                    if not Empleado.IsEmpty() then
+                    if not Empleado.IsEmpty() then begin
+                        Progreso.Registro(Fase."No. Empleado", TxtRevisando);
                         if Tipos.FindSet() then
                             repeat
                                 if Tipos.CorreEnElMes(Tipos.Código, FHasta) then
                                     InspeccionarEmpleado(Fase."No. Empleado", Tipos, Periodo, FiltroProyecto, Buffer);
                             until Tipos.Next() = 0;
+                        Progreso.FinalizarRegistro();
+                    end;
                 end;
             until Fase.Next() = 0;
         // El creador conserva a quien todavía no tiene fases migradas, siempre que exista una
@@ -120,8 +127,11 @@ codeunit 110080 "Control Previo Liq."
             FTipo := TipoLiq;
             Emitir(Buffer, "Severidad Registro Liq."::Información, 'Contexto', '', '', '', 'No se encontraron contextos elegibles para esta selección.', 'Se respetaron fases de alta, tipos, asignaciones, estados y filtros. Esto no acredita que la preparación del mes esté completa.');
         end;
+        Progreso.Cerrar();
         FAnalizando := false;
         FRevisandoCondicion := false;
+        if FSimular then
+            SimularContextos(Buffer);
         AgruparResultados(Buffer);
         exit(Buffer.Count());
     end;
@@ -353,6 +363,10 @@ codeunit 110080 "Control Previo Liq."
         Clear(FParametrosConRegla);
         Clear(FVigenciasRevisadas);
         Clear(FProyectosNominaRevisados);
+        Clear(FCoberturaRevisada);
+        Clear(FContextosSimular);
+        Clear(FCotizacionRevisada);
+        Clear(FFechasProyectoRevisadas);
         Clear(FAvisosVigencia);
         Clear(FBasesEnFecha);
         Clear(FMotor);
@@ -618,6 +632,9 @@ codeunit 110080 "Control Previo Liq."
                 FEncuadreConocido := false;
         FCandidatos += 1;
         RevisarProyectoInactividad(Tipo, Buffer);
+        RevisarFechasProyecto(Buffer);
+        RevisarCoberturaEstados(Empleado, DesdeCobertura, HastaCobertura, Buffer);
+        RevisarCotizacionReciente(FConvenio, FCategoria, Buffer);
         if FEmpleadosSinFase.ContainsKey(Empleado) then
             Emitir(Buffer, "Severidad Registro Liq."::Información, 'Contexto', '', '', '', 'El empleado no tiene fases de alta cargadas.', 'Se conservó la ruta de estados/asignaciones, igual que el creador. Falta confirmar la pertenencia a la empresa y su cobertura temporal.');
         if not FEncuadreConocido then
@@ -626,6 +643,73 @@ codeunit 110080 "Control Previo Liq."
         RevisarVigenciasContexto(FConvenio, FCategoria, Buffer);
         RevisarConversionContexto(FConvenio, FCategoria, 1, Buffer);
         RevisarConceptos(Tipo, DesdeCobertura, HastaCobertura, Buffer);
+        if FSimular then
+            FContextosSimular.Add(StrSubstNo('%1|%2|%3|%4|%5', Empleado, Proyecto, Tipo.Código, FConvenio, FCategoria));
+    end;
+
+    /// <summary>
+    /// Además de la revisión estática, calcula cada contexto en una simulación que se revierte, para encontrar los precios que una
+    /// fórmula usó sin fila y los errores del cálculo. Tarda lo que una corrida completa del alcance.
+    /// </summary>
+    procedure SetSimularCalculo(Simular: Boolean)
+    begin
+        FSimular := Simular;
+    end;
+
+    /// <summary>Corre la simulación de cada contexto candidato y vuelca lo que encontró, con progreso.</summary>
+    /// <remarks>
+    /// Cada simulación es un Codeunit.Run que termina en Error y revierte todo (ver "Simulación Liq."): por eso no puede haber
+    /// escrituras pendientes, y no las hay, porque el control sólo escribe temporales. Un cálculo que falla de verdad se informa
+    /// como error con su mensaje; uno que termina, con un error por cada precio que leyó sin fila.
+    /// </remarks>
+    local procedure SimularContextos(var Buffer: Record "Control Previo Liq. Buffer" temporary)
+    var
+        Simulacion: Codeunit "Simulación Liq.";
+        Progreso: Codeunit "Progreso Liq.";
+        Faltantes: Dictionary of [Text, Text];
+        Partes: List of [Text];
+        Contexto: Text;
+        Parametro: Text;
+        Conceptos: Text;
+        Primero: Text;
+    begin
+        if FContextosSimular.Count() = 0 then
+            exit;
+        Progreso.AbrirLote(FContextosSimular.Count());
+        foreach Contexto in FContextosSimular do begin
+            Partes := Contexto.Split('|');
+            FEmpleado := CopyStr(Partes.Get(1), 1, MaxStrLen(FEmpleado));
+            FProyecto := CopyStr(Partes.Get(2), 1, MaxStrLen(FProyecto));
+            FTipo := CopyStr(Partes.Get(3), 1, MaxStrLen(FTipo));
+            FConvenio := CopyStr(Partes.Get(4), 1, MaxStrLen(FConvenio));
+            FCategoria := CopyStr(Partes.Get(5), 1, MaxStrLen(FCategoria));
+            Progreso.Registro(FEmpleado, StrSubstNo(TxtSimulando, FTipo, FProyecto));
+
+            Clear(Simulacion);
+            Simulacion.Preparar(FEmpleado, FProyecto, FTipo, FCodPeriodo);
+            ClearLastError();
+            if Simulacion.Run() then;
+            if Simulacion.Completa() then begin
+                Simulacion.GetPreciosFaltantes(Faltantes);
+                foreach Parametro in Faltantes.Keys() do begin
+                    Conceptos := Faltantes.Get(Parametro);
+                    Primero := Conceptos;
+                    if Primero.Contains('|') then
+                        Primero := Primero.Substring(1, Primero.IndexOf('|') - 1);
+                    Emitir(Buffer, "Severidad Registro Liq."::Error, 'Precio', Parametro, '', CopyStr(Primero, 1, 20),
+                        StrSubstNo('Precio sin valor: %1.', Parametro),
+                        StrSubstNo('Al simular el cálculo, la fórmula de %1 leyó %2 como valor y no tiene ninguna fila vigente para este empleado (%3/%4): liquida en cero sin dar error. Cargá la vigencia que corresponda o cubrí la ausencia en la fórmula (IFZERO) si es intencional.',
+                            Conceptos.Replace('|', ', '), Parametro, FConvenio, FCategoria));
+                    Buffer."Conceptos relacionados" := CopyStr(Conceptos.Replace('|', ', '), 1, MaxStrLen(Buffer."Conceptos relacionados"));
+                    Buffer.Modify();
+                end;
+            end else
+                Emitir(Buffer, "Severidad Registro Liq."::Error, 'Cálculo', '', '', '',
+                    'La simulación del cálculo falló.',
+                    CopyStr(GetLastErrorText(), 1, 2048));
+            Progreso.FinalizarRegistro();
+        end;
+        Progreso.Cerrar();
     end;
 
     local procedure RevisarProyectoInactividad(Tipo: Record "Tipo Liquidación"; var Buffer: Record "Control Previo Liq. Buffer" temporary)
@@ -688,6 +772,192 @@ codeunit 110080 "Control Previo Liq."
         Buffer.Detalle := CopyStr(Detalle, 1, MaxStrLen(Buffer.Detalle));
         Buffer.Repeticiones := 1;
         Buffer.Insert();
+    end;
+
+    /// <summary>Todos los días que cubre ESTA liquidación, mientras el empleado está de alta, tienen que tener un estado.</summary>
+    /// <remarks>
+    /// La ventana es la cobertura del contexto y no el período: una liquidación de marea cubre sólo las fechas del proyecto, y una
+    /// final llega hasta la baja. Fuera de una fase de alta no se exige estado; sin fases cargadas, se exige en toda la ventana.
+    /// Un día sin estado no se liquida en ninguna parte y no da error: es lo que este control existe para mostrar antes.
+    /// </remarks>
+    local procedure RevisarCoberturaEstados(Empleado: Code[20]; Desde: Date; Hasta: Date; var Buffer: Record "Control Previo Liq. Buffer" temporary)
+    var
+        Estado: Record "Estado Empleado";
+        Fase: Record "Fase Alta Empleado";
+        Cubiertos: Dictionary of [Date, Boolean];
+        Dia: Date;
+        Inicio: Date;
+        Fin: Date;
+        HuecoDesde: Date;
+        TieneFases: Boolean;
+        EnFase: Boolean;
+    begin
+        if (Desde = 0D) or (Hasta = 0D) or (Hasta < Desde) then
+            exit;
+        if FCoberturaRevisada.ContainsKey(Empleado + '|' + Format(Desde, 0, 9) + '|' + Format(Hasta, 0, 9)) then
+            exit;
+        FCoberturaRevisada.Add(Empleado + '|' + Format(Desde, 0, 9) + '|' + Format(Hasta, 0, 9), true);
+
+        Estado.SetRange("Tipo Entidad", Estado."Tipo Entidad"::Empleado);
+        Estado.SetRange("No. Empleado", Empleado);
+        Estado.SetFilter("Fecha Inicio", '<=%1', Hasta);
+        if Estado.FindSet() then
+            repeat
+                Fin := Estado.FechaFinEfectiva();
+                if Fin >= Desde then begin
+                    Inicio := Estado."Fecha Inicio";
+                    if Inicio < Desde then
+                        Inicio := Desde;
+                    if Fin > Hasta then
+                        Fin := Hasta;
+                    for Dia := Inicio to Fin do
+                        if not Cubiertos.ContainsKey(Dia) then
+                            Cubiertos.Add(Dia, true);
+                end;
+            until Estado.Next() = 0;
+
+        Fase.SetRange("No. Empleado", Empleado);
+        TieneFases := not Fase.IsEmpty();
+        for Dia := Desde to Hasta + 1 do begin
+            EnFase := false;
+            if Dia <= Hasta then
+                if not TieneFases then
+                    EnFase := true
+                else begin
+                    Fase.SetFilter("Fecha Alta", '<=%1', Dia);
+                    Fase.SetFilter("Fecha Baja", '%1|>=%2', 0D, Dia);
+                    EnFase := not Fase.IsEmpty();
+                end;
+            if EnFase and not Cubiertos.ContainsKey(Dia) then begin
+                if HuecoDesde = 0D then
+                    HuecoDesde := Dia;
+            end else
+                if HuecoDesde <> 0D then begin
+                    EmitirHuecoEstado(Buffer, HuecoDesde, Dia - 1);
+                    HuecoDesde := 0D;
+                end;
+        end;
+    end;
+
+    local procedure EmitirHuecoEstado(var Buffer: Record "Control Previo Liq. Buffer" temporary; Desde: Date; Hasta: Date)
+    begin
+        Emitir(Buffer, "Severidad Registro Liq."::Error, 'Estados', '', '', '',
+            StrSubstNo('Días de alta sin estado del %1 al %2.', Format(Desde), Format(Hasta)),
+            StrSubstNo('%1 día(s) de la cobertura de esta liquidación, con el empleado de alta, no tienen ningún estado cargado: no se liquidan en ninguna parte. Cargá el estado que corresponda en Estados del Empleado.', Hasta - Desde + 1));
+        Buffer."Fecha Desde" := Desde;
+        Buffer."Fecha Hasta" := Hasta;
+        Buffer."Tipo Entidad" := Buffer."Tipo Entidad"::Empleado;
+        Buffer."Cód. Entidad" := FEmpleado;
+        Buffer.Modify();
+    end;
+
+    /// <summary>Una marea sin fecha de inicio, o que termina antes de empezar, no se puede liquidar bien.</summary>
+    /// <remarks>
+    /// La fecha de fin en blanco no es un error: es la marea en curso. Tampoco se controla la duración: hay proyectos productivos de
+    /// planta (PP-…) que duran el año entero. Los estados fuera de las fechas del proyecto tampoco: los de puerto lo están a propósito.
+    /// </remarks>
+    local procedure RevisarFechasProyecto(var Buffer: Record "Control Previo Liq. Buffer" temporary)
+    var
+        Proyecto: Record Job;
+        Mensaje: Text;
+    begin
+        if FProyecto = '' then
+            exit;
+        if FFechasProyectoRevisadas.ContainsKey(FProyecto) then
+            exit;
+        FFechasProyectoRevisadas.Add(FProyecto, true);
+        if not Proyecto.Get(FProyecto) then
+            exit;
+        if Proyecto.Tipo <> 1 then
+            exit;
+        if Proyecto."Starting Date" = 0D then
+            Mensaje := 'El proyecto no tiene fecha de inicio.'
+        else
+            if (Proyecto."Ending Date" <> 0D) and (Proyecto."Ending Date" < Proyecto."Starting Date") then
+                Mensaje := StrSubstNo('El proyecto termina (%1) antes de empezar (%2).', Format(Proyecto."Ending Date"), Format(Proyecto."Starting Date"));
+        if Mensaje = '' then
+            exit;
+        Emitir(Buffer, "Severidad Registro Liq."::Error, 'Proyectos', '', '', '', Mensaje,
+            'Las fechas del proyecto definen la cobertura de sus liquidaciones, la fecha de referencia del cierre y la cotización. Corregilas en la ficha del proyecto.');
+        Buffer."Tipo Entidad" := Buffer."Tipo Entidad"::Proyecto;
+        Buffer."Cód. Entidad" := FProyecto;
+        Buffer.Modify();
+    end;
+
+    /// <summary>Cada moneda en que hay un precio del contexto necesita una cotización cargada y reciente a la fecha de cotización.</summary>
+    /// <remarks>
+    /// Independiente de la conversión automática: con ella apagada, las fórmulas multiplican por TC_COMPRADOR/TC_VENDEDOR, que
+    /// salen de la misma tabla. Sin ninguna cotización hasta la fecha es error; con la última de más de 5 días, revisión (cubre fines
+    /// de semana y feriados). Se informa una vez por moneda y fecha, no por empleado.
+    /// </remarks>
+    local procedure RevisarCotizacionReciente(Convenio: Code[20]; Categoria: Code[20]; var Buffer: Record "Control Previo Liq. Buffer" temporary)
+    var
+        Catalogo: Record "Parámetro" temporary;
+        Fila: Record "Parámetro Vigente";
+        Cotizacion: Record "Currency Exchange Rate";
+        Monedas: List of [Code[10]];
+        Moneda: Code[10];
+        Motivo: Text;
+        Clave: Text;
+    begin
+        if FFechaTC = 0D then
+            exit;
+        Catalogo.Copy(FParametros, true);
+        Catalogo.Reset();
+        if Catalogo.FindSet() then
+            repeat
+                if ResolverParametro(Catalogo.Código, FEmpleado, FProyecto, Convenio, Categoria, FFechaRef, Fila, Motivo) then
+                    if (Fila.Moneda <> '') and not Monedas.Contains(Fila.Moneda) then
+                        Monedas.Add(Fila.Moneda);
+            until Catalogo.Next() = 0;
+
+        foreach Moneda in Monedas do begin
+            Clave := Moneda + '|' + Format(FFechaTC, 0, 9);
+            if not FCotizacionRevisada.ContainsKey(Clave) then begin
+                FCotizacionRevisada.Add(Clave, true);
+                Cotizacion.SetRange("Currency Code", Moneda);
+                Cotizacion.SetFilter("Starting Date", '<=%1', FFechaTC);
+                if not Cotizacion.FindLast() then
+                    EmitirCotizacion(Buffer, "Severidad Registro Liq."::Error, Moneda,
+                        StrSubstNo('No hay cotización de %1 hasta el %2.', Moneda, Format(FFechaTC)),
+                        'Hay precios cargados en esta moneda y la liquidación los convierte con la cotización de "Tipos de cambio" a la fecha de cotización. Cargala o traela con "Traer cotizaciones del BNA".')
+                else
+                    if FFechaTC - Cotizacion."Starting Date" > 5 then
+                        EmitirCotizacion(Buffer, "Severidad Registro Liq."::Advertencia, Moneda,
+                            StrSubstNo('La última cotización de %1 es del %2 (%3 días antes del %4).', Moneda, Format(Cotizacion."Starting Date"), FFechaTC - Cotizacion."Starting Date", Format(FFechaTC)),
+                            'Se usaría esa cotización. Si hubo cotizaciones posteriores, cargalas o traelas con "Traer cotizaciones del BNA".');
+            end;
+        end;
+    end;
+
+    local procedure EmitirCotizacion(var Buffer: Record "Control Previo Liq. Buffer" temporary; Severidad: Enum "Severidad Registro Liq."; Moneda: Code[10]; Mensaje: Text; Detalle: Text)
+    var
+        Empleado: Code[20];
+        Proyecto: Code[20];
+        Tipo: Code[20];
+        Convenio: Code[20];
+        Categoria: Code[20];
+    begin
+        // Es de la moneda y la fecha, no de una persona: se emite sin contexto para que no parezca un problema de este empleado.
+        Empleado := FEmpleado;
+        Proyecto := FProyecto;
+        Tipo := FTipo;
+        Convenio := FConvenio;
+        Categoria := FCategoria;
+        Clear(FEmpleado);
+        Clear(FProyecto);
+        Clear(FTipo);
+        Clear(FConvenio);
+        Clear(FCategoria);
+        Emitir(Buffer, Severidad, 'Moneda', '', '', '', Mensaje, Detalle);
+        Buffer."Fecha Desde" := FFechaTC;
+        Buffer."Fecha Hasta" := FFechaTC;
+        Buffer.Modify();
+        FEmpleado := Empleado;
+        FProyecto := Proyecto;
+        FTipo := Tipo;
+        FConvenio := Convenio;
+        FCategoria := Categoria;
     end;
 
     local procedure DestinoNominaValido(Codigo: Code[20]; Marea: Code[20]): Boolean
@@ -2058,6 +2328,12 @@ codeunit 110080 "Control Previo Liq."
         FParametrosConRegla: List of [Code[20]];
         FVigenciasRevisadas: Dictionary of [Text, Boolean];
         FProyectosNominaRevisados: Dictionary of [Code[20], Boolean];
+        FCoberturaRevisada: Dictionary of [Text, Boolean];
+        FSimular: Boolean;
+        // Contextos a simular: empleado|proyecto|tipo|convenio|categoría, en el orden en que se encontraron.
+        FContextosSimular: List of [Text];
+        FCotizacionRevisada: Dictionary of [Text, Boolean];
+        FFechasProyectoRevisadas: Dictionary of [Code[20], Boolean];
         FAvisosVigencia: Dictionary of [Text, Boolean];
         FBasesEnFecha: Dictionary of [Text, Boolean];
         FFechaMapa: Date;
@@ -2081,4 +2357,6 @@ codeunit 110080 "Control Previo Liq."
         FAutoConversion: Boolean;
         FMonedaContexto: Code[10];
         FMonedasMixtas: Boolean;
+        TxtRevisando: Label 'Revisando datos de entrada';
+        TxtSimulando: Label 'Simulando el cálculo %1 %2', Comment = '%1=tipo de liquidación, %2=proyecto';
 }

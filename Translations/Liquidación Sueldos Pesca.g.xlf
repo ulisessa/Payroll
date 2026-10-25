@@ -6673,6 +6673,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Codeunit Control Marea Liq. - NamedType TxtSinMonedaExtranjera</note>
         </trans-unit>
+        <trans-unit id="Codeunit 2076915782 - NamedType 2791155073" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Revisando datos de entrada</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Control Previo Liq. - NamedType TxtRevisando</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2076915782 - NamedType 4217922094" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Simulando el cálculo %1 %2</source>
+          <note from="Developer" annotates="general" priority="2">%1=tipo de liquidación, %2=proyecto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Control Previo Liq. - NamedType TxtSimulando</note>
+        </trans-unit>
         <trans-unit id="Codeunit 260853059 - NamedType 2154304892" size-unit="char" translate="yes" xml:space="preserve">
           <source>Coincide con el importe de la línea</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -7167,6 +7177,11 @@
           <source>Control de bases y orden: %2 lee %1. %3</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Codeunit Motor Liquidación - NamedType AvisoOrdenTxt</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 3495980275 - NamedType 3071795835" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Precio sin valor: %1 no tiene ninguna fila vigente para %2/%3 y la fórmula lo leyó como valor (vale cero). Conceptos: %4.</source>
+          <note from="Developer" annotates="general" priority="2">%1=parámetro, %2=convenio, %3=categoría, %4=conceptos</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Motor Liquidación - NamedType AvisoPrecioFaltanteTxt</note>
         </trans-unit>
         <trans-unit id="Codeunit 3495980275 - NamedType 2854556178" size-unit="char" translate="yes" xml:space="preserve">
           <source>Error al calcular el concepto %1: %2</source>
@@ -7757,6 +7772,11 @@
           <source>%1 día(s) de franco devengados como %2 / %3 el %4, cargados como saldo inicial.</source>
           <note from="Developer" annotates="general" priority="2">%1=días, %2=convenio, %3=categoría, %4=fecha</note>
           <note from="Xliff Generator" annotates="general" priority="3">Codeunit Saldo Inicial Francos Liq. - NamedType TxtOrigenDetalle</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2244515062 - NamedType 3223454276" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Simulación terminada: se revierte el cálculo de prueba.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Simulación Liq. - NamedType MarcaSimulacionTxt</note>
         </trans-unit>
         <trans-unit id="Codeunit 2608539056 - NamedType 3702083867" size-unit="char" translate="yes" xml:space="preserve">
           <source>Espera al proyecto %1, que todavía no llegó de NAV.</source>
@@ -11367,6 +11387,16 @@
           <source>Proyecto</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Control Previo Liquidación - Control FiltroProyecto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2681864630 - Control 3888910786 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Además de revisar los datos, calcula cada liquidación del alcance en una prueba que se deshace al terminar, e informa los precios que una fórmula usó sin valor y los errores del cálculo. Tarda lo que una corrida completa del alcance.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Control Previo Liquidación - Control SimularCalculo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2681864630 - Control 3888910786 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Simular cálculo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Control Previo Liquidación - Control SimularCalculo - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 2681864630 - Control 1174977250 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Vacío revisa el alcance de la corrida completa del período.</source>
@@ -18913,6 +18943,16 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Report Preparación de Liquidaciones - Control FiltroProyecto - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Report 1466848341 - Control 3888910786 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Calcula cada liquidación del alcance en una prueba que se deshace al terminar e informa los precios que una fórmula usó sin valor y los errores del cálculo. Tarda lo que una corrida completa.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Report Preparación de Liquidaciones - Control SimularCalculo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Report 1466848341 - Control 3888910786 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Simular cálculo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Report Preparación de Liquidaciones - Control SimularCalculo - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Report 1466848341 - Control 1174977250 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Tipo de liquidación</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -19653,10 +19693,25 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Action VerTripulacion - Property Caption</note>
         </trans-unit>
-        <trans-unit id="PageExtension 1420855898 - Control 2635459746 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
-          <source>Estado que se asigna automáticamente en el historial del empleado al darlo de alta en este proyecto (campo "Fecha Alta Asignación" en Personal Proyecto). Si se deja en blanco, no se realiza ninguna asignación automática.</source>
+        <trans-unit id="PageExtension 1420855898 - Control 3588322297 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Buque del proyecto (dimensión global 1). De él salen los atributos del buque, como el proyecto de nómina y la veda.</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Estado Liq. Personal Predet. - Property ToolTip</note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control BuqueProyecto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="PageExtension 1420855898 - Control 2368410037 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Marea (dimensión global 2).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control MareaProyecto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="PageExtension 1420855898 - Control 3600963105 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Productivo (marea o planta) o de nómina (improductivo). Decide qué liquidaciones corresponden y el destino de nómina del personal.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control TipoProyectoPesca - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="PageExtension 1420855898 - Control 2758253868 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Personal</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Personal - Property Caption</note>
         </trans-unit>
         <trans-unit id="PageExtension 1420855898 - Control 671340492 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
           <source>Hora de salida del puerto. AM (antes de las 12:00) = día de navegación; PM (12:00 o después) = día de puerto.</source>
@@ -19667,6 +19722,11 @@
           <source>Hora de zarpada</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Hora de zarpada - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="PageExtension 1420855898 - Control 2635459746 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Estado que se asigna automáticamente en el historial del empleado al darlo de alta en este proyecto (campo "Fecha Alta Asignación" en Personal Proyecto). Si se deja en blanco, no se realiza ninguna asignación automática.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Estado Liq. Personal Predet. - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="PageExtension 1420855898 - Control 1521577953 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
           <source>Hora de entrada a puerto. AM (antes de las 12:00) = día de puerto; PM (12:00 o después) = día de navegación.</source>
@@ -19688,10 +19748,10 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Zona Desfavorable - Property ToolTip</note>
         </trans-unit>
-        <trans-unit id="PageExtension 1420855898 - Control 2758253868 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
-          <source>Personal</source>
+        <trans-unit id="PageExtension 1420855898 - Change 1637095154 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve" al-object-target="Page 4010542053">
+          <source>Fechas de la marea</source>
           <note from="Developer" annotates="general" priority="2"></note>
-          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Control Personal - Property Caption</note>
+          <note from="Xliff Generator" annotates="general" priority="3">PageExtension Proyecto Pesca Card Ext. - Change Duration - Property Caption</note>
         </trans-unit>
         <trans-unit id="PageExtension 4123963772 - NamedType 2721590862" size-unit="char" translate="yes" xml:space="preserve" al-object-target="PageExtension 4123963772">
           <source>Nueva marea creada: %1.</source>

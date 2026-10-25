@@ -54,12 +54,48 @@ page 110080 "Control Previo Liquidación"
                     begin
                         InvalidarRevision();
                     end;
+
+                    trigger OnLookup(var Text: Text): Boolean
+                    var
+                        Empleado: Record Employee;
+                        Lista: Page "Employee List";
+                    begin
+                        Lista.LookupMode(true);
+                        if Lista.RunModal() <> Action::LookupOK then
+                            exit(false);
+                        Lista.GetRecord(Empleado);
+                        Text := Empleado."No.";
+                        exit(true);
+                    end;
                 }
                 field(FiltroProyecto; FiltroProyecto)
                 {
                     ApplicationArea = All;
                     Caption = 'Proyecto';
                     ToolTip = 'Opcional. Admite un proyecto o una expresión de filtro de Business Central.';
+                    trigger OnValidate()
+                    begin
+                        InvalidarRevision();
+                    end;
+
+                    trigger OnLookup(var Text: Text): Boolean
+                    var
+                        Proyecto: Record Job;
+                        Lista: Page "Job List";
+                    begin
+                        Lista.LookupMode(true);
+                        if Lista.RunModal() <> Action::LookupOK then
+                            exit(false);
+                        Lista.GetRecord(Proyecto);
+                        Text := Proyecto."No.";
+                        exit(true);
+                    end;
+                }
+                field(SimularCalculo; SimularCalculo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Simular cálculo';
+                    ToolTip = 'Además de revisar los datos, calcula cada liquidación del alcance en una prueba que se deshace al terminar, e informa los precios que una fórmula usó sin valor y los errores del cálculo. Tarda lo que una corrida completa del alcance.';
                     trigger OnValidate()
                     begin
                         InvalidarRevision();
@@ -295,6 +331,7 @@ page 110080 "Control Previo Liquidación"
         if CodPeriodo = '' then
             Error(ErrSinPeriodo);
         InvalidarRevision();
+        Control.SetSimularCalculo(SimularCalculo);
         Control.Analizar(CodPeriodo, TipoLiq, FiltroEmpleado, FiltroProyecto, Rec);
         FechaRevision := CurrentDateTime();
         Revisado := true;
@@ -461,6 +498,7 @@ page 110080 "Control Previo Liquidación"
         TipoLiq: Code[20];
         FiltroEmpleado: Text;
         FiltroProyecto: Text;
+        SimularCalculo: Boolean;
         VistaAvisos: Option "Errores comprobados","Errores y revisiones","Diagnóstico completo";
         Revisado: Boolean;
         FechaRevision: DateTime;

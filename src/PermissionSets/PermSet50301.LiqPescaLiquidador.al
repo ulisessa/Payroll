@@ -30,6 +30,7 @@ permissionset 50301 "Liq.Pesca-Liquidador"
         codeunit "Test Uso Parametros" = X,
         codeunit "Cotizaciones BNA" = X,
         codeunit "Variables Guardadas Liq." = X,
+        codeunit "Simulación Liq." = X,
         codeunit "Test Variables Guardadas" = X,
         codeunit "Test Cotizaciones BNA" = X,
         codeunit "Test Valor Franco Fórmula" = X,

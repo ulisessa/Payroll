@@ -74,6 +74,10 @@ codeunit 110070 "Runner Tests Liq."
             Codeunit.Run(Codeunit::"Test Promedio Enfermedad");
             Codeunit.Run(Codeunit::"Test Uso Parametros");
             Codeunit.Run(Codeunit::"Test Corrección Orden Acum.");
+            Codeunit.Run(Codeunit::"Test Control Previo Liq.");
+            Codeunit.Run(Codeunit::"Test Cotizaciones BNA");
+            Codeunit.Run(Codeunit::"Test Valor Franco Fórmula");
+            Codeunit.Run(Codeunit::"Test Variables Guardadas");
         end;
         ValidarResultado();
     end;
