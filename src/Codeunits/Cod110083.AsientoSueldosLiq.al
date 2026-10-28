@@ -112,6 +112,7 @@ codeunit 110083 "Asiento Sueldos Liq."
                 Linea.Add('clase', Format(Buffer.Clase));
                 Linea.Add('cuenta', Buffer.Cuenta);
                 Linea.Add('proyecto', Buffer."No. Proyecto");
+                Linea.Add('movimiento', Format(Buffer.Movimiento));
                 Linea.Add('importe', Buffer.Importe);
                 Linea.Add('cantidad', Buffer.Cantidad);
                 Linea.Add('mensaje', Buffer.Mensaje);
@@ -218,6 +219,7 @@ codeunit 110083 "Asiento Sueldos Liq."
         Clear(FValorLote);
         Clear(FCoefLiq);
         Clear(FTasaLiq);
+        FHayCuentasLiq := false;
         FConceptoFrancos := '';
         FFrancosFormula := '';
         FFrancosPorPuesto := false;
@@ -253,6 +255,8 @@ codeunit 110083 "Asiento Sueldos Liq."
                 else begin
                     FReglas := Regla;
                     FReglas.Insert(false);
+                    if (Regla."Cuenta Debe Liquidación" <> '') or (Regla."Cuenta Haber Liquidación" <> '') then
+                        FHayCuentasLiq := true;
                     if Regla.Provisión <> Regla.Provisión::" " then
                         if not FProvision.ContainsKey(Regla."Cód. Concepto") then begin
                             // Las reglas también entran por SQL, sin el OnInsert que lo impide.
@@ -560,11 +564,41 @@ codeunit 110083 "Asiento Sueldos Liq."
         exit(FijaDelLado(Fila, LadoPedido));
     end;
 
+    // En la liquidación de una provisión, las cuentas propias de la liquidación si la regla vigente
+    // al cierre las tiene (CuentasDeLiquidacion).
     local procedure FijaDelLado(Fila: Record "Regla Asiento Liq."; LadoPedido: Enum "Lado Asiento Liq."): Code[20]
     begin
-        if LadoPedido = Lado::Debe then
+        if LadoPedido = Lado::Debe then begin
+            if (FMovimiento = MovLiquidacionTok) and (FCuentaDebeLiq <> '') then
+                exit(FCuentaDebeLiq);
             exit(Fila."Cuenta Debe");
+        end;
+        if (FMovimiento = MovLiquidacionTok) and (FCuentaHaberLiq <> '') then
+            exit(FCuentaHaberLiq);
         exit(Fila."Cuenta Haber");
+    end;
+
+    /// <remarks>
+    /// LAS CUENTAS DE LA LIQUIDACIÓN SON LAS DE LA REGLA VIGENTE AL CIERRE, no las de la vigencia del
+    /// devengo: una partida abierta desde marzo que se aplica en junio se aplica con las cuentas de
+    /// junio, igual que un cambio de cuenta cargado como vigencia nueva. Las cuentas por defecto (la
+    /// provisión que se cancela) siguen siendo las del devengo, para que la provisión se cancele en la
+    /// misma cuenta en que se constituyó.
+    /// </remarks>
+    local procedure CuentasDeLiquidacion(CodConcepto: Code[20]; Liq: Record "Liquidación"; Importe: Decimal)
+    var
+        Cierre: Record "Liquidación";
+        Fila: Record "Regla Asiento Liq.";
+        Ambigua: Boolean;
+    begin
+        FCuentaDebeLiq := '';
+        FCuentaHaberLiq := '';
+        Cierre := Liq;
+        Cierre."Fecha Liquidación" := FPeriodo."Fecha Hasta";
+        if ResolverRegla(CodConcepto, Cierre, Importe, Fila, Ambigua) then begin
+            FCuentaDebeLiq := Fila."Cuenta Debe Liquidación";
+            FCuentaHaberLiq := Fila."Cuenta Haber Liquidación";
+        end;
     end;
 
     /// <remarks>
@@ -602,6 +636,9 @@ codeunit 110083 "Asiento Sueldos Liq."
     begin
         NoProyecto := ProyectoDeLaCuenta(CodCuenta, Liq);
         Clave := CodCuenta + '|' + NoProyecto;
+        // El devengo y la liquidación de una provisión no se netean entre sí: cada uno es su línea.
+        if FMovimiento <> '' then
+            Clave += '|' + FMovimiento;
         if FClaveObjetivo = Clave then
             RegistrarOrigen(ConSigno);
         if FImporteCuenta.ContainsKey(Clave) then
@@ -778,25 +815,32 @@ codeunit 110083 "Asiento Sueldos Liq."
                 foreach CodPeriodoLinea in Abiertos do
                     SaldoInicial += DevengadoDelPeriodo(Devengado, LiqsDelPeriodo, Empleado + '|' + CodPeriodoLinea);
 
-            if TocaElPeriodo then
+            if TocaElPeriodo then begin
+                // LO DEVENGADO EN EL PERÍODO SE ASIENTA SIEMPRE COMO DEVENGO, también en el período
+                // en que se liquida. Ahí se aplica enseguida en la liquidación, junto con las partidas
+                // abiertas: el asiento muestra el devengo bruto y lo liquidado, y la variación neta es
+                // la misma que antes de separarlos.
+                foreach NoLiq in ListaDeLiquidaciones(LiqsDelPeriodo, Empleado + '|' + FPeriodo.Código) do begin
+                    Clave := Empleado + '|' + FPeriodo.Código + '|' + NoLiq;
+                    Importe := ImporteEn(Devengado, Clave);
+                    if Importe <> 0 then
+                        ImputarProvision(CodConcepto, CopyStr(NoLiq, 1, 20), Importe, LineaDelDevengado.Get(Clave), TxtOrigenDevengado, '',
+                            MovDevengoTok);
+                end;
                 if Liquidado.ContainsKey(Empleado + '|' + FPeriodo.Código) then begin
-                    // Se liquidó: se revierte cada partida abierta con su liquidación. Lo devengado
-                    // en este mismo período nunca se asentó, así que no hay nada que revertir.
+                    // Se liquidó: se aplica cada partida abierta con su liquidación, y lo devengado en
+                    // este mismo período con la suya.
+                    Abiertos.Add(FPeriodo.Código);
                     foreach CodPeriodoLinea in Abiertos do
                         foreach NoLiq in ListaDeLiquidaciones(LiqsDelPeriodo, Empleado + '|' + CodPeriodoLinea) do begin
                             Clave := Empleado + '|' + CodPeriodoLinea + '|' + NoLiq;
                             Importe := ImporteEn(Devengado, Clave);
                             if Importe <> 0 then
                                 ImputarProvision(CodConcepto, CopyStr(NoLiq, 1, 20), -Importe, LineaDelDevengado.Get(Clave),
-                                    TxtOrigenReversion, StrSubstNo(TxtDetalleReversion, CodPeriodoLinea));
+                                    TxtOrigenReversion, StrSubstNo(TxtDetalleReversion, CodPeriodoLinea), MovLiquidacionTok);
                         end;
-                end else
-                    foreach NoLiq in ListaDeLiquidaciones(LiqsDelPeriodo, Empleado + '|' + FPeriodo.Código) do begin
-                        Clave := Empleado + '|' + FPeriodo.Código + '|' + NoLiq;
-                        Importe := ImporteEn(Devengado, Clave);
-                        if Importe <> 0 then
-                            ImputarProvision(CodConcepto, CopyStr(NoLiq, 1, 20), Importe, LineaDelDevengado.Get(Clave), TxtOrigenDevengado, '');
-                    end;
+                end;
+            end;
         end;
         if SaldoInicial <> 0 then
             Avisar('PROVINI|' + CodConcepto, StrSubstNo(AvSaldoInicialProvision, CodConcepto), SaldoInicial);
@@ -841,13 +885,16 @@ codeunit 110083 "Asiento Sueldos Liq."
     /// provisión se revierte por esos días a ese valor; lo liquidado queda en el gasto. Un lote no
     /// se revaloriza: lo que cambió el precio entre el devengado y el pago queda en el gasto.
     ///
-    /// EL VALOR ES EL DEL 1063, POR LA TERNA DEL LOTE: Gestión Francos.ValuarMatriz resuelve
-    /// VALOR_FRANCO con la pesquería del buque del lote, el par de la liquidación que lo originó y la
-    /// fecha del lote (con las cotizaciones de esa fecha, porque el de oficiales está en dólares), y
-    /// se multiplica por el COEF_PESQUERIA de esa misma liquidación, como hace el 1063. Es lo que
-    /// pagaría el 1063 si el franco se liquidara donde se devengó. Antes se tomaba el
-    /// VALOR_FRANCO_DIA guardado en la liquidación, que sólo se guarda donde algo lo usa: después de
-    /// recalcular enero quedaron 56 días sin valor.
+    /// EL VALOR ES POR LA TERNA DEL LOTE: Gestión Francos.ValuarMatriz con la pesquería del buque del
+    /// lote, el par de la liquidación que lo originó y la fecha del lote (con las cotizaciones de esa
+    /// fecha, porque el de oficiales está en dólares). Desde el 28/10/2026 es lo que se paga, según
+    /// las opciones de la regla (ver ValorDelLote). Antes se tomaba el VALOR_FRANCO_DIA guardado en
+    /// la liquidación, que sólo se guarda donde algo lo usa: después de recalcular enero quedaron 56
+    /// días sin valor.
+    ///
+    /// DEVENGO Y LIQUIDACIÓN VAN EN LÍNEAS SEPARADAS. La variación de cada lote se parte en lo que
+    /// devengó en el período y lo que se aplicó (consumido o pagado en una baja), para que el asiento
+    /// muestre el devengo bruto como la planilla de contaduría y no sólo la diferencia de saldo.
     ///
     /// Se cuentan los lotes de la fase vigente a la fecha, como hace la cuenta corriente: la baja
     /// paga el saldo con el 2803, que no consume lotes, así que después de la baja el saldo es cero.
@@ -868,6 +915,7 @@ codeunit 110083 "Asiento Sueldos Liq."
         LotePuesto: Dictionary of [Integer, Code[20]];
         DiasAhora: Dictionary of [Integer, Decimal];
         DiasAntes: Dictionary of [Integer, Decimal];
+        DevPeriodo: Dictionary of [Integer, Decimal];
         LotesPorFecha: Dictionary of [Text, Text];
         Fechas: List of [Text];
         TextoFecha: Text;
@@ -884,9 +932,15 @@ codeunit 110083 "Asiento Sueldos Liq."
         Valor: Decimal;
         Importe: Decimal;
         ImporteCargas: Decimal;
+        ImporteDev: Decimal;
+        ImporteLiq: Decimal;
+        CargasDev: Decimal;
+        CargasLiq: Decimal;
+        Devengo: Decimal;
         TasaAhora: Decimal;
         TasaAntes: Decimal;
         DetalleCargas: Text;
+        UltimoErrorPrecio: Text[250];
         SaldoInicial: Decimal;
         SaldoInicialCargas: Decimal;
         DiasSinValor: Decimal;
@@ -895,7 +949,7 @@ codeunit 110083 "Asiento Sueldos Liq."
         Mov.SetCurrentKey("No. Empleado", Tipo, "Fecha Devengamiento", "No. Movimiento");
         Mov.SetRange("Fecha Devengamiento", 0D, FPeriodo."Fecha Hasta");
         Mov.SetLoadFields("No. Empleado", "No. Lote", Tipo, Cantidad, "Fecha Devengamiento", "No. Liquidación", "No. Línea Origen",
-            "No. Proyecto", "Cód. Convenio", "Cód. Categoría", "Cód. Puesto");
+            "No. Proyecto", "Cód. Convenio", "Cód. Categoría", "Cód. Puesto", "Revierte Movimiento");
         if Mov.FindSet() then
             repeat
                 // El lote es el movimiento de devengo; consumos y reversiones lo nombran en No. Lote.
@@ -914,14 +968,23 @@ codeunit 110083 "Asiento Sueldos Liq."
                     SumarEnLote(DiasAhora, Mov."No. Lote", Mov.Cantidad);
                     if Mov."Fecha Devengamiento" <= FechaAnterior then
                         SumarEnLote(DiasAntes, Mov."No. Lote", Mov.Cantidad);
+                    // Lo devengado en el período: el devengo del lote, menos su reversión si la tiene
+                    // (lleva la fecha del devengo). La reversión de un consumo no apunta al lote.
+                    if Mov."Fecha Devengamiento" > FechaAnterior then
+                        if (Mov.Tipo = Mov.Tipo::Devengo) or
+                           ((Mov.Tipo = Mov.Tipo::Reversion) and (Mov."Revierte Movimiento" = Mov."No. Lote"))
+                        then
+                            SumarEnLote(DevPeriodo, Mov."No. Lote", Mov.Cantidad);
                 end;
             until Mov.Next() = 0;
 
         // Los lotes que se mueven, agrupados por fecha: las cotizaciones del franco se le prestan al
-        // ledger una vez por fecha y no una vez por lote.
+        // ledger una vez por fecha y no una vez por lote. Un lote devengado en el período entra
+        // aunque al cierre ya no tenga días (lo pagó una baja): su devengo y su liquidación se ven.
         foreach Lote in LoteEmpleado.Keys() do
             if (DiasVigentes(DiasAhora, Lote, LoteEmpleado.Get(Lote), LoteFecha.Get(Lote), FPeriodo."Fecha Hasta") > 0) or
-               (DiasVigentes(DiasAntes, Lote, LoteEmpleado.Get(Lote), LoteFecha.Get(Lote), FechaAnterior) > 0)
+               (DiasVigentes(DiasAntes, Lote, LoteEmpleado.Get(Lote), LoteFecha.Get(Lote), FechaAnterior) > 0) or
+               (DiasDelLote(DevPeriodo, Lote) > 0)
             then
                 AgregarLoteAFecha(LotesPorFecha, Format(LoteFecha.Get(Lote), 0, 9), Lote);
         Fechas := LotesPorFecha.Keys();
@@ -937,11 +1000,17 @@ codeunit 110083 "Asiento Sueldos Liq."
                 Empleado := LoteEmpleado.Get(Lote);
                 Ahora := DiasVigentes(DiasAhora, Lote, Empleado, FechaLote, FPeriodo."Fecha Hasta");
                 Antes := DiasVigentes(DiasAntes, Lote, Empleado, FechaLote, FechaAnterior);
+                Devengo := DiasDelLote(DevPeriodo, Lote);
+                UltimoErrorPrecio := FUltimoErrorPrecio;
                 Valor := ValorDelLote(Empleado, LoteLiq.Get(Lote), FechaLote, LoteProyecto.Get(Lote), LoteConvenio.Get(Lote),
                     LoteCategoria.Get(Lote), LotePuesto.Get(Lote));
-                if Valor = 0 then
-                    DiasSinValor += Ahora
-                else begin
+                if Valor = 0 then begin
+                    DiasSinValor += Ahora;
+                    // Un lote que entró sólo por su devengo bruto (sin días al cierre) no es un lote
+                    // sin precio del aviso: no pisa el último error que el aviso muestra.
+                    if Ahora = 0 then
+                        FUltimoErrorPrecio := UltimoErrorPrecio;
+                end else begin
                     // LAS CARGAS SIGUEN AL LOTE: los días por el valor por la tasa de su liquidación de
                     // origen, que lleva la zona y la condición de jubilado del empleado en ese momento.
                     // Cada término lleva la tasa resuelta a SU cierre (ver TasaCargasDelLote): así lo que
@@ -961,17 +1030,31 @@ codeunit 110083 "Asiento Sueldos Liq."
                         SaldoInicial += Antes * Valor;
                         SaldoInicialCargas += Antes * Valor * TasaAntes;
                     end;
+                    // LA VARIACIÓN SE PARTE EN DEVENGO Y LIQUIDACIÓN: el devengo es lo que el lote devengó
+                    // en el período, al valor del lote (y a la tasa de este cierre); la liquidación, lo
+                    // que falta para llegar a la variación (lo consumido o pagado en una baja). Las dos
+                    // suman exactamente la variación de antes.
                     Importe := (Ahora - Antes) * Valor;
                     ImporteCargas := (Ahora * TasaAhora - Antes * TasaAntes) * Valor;
-                    Detalle := StrSubstNo(TxtDetalleLote, Lote, Antes, Ahora, Round(Valor, 0.01));
-                    if (FConceptoCargas <> '') and (TasaAhora = 0) and ((Ahora <> 0) or (not FHayPeriodoAnterior and (Antes <> 0))) then begin
+                    ImporteDev := Devengo * Valor;
+                    ImporteLiq := Importe - ImporteDev;
+                    // En las cargas, la liquidación es sólo lo aplicado (los días que salieron, a la
+                    // tasa de este cierre). Si la tasa del lote recién aparece en este cierre, el ajuste
+                    // del stock (Antes × Valor × (TasaAhora − TasaAntes)) es devengo de cargas, no una
+                    // aplicación: queda en el devengo.
+                    CargasLiq := -(Antes + Devengo - Ahora) * Valor * TasaAhora;
+                    CargasDev := ImporteCargas - CargasLiq;
+                    Detalle := StrSubstNo(TxtDetalleLote, Lote, Antes, Ahora, Round(Valor, 0.01), Devengo);
+                    if (FConceptoCargas <> '') and (TasaAhora = 0) and
+                       ((Ahora <> 0) or (Devengo <> 0) or (not FHayPeriodoAnterior and (Antes <> 0)))
+                    then begin
                         // Uno por lote, con su detalle: el drilldown del aviso dice cuáles son.
                         LimpiarOrigen();
                         FCtxDetalle := CopyStr(Detalle, 1, MaxStrLen(FCtxDetalle));
                         Avisar('CNTSINTASA|' + FConceptoCargas,
-                            StrSubstNo(AvCargasSinTasa, FConceptoCargas, FConceptoTasa, FConceptoBaseTasa), Ahora * Valor);
+                            StrSubstNo(AvCargasSinTasa, FConceptoCargas, FConceptoTasa, FConceptoBaseTasa), MayorDe(Ahora, Devengo) * Valor);
                     end;
-                    if (Importe <> 0) or (ImporteCargas <> 0) then begin
+                    if (ImporteDev <> 0) or (ImporteLiq <> 0) or (CargasDev <> 0) or (CargasLiq <> 0) then begin
                         NoLiq := LoteLiq.Get(Lote);
                         LineaOrigen := LoteLinea.Get(Lote);
                         if not LiquidacionQueContabiliza(NoLiq) then begin
@@ -987,10 +1070,14 @@ codeunit 110083 "Asiento Sueldos Liq."
                             if ImporteCargas <> 0 then
                                 Avisar('FRSINLIQ|' + FConceptoCargas, StrSubstNo(AvFrancoSinLiquidacion, FConceptoCargas), ImporteCargas);
                         end else begin
-                            if Importe <> 0 then
-                                ImputarProvision(CodConcepto, NoLiq, Importe, LineaOrigen, TxtOrigenLote, Detalle);
-                            if ImporteCargas <> 0 then
-                                ImputarProvision(FConceptoCargas, NoLiq, ImporteCargas, LineaOrigen, TxtOrigenCargasLote, DetalleCargas);
+                            if ImporteDev <> 0 then
+                                ImputarProvision(CodConcepto, NoLiq, ImporteDev, LineaOrigen, TxtOrigenLote, Detalle, MovDevengoTok);
+                            if ImporteLiq <> 0 then
+                                ImputarProvision(CodConcepto, NoLiq, ImporteLiq, LineaOrigen, TxtOrigenLote, Detalle, MovLiquidacionTok);
+                            if CargasDev <> 0 then
+                                ImputarProvision(FConceptoCargas, NoLiq, CargasDev, LineaOrigen, TxtOrigenCargasLote, DetalleCargas, MovDevengoTok);
+                            if CargasLiq <> 0 then
+                                ImputarProvision(FConceptoCargas, NoLiq, CargasLiq, LineaOrigen, TxtOrigenCargasLote, DetalleCargas, MovLiquidacionTok);
                         end;
                     end;
                 end;
@@ -1334,6 +1421,13 @@ codeunit 110083 "Asiento Sueldos Liq."
         exit(Format(Round(Tasa * 100, 0.0001)) + '%');
     end;
 
+    local procedure MayorDe(A: Decimal; B: Decimal): Decimal
+    begin
+        if A > B then
+            exit(A);
+        exit(B);
+    end;
+
     /// <remarks>
     /// LA TASA ES UN COCIENTE, NO UN CONCEPTO NUEVO. CNT_SAC_DEV es el 4750 por las alícuotas
     /// patronales menos la del crédito IVA de la zona, así que CNT_SAC_DEV / 4750 es la tasa neta
@@ -1440,10 +1534,12 @@ codeunit 110083 "Asiento Sueldos Liq."
     end;
 
     /// <summary>
-    /// Asienta una partida de provisión con la liquidación que la originó. NoLinea, Origen y
+    /// Asienta una partida de provisión con la liquidación que la originó. Movimiento es
+    /// MovDevengoTok (lo devengado, gasto contra provisión: importe positivo) o MovLiquidacionTok
+    /// (lo que se aplica porque se pagó o se dio de baja: importe negativo). NoLinea, Origen y
     /// Detalle sólo describen la partida para el drilldown de la previa.
     /// </summary>
-    local procedure ImputarProvision(CodConcepto: Code[20]; NoLiq: Code[20]; Importe: Decimal; NoLinea: Integer; Origen: Text; Detalle: Text)
+    local procedure ImputarProvision(CodConcepto: Code[20]; NoLiq: Code[20]; Importe: Decimal; NoLinea: Integer; Origen: Text; Detalle: Text; Movimiento: Text)
     var
         Liq: Record "Liquidación";
         Fila: Record "Regla Asiento Liq.";
@@ -1456,8 +1552,17 @@ codeunit 110083 "Asiento Sueldos Liq."
                 Avisar('SINREGLA|' + CodConcepto, StrSubstNo(AvSinRegla, CodConcepto, TxtProvision), Importe);
             exit;
         end;
-        if not Fila."No Contabiliza" then
+        if not Fila."No Contabiliza" then begin
+            FMovimiento := Movimiento;
+            FCuentaDebeLiq := '';
+            FCuentaHaberLiq := '';
+            if (Movimiento = MovLiquidacionTok) and FHayCuentasLiq then
+                CuentasDeLiquidacion(CodConcepto, Liq, Importe);
             ImputarImporte(Liq, Fila, Importe, 'PROV:' + CodConcepto);
+            FMovimiento := '';
+            FCuentaDebeLiq := '';
+            FCuentaHaberLiq := '';
+        end;
     end;
 
     local procedure SumarEn(var Importes: Dictionary of [Text, Decimal]; Clave: Text; Importe: Decimal)
@@ -1514,6 +1619,13 @@ codeunit 110083 "Asiento Sueldos Liq."
                 Buffer.Clase := Buffer.Clase::Cuenta;
                 Buffer.Cuenta := CopyStr(Partes.Get(1), 1, MaxStrLen(Buffer.Cuenta));
                 Buffer."No. Proyecto" := CopyStr(Partes.Get(2), 1, MaxStrLen(Buffer."No. Proyecto"));
+                if Partes.Count() >= 3 then
+                    case Partes.Get(3) of
+                        MovDevengoTok:
+                            Buffer.Movimiento := Buffer.Movimiento::Devengo;
+                        MovLiquidacionTok:
+                            Buffer.Movimiento := Buffer.Movimiento::"Liquidación";
+                    end;
                 if CuentaGL.Get(Buffer.Cuenta) then
                     Buffer."Nombre Cuenta" := CuentaGL.Name;
                 Buffer.Conceptos := CopyStr(FConceptosCuenta.Get(Clave), 1, MaxStrLen(Buffer.Conceptos));
@@ -1696,6 +1808,10 @@ codeunit 110083 "Asiento Sueldos Liq."
         FValorLote: Dictionary of [Text, Decimal];
         FCoefLiq: Dictionary of [Code[20], Decimal];
         FTasaLiq: Dictionary of [Code[20], Decimal];
+        FMovimiento: Text[3];
+        FHayCuentasLiq: Boolean;
+        FCuentaDebeLiq: Code[20];
+        FCuentaHaberLiq: Code[20];
         FConceptoFrancos: Code[20];
         FFrancosFormula: Text[250];
         FFrancosPorPuesto: Boolean;
@@ -1727,6 +1843,8 @@ codeunit 110083 "Asiento Sueldos Liq."
         FTotalHaber: Decimal;
         FResiduo: Decimal;
         ConceptoCoefPesqueriaTok: Label 'COEF_PESQUERIA', Locked = true;
+        MovDevengoTok: Label 'DEV', Locked = true;
+        MovLiquidacionTok: Label 'LIQ', Locked = true;
         ErrSinPeriodo: Label 'Elegí el período del asiento.';
         ErrPeriodoInexistente: Label 'El período %1 no existe.', Comment = '%1=período';
         ErrSinTipos: Label 'Ningún tipo de liquidación tiene marcado Genera Asiento. Marcalo en Tipos de Liquidación para los que se contabilizan (no en la historia migrada ni en los saldos iniciales).';
@@ -1740,10 +1858,10 @@ codeunit 110083 "Asiento Sueldos Liq."
         TxtOrigenReversion: Label 'Provisión: reversión';
         TxtOrigenLote: Label 'Lote de francos';
         TxtDetalleReversion: Label 'Revierte el devengado de %1', Comment = '%1=período del devengado';
-        TxtDetalleLote: Label 'Lote %1: de %2 a %3 días, a %4 por día', Comment = '%1=lote, %2=días al cierre anterior, %3=días al cierre, %4=valor por día';
+        TxtDetalleLote: Label 'Lote %1: de %2 a %3 días (%5 devengados en el período), a %4 por día', Comment = '%1=lote, %2=días al cierre anterior, %3=días al cierre, %4=valor por día, %5=días devengados en el período';
         TxtOrigenCargasLote: Label 'Cargas de lote de francos';
         TxtDetalleCargasLote: Label '%1; tasa %2 (al cierre anterior %3)', Comment = '%1=detalle del lote, %2=tasa al cierre, %3=tasa al cierre anterior';
-        AvCargasSinTasa: Label 'Provisión %1: lotes de francos sin tasa de cargas (ni su liquidación ni otra del empleado hasta el cierre tiene %2 sobre %3); sus cargas no se provisionaron. El importe es el de los francos al cierre.', Comment = '%1=concepto, %2=concepto de las cargas, %3=concepto base';
+        AvCargasSinTasa: Label 'Provisión %1: lotes de francos sin tasa de cargas (ni su liquidación ni otra del empleado hasta el cierre tiene %2 sobre %3); sus cargas no se provisionaron. El importe es el de los francos al cierre o, si es mayor, el devengado en el período.', Comment = '%1=concepto, %2=concepto de las cargas, %3=concepto base';
         AvCargasSinFrancos: Label 'Provisión %1: las cargas sobre lotes de francos necesitan un concepto con la provisión de lotes de francos y no hay ninguno; no se provisionaron.', Comment = '%1=concepto';
         ErrArgumentoOrigenes: Label 'El argumento es el período y la clave separados por punto y coma: 202601;6110002|PP-802-000006.';
         AvSinRegla: Label 'Concepto %1 %2 liquidó importe y no tiene regla del asiento.', Comment = '%1=concepto, %2=descripción';

@@ -79,6 +79,24 @@ El usuario eligió **valorizar como la planilla** y provisionar las cargas **net
 
 En enero, el valor por día de los 282 lotes que cruzan con la planilla da igual a su precio. La provisión queda en 72,52 M de variación y 22,39 M de cargas, más saldos iniciales de 394,7 M y 107,9 M. Todo coincidió al centavo con una predicción armada aparte desde la regla de negocio.
 
+## La provisión no es el devengado del mes
+
+La planilla muestra el **devengo bruto** del mes (120,97 M en enero). Hasta la 1.0.0.710, el asiento de BC llevaba sólo la **variación del saldo** (72,52 M): lo devengado menos lo que se consumió o se pagó en el mes. Desde la 1.0.0.711 las dos partes van en líneas separadas: devengo de 124,04 M y liquidación de 51,52 M ([[Asiento de sueldos]]). Los pagos van al gasto por las líneas del recibo, y la reversión de la provisión los compensa. El gasto del mes termina siendo el devengado, igual que en la planilla. Puente de enero, a lo que se paga:
+
+| | Días | Importe |
+|---|---|---|
+| Devengo bruto de enero en BC | 1.795 | ≈ 124,04 M (la planilla: 1.744,54 días, 120,97 M; +3,07 M por redondear como Meta4) |
+| − lotes de enero de quienes se dieron de baja en enero (los paga el 2803 de la final) | 35 | ≈ −1,89 M |
+| = devengo de enero que entra en la provisión | 1.760 | 122,15 M |
+| − consumido en enero de lotes de enero | | −0,76 M |
+| − consumido en enero del saldo inicial (1063 y sus complementos) | | −37,73 M |
+| − saldo inicial de quienes se dieron de baja en enero (lo paga el 2803) | | −11,14 M |
+| **= variación de la provisión (2112005)** | | **72,52 M** |
+
+Contra los recibos de enero:
+- **Consumos:** la reversión (38,49 M en 444 días) es lo que se pagó por los 448 días del 1063, con sus complementos: 1063 26,15 M, 2083 1,54 M, más la parte de francos del 1603 y del 3554.
+- **Bajas:** el 2803 pagó 12,82 M en 218 días, contra 13,03 M de provisión que salió (11,14 M + 1,89 M).
+
 > [!warning] Dos trampas de la implementación
 > - **La tasa de cargas de un lote se resuelve a cada cierre, con tope en el cierre.** Si la tasa de un lote del saldo inicial se busca en "la primera liquidación después", sin tope, aparece recién en un mes posterior. Ese mes revierte cargas que nunca se provisionaron.
 > - **Las opciones de valuación no tienen vigencia.** Cambiarlas revalúa todo el stock abierto, y esa diferencia no entra en ninguna variación.

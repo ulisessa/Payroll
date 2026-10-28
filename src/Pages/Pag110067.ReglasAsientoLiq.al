@@ -102,6 +102,16 @@ page 110067 "Reglas Asiento Liq."
                     ApplicationArea = All;
                     ToolTip = 'En blanco, contabiliza el importe de cada línea. Con provisión, contabiliza cuánto se movió el saldo del empleado en el período: se registra el devengado hasta que se liquida, y ahí se revierte y queda lo liquidado. Debita la Cuenta Debe (el gasto) y acredita la Cuenta Haber (la provisión) cuando sube, y al revés cuando baja.';
                 }
+                field(CuentaDebeLiquidacion; Rec."Cuenta Debe Liquidación")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Provisiones: la liquidación (lo que se aplica de la provisión porque se pagó o se dio de baja) es el devengo al revés y acredita la Cuenta Debe. Si se carga, acredita esta en su lugar. En blanco, la misma cuenta, en una línea aparte del devengo. Vale la de la regla vigente al cierre del período que liquida.';
+                }
+                field(CuentaHaberLiquidacion; Rec."Cuenta Haber Liquidación")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Provisiones: la cuenta que la liquidación debita en lugar de la Cuenta Haber (la provisión). En blanco, la misma, en una línea aparte del devengo.';
+                }
                 field(ConceptosConsumo; Rec."Conceptos Consumo")
                 {
                     ApplicationArea = All;

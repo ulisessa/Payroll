@@ -285,6 +285,27 @@ table 110067 "Regla Asiento Liq."
                 PropagarProvision();
             end;
         }
+        field(26; "Cuenta Debe Liquidación"; Code[20])
+        {
+            Caption = 'Cuenta Debe en la liquidación';
+            DataClassification = CustomerContent;
+            TableRelation = "G/L Account"."No.";
+            // PROVISIONES. La liquidación de una provisión es el devengo al revés: se acredita la
+            // Cuenta Debe (el gasto) y se debita la Cuenta Haber (la provisión). Si se carga, la
+            // liquidación acredita esta cuenta en vez de la Cuenta Debe; en blanco, la misma. Con las
+            // mismas cuentas el gasto del mes queda en lo devengado: el pago del recibo entra al
+            // gasto y la liquidación lo compensa, cada uno en su línea. Se toma de la regla vigente
+            // al cierre del período que liquida, no de la vigencia del devengo.
+        }
+        field(27; "Cuenta Haber Liquidación"; Code[20])
+        {
+            Caption = 'Cuenta Haber en la liquidación';
+            DataClassification = CustomerContent;
+            TableRelation = "G/L Account"."No.";
+            // PROVISIONES. La cuenta que se debita en la liquidación en vez de la Cuenta Haber (la
+            // provisión). En blanco, la misma. Si es otra, la provisión de la Cuenta Haber deja de
+            // cancelarse sola: hay que conciliarla.
+        }
         field(25; "Concepto Base Tasa"; Code[20])
         {
             Caption = 'Base de la tasa de cargas';
@@ -406,6 +427,11 @@ table 110067 "Regla Asiento Liq."
     var
         Otra: Record "Regla Asiento Liq.";
     begin
+        // Se mira al guardar y no al tipear: una fila nueva hereda la provisión recién al insertarse.
+        // Una cuenta de liquidación en una fila que no provisiona no se usaría nunca, sin aviso.
+        if (Provisión = Provisión::" ") and (("Cuenta Debe Liquidación" <> '') or ("Cuenta Haber Liquidación" <> '')) then
+            Error(ErrLiquidacionSinProvision, "Cód. Concepto");
+
         Otra.SetRange("Cód. Concepto", "Cód. Concepto");
         Otra.SetFilter(SystemId, '<>%1', SystemId);
         Otra.SetFilter(Provisión, '<>%1', Provisión);
@@ -565,6 +591,7 @@ table 110067 "Regla Asiento Liq."
         ErrProvisionSinConsumo: Label 'La provisión del concepto %1 necesita los conceptos que la liquidan (los que pagan lo devengado).', Comment = '%1=concepto';
         ErrProvisionDistinta: Label 'Las filas del concepto %1 tienen que coincidir en Provisión, Conceptos que la liquidan, valor del franco y tasa de cargas: el saldo se calcula una vez por empleado.', Comment = '%1=concepto';
         ErrFrancosEnDosConceptos: Label 'La provisión de lotes de francos (o de sus cargas) ya está en el concepto %1: es una sola cuenta corriente y %2 la asentaría dos veces.', Comment = '%1=concepto existente, %2=concepto nuevo';
+        ErrLiquidacionSinProvision: Label 'Las cuentas de la liquidación son de las provisiones, y la regla del concepto %1 no provisiona: no se usarían nunca.', Comment = '%1=concepto';
         ErrCargasSinTasa: Label 'Las cargas sobre lotes de francos del concepto %1 necesitan de qué concepto sale la tasa y sobre qué base (por ejemplo CNT_SAC_DEV sobre 4750).', Comment = '%1=concepto';
         ErrAtributoNoEsLista: Label 'El atributo %1 es de tipo %2. El asiento compara por el código del valor, que sólo tienen los atributos de lista.', Comment = '%1=atributo, %2=tipo de dato';
         MotivoIncompleta: Text;

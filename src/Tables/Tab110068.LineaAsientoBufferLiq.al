@@ -74,8 +74,17 @@ table 110068 "Línea Asiento Buffer Liq."
         field(12; "Clave Origen"; Text[250])
         {
             Caption = 'Clave de origen';
-            // La clave con que la previa acumuló la línea (cuenta|proyecto, o la del aviso). Es lo
-            // que sigue el drilldown para encontrar sus orígenes.
+            // La clave con que la previa acumuló la línea (cuenta|proyecto, cuenta|proyecto|DEV o
+            // |LIQ en una provisión, o la del aviso). Es lo que sigue el drilldown.
+        }
+        field(13; Movimiento; Option)
+        {
+            Caption = 'Movimiento';
+            OptionMembers = " ",Devengo,"Liquidación";
+            OptionCaption = ' ,Devengo,Liquidación';
+            // Sólo en las provisiones: el devengo (gasto contra provisión) y la liquidación (la
+            // provisión que se aplica porque se pagó o se dio de baja) van en líneas separadas,
+            // aunque usen las mismas cuentas, para que el asiento muestre los dos movimientos.
         }
         field(20; "No. Liquidación"; Code[20])
         {

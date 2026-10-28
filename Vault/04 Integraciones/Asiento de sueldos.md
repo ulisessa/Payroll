@@ -153,7 +153,7 @@ En la previa, el drilldown de **Debe**, **Haber**, **Importe** o **Mensaje** (o 
 | Lote de francos | la variación de un lote de la cuenta corriente | días al cierre anterior y a este, y el valor por día |
 | Liquidación | una liquidación de un tipo sin `Genera Asiento` (aviso) | — |
 
-- **No se guarda: se rearma.** `Asiento Sueldos Liq.Origenes(período, borradores, clave, var Origen)` vuelve a armar la previa siguiendo sólo la clave de la línea (`Clave Origen`: `cuenta|proyecto`, o la del aviso). Guardar el origen de todo serían decenas de miles de filas para mirar una; rearmarla son unos segundos y es el mismo cálculo.
+- **No se guarda: se rearma.** `Asiento Sueldos Liq.Origenes(período, borradores, clave, var Origen)` vuelve a armar la previa siguiendo sólo la clave de la línea (`Clave Origen`). Guardar el origen de todo serían decenas de miles de filas para mirar una; rearmarla son unos segundos y es el mismo cálculo. La clave es `cuenta|proyecto`, o la del aviso. **Desde la 1.0.0.711, una línea de provisión lleva además `|DEV` o `|LIQ`**: `2112005||DEV`, `6110001|PN-119-NOMINA|LIQ`. Pedir sólo `cuenta|proyecto` de una provisión devuelve cero orígenes, sin error.
 - Desde el servidor: `DiagnosticarOrigenesJson('202601;1115314|')`. Verificado en enero: el crédito IVA son **550 orígenes por 71.168.890,93** y la provisión de francos **306 por −70.764.594,52** (316 por −72.994.127,74 desde la valorización por terna), iguales a sus líneas. Ojo: BC **trunca un mensaje de error largo** ("The error message is too long, so part of it has been deleted"), así que los totales van al principio del JSON y el detalle de una cuenta con cientos de orígenes llega cortado.
 
 ## Puesta en marcha (hecha el 27/10/2026)
@@ -168,6 +168,29 @@ En la previa, el drilldown de **Debe**, **Haber**, **Importe** o **Mensaje** (o 
 - Debe = haber.
 
 La variación casi no se mueve contra la 709 (72,99 M): el acuerdo y el puesto la suben 2,07 M, y los lotes del saldo inicial que se consumen en enero, ahora al 100 %, revierten 2,55 M más.
+
+### Devengo y liquidación en líneas separadas (1.0.0.711, 28/10/2026)
+
+El usuario pidió ver el devengo separado de la liquidación en todo lo que se provisiona (SAC, sus cargas, vacaciones, francos y sus cargas), como la planilla de francos de contaduría. Antes la previa asentaba sólo la variación del saldo: los 72,5 M de francos de enero contra los 121 M de devengo de la planilla.
+
+- Cada provisión imputa dos **movimientos**, que la previa muestra en la columna nueva *Movimiento* y no netea aunque sean las mismas cuentas:
+  - **Devengo**: lo devengado en el período, gasto contra provisión.
+  - **Liquidación**: lo que se aplica porque se pagó o se dio de baja, provisión contra gasto.
+- **El neto no cambia**: devengo + liquidación es la variación de antes, salvo ±0,01 por línea, porque ahora se redondea cada una.
+- **Por conceptos** (`4750`, `CNT_SAC_DEV`, `VAC_DEVENG`): lo devengado en el período se asienta siempre como devengo. En el período en que se liquida, se aplica entero como liquidación, junto con las partidas abiertas. Antes, lo de ese mismo período no se asentaba ni se revertía.
+- **Francos y sus cargas**:
+  - **Devengo**: los días que el lote devengó en el período (el devengo menos su reversión, que lleva la fecha del devengo), a su valor y a la tasa de este cierre. Entra también un lote de alguien que se dio de baja en el mes, aunque al cierre no tenga días.
+  - **Liquidación**: los días que salieron. En las cargas, si la tasa del lote recién aparece en este cierre, el ajuste del stock queda en el devengo.
+- **Cuentas**: por defecto la liquidación usa las mismas de la regla, invertidas. Así el gasto del mes muestra tres líneas (el devengado, el pago del recibo y la aplicación de la provisión) y neto queda el devengado. Cada regla tiene además `Cuenta Debe Liquidación` y `Cuenta Haber Liquidación` (campos 26 y 27) por si contaduría quiere otras. Se toman de la regla vigente al cierre del período que liquida y sólo valen en filas con provisión. **Hoy no hay ninguna cargada.**
+
+| Enero 2026 (1.0.0.711) | Devengo | Liquidación | Neto |
+|---|---|---|---|
+| Francos (2112005) | −124.042.490,83 | +51.523.173,70 | −72.519.317,13 |
+| SAC (2112010) | −162.288.055,69 | +1.895.128,85 | −160.392.926,84 |
+| Vacaciones (2112013) | −149.758.923,88 | +68.272.595,58 | −81.486.328,30 |
+| Cargas SAC + cargas francos (2113029) | −82.431.783,87 | +14.835.267,64 | −67.596.516,23 |
+
+Una predicción hecha aparte desde la base dio lo mismo, salvo 3 centavos de redondeo. El devengo de francos (124,04 M) es la planilla (120,97 M) más el redondeo de días que BC hace como Meta4.
 2. `scripts/SembrarAsientoSueldos.sql` aplicado: 2 conceptos, **1.511 reglas** (246 conceptos), `Genera Asiento` en 8 tipos. Servicio reiniciado.
 3. Previa de 202601 corrida en BC con `Asiento Sueldos Liq.DiagnosticarPreviaJson('202601')` por `Invoke-NAVCodeunit` (el resultado vuelve en un error identificado `PREVIA_ASIENTO_JSON:…:FIN_PREVIA_ASIENTO_JSON`, como `DiagnosticarOrdenesJson`: el cmdlet descarta los valores de retorno). El cliente web no se abre desde el navegador integrado de Claude: da 401 (no hace autenticación integrada de Windows).
 

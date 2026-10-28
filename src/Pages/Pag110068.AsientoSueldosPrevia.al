@@ -80,6 +80,11 @@ page 110068 "Asiento Sueldos Previa"
                     ApplicationArea = All;
                     ToolTip = 'Proyecto de la línea. Lo decide el Registro por proyectos de la cuenta: las de pasivo van sin proyecto y en una sola línea; las de gasto, con el proyecto de cada liquidación.';
                 }
+                field(Movimiento; Rec.Movimiento)
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'En las provisiones (SAC, sus cargas, vacaciones, francos y sus cargas): Devengo es lo devengado en el período, gasto contra provisión; Liquidación es la provisión que se aplica porque se pagó o se dio de baja, provisión contra gasto. Van en líneas separadas aunque usen las mismas cuentas.';
+                }
                 field(Debe; Rec.Debe)
                 {
                     ApplicationArea = All;
@@ -273,8 +278,12 @@ page 110068 "Asiento Sueldos Previa"
             Error(ErrOrigenVacio);
         if Rec.Clase = Rec.Clase::Aviso then
             Titulo := Rec.Mensaje
-        else
+        else begin
             Titulo := StrSubstNo(TxtTituloCuenta, Rec.Cuenta, Rec."Nombre Cuenta", Rec."No. Proyecto");
+            // Devengo y liquidación de una provisión pueden ser la misma cuenta y el mismo proyecto.
+            if Rec.Movimiento <> Rec.Movimiento::" " then
+                Titulo += ' · ' + Format(Rec.Movimiento);
+        end;
         Pagina.Cargar(Origen, Titulo);
         Pagina.Run();
     end;
