@@ -43,13 +43,13 @@ table 110037 "Diag. Orden Acum. Buffer"
         }
         field(30; "Aportes en Conflicto"; Integer)
         {
-            Caption = 'Aportes en Conflicto';
+            Caption = 'Aportes posteriores';
             DataClassification = SystemMetadata;
             // Cuántos conceptos aportan en un Orden Cálculo que la primera lectura ya no alcanza a ver.
         }
         field(31; "Códigos en Conflicto"; Text[250])
         {
-            Caption = 'Conceptos a Reordenar';
+            Caption = 'Conceptos posteriores';
             DataClassification = SystemMetadata;
         }
         field(40; Conflicto; Boolean)
@@ -73,6 +73,16 @@ table 110037 "Diag. Orden Acum. Buffer"
         field(51; "Cant. Lecturas"; Integer)
         {
             Caption = 'Cant. Lecturas';
+            DataClassification = SystemMetadata;
+        }
+        field(52; "Requiere Contexto"; Boolean)
+        {
+            Caption = 'Requiere contexto';
+            DataClassification = SystemMetadata;
+        }
+        field(53; Observación; Text[250])
+        {
+            Caption = 'Evaluación';
             DataClassification = SystemMetadata;
         }
     }

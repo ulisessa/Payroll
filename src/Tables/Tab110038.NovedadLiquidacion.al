@@ -175,6 +175,12 @@ table 110038 "Novedad Liquidación"
             Caption = 'Importe';
             DataClassification = CustomerContent;
             DecimalPlaces = 2 : 2;
+            // Lo que la novedad le dice al motor depende de qué se cargue:
+            //   Importe <> 0                → reemplaza a la fórmula del concepto
+            //   Importe = 0, Cantidad <> 0  → la fórmula valoriza la cantidad (horas extras)
+            //   Importe = 0, Cantidad = 0   → CERO EXPLÍCITO: el concepto no paga y la fórmula
+            //                                 ni se evalúa
+            // El tercer caso es la forma de apagar un concepto para un empleado puntual.
         }
         field(16; Observaciones; Text[250])
         {

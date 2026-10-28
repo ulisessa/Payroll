@@ -1,0 +1,500 @@
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>System.Management.Automation.PSCustomObject</T>
+      <T>System.Object</T>
+    </TN>
+    <MS>
+      <S N="Time">2026-09-21T12:26:06.734Z</S>
+      <S N="Kind">OTHER</S>
+      <Db N="Ms">74.361</Db>
+      <Db N="CPU">0</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">SELECT "60011"."timestamp","60011"."No_","60011"."Cód_ Período","60011"."No_ Empleado","60011"."Nombre Empleado","60011"."No_ Proyecto","60011"."Cód_ Convenio","60011"."Cód_ Categoría","60011"."Fecha Liquidación","60011"."Estado","60011"."Cód_ Tipo Liq_","60011"."No_ Liq_ Origen","60011"."Cobertura Desde","60011"."Cobertura Hasta","60011"."Total Haberes","60011"."Total Descuentos","60011"."Total Contribuciones","60011"."Neto a Pagar","60011"."Haberes Ordinarios Gravados","60011"."$systemId","60011"."$systemCreatedAt","60011"."$systemCreatedBy","60011"."$systemModifiedAt","60011"."$systemModifiedBy" FROM "Migr2013R2".dbo."ArbuTest$Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" "60011"  WITH(READUNCOMMITTED)  WHERE ("60011"."Cód_ Período"=@0) ORDER BY "No_" ASC OPTION(FAST 50)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="1">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:07.386Z</S>
+      <S N="Kind">OTHER</S>
+      <Db N="Ms">85.364</Db>
+      <Db N="CPU">0</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">SELECT "60007"."timestamp","60007"."Código","60007"."Vigencia Desde","60007"."Descripción","60007"."Nombre Impresión","60007"."Tipo Concepto","60007"."Grupo Costo Laboral","60007"."Fórmula","60007"."Condición","60007"."Orden Cálculo","60007"."Aplica A","60007"."Activo","60007"."Vigencia Hasta","60007"."Es Acumulador","60007"."Aplica Tipo Liq_","60007"."Tipos Liq_ Aplicables","60007"."Variable Cantidad","60007"."Unidad Cantidad","60007"."Variable Base","60007"."Etiqueta Det_ Ganancias","60007"."Imprime en Recibo","60007"."Es Devengo","60007"."Cód_ Tipo Atributo Detalle","60007"."Par CCT a Usar","60007"."Rol Franco","60007"."$systemId","60007"."$systemCreatedAt","60007"."$systemCreatedBy","60007"."$systemModifiedAt","60007"."$systemModifiedBy" FROM "Migr2013R2".dbo."ArbuTest$Concepto Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" "60007"  WITH(READUNCOMMITTED)  WHERE ("60007"."Vigencia Desde"&lt;=@0 AND "60007"."Aplica A"&gt;=@1 AND "60007"."Aplica A"&lt;=@2) ORDER BY "Orden Cálculo" ASC,"Código" ASC,"Vigencia Desde" ASC OPTION(FAST 50)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="2">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:07.554Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">56.901</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="3">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:07.880Z</S>
+      <S N="Kind">OTHER</S>
+      <Db N="Ms">135.034</Db>
+      <Db N="CPU">0</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">SELECT "60007"."timestamp","60007"."Código","60007"."Vigencia Desde","60007"."Descripción","60007"."Nombre Impresión","60007"."Tipo Concepto","60007"."Grupo Costo Laboral","60007"."Fórmula","60007"."Condición","60007"."Orden Cálculo","60007"."Aplica A","60007"."Activo","60007"."Vigencia Hasta","60007"."Es Acumulador","60007"."Aplica Tipo Liq_","60007"."Tipos Liq_ Aplicables","60007"."Variable Cantidad","60007"."Unidad Cantidad","60007"."Variable Base","60007"."Etiqueta Det_ Ganancias","60007"."Imprime en Recibo","60007"."Es Devengo","60007"."Cód_ Tipo Atributo Detalle","60007"."Par CCT a Usar","60007"."Rol Franco","60007"."$systemId","60007"."$systemCreatedAt","60007"."$systemCreatedBy","60007"."$systemModifiedAt","60007"."$systemModifiedBy" FROM "Migr2013R2".dbo."ArbuTest$Concepto Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" "60007"  WITH(READUNCOMMITTED)  WHERE ("60007"."Vigencia Desde"&lt;=@0) ORDER BY "Orden Cálculo" ASC,"Código" ASC,"Vigencia Desde" ASC OPTION(FAST 50)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="4">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:08.104Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">53.363</Db>
+      <Db N="CPU">46</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Fecha Liquidación] AS [SC0], [Cód_ Tipo Liq_] AS [SC1], [No_ Liquidación] AS [SC2], [No_ Línea] AS [SC3] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.283048e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="5">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:08.313Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">71.952</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="6">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:08.773Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">80.889</Db>
+      <Db N="CPU">62</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Empleado] AS [SC0], [No_ Proyecto] AS [SC1], [Tipo Concepto] AS [SC2], [Fecha Liquidación] AS [SC3], [Cód_ Tipo Liq_] AS [SC4], [No_ Liquidación] AS [SC5], [No_ Línea] AS [SC6] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.282462e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="7">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:09.063Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">70.93</Db>
+      <Db N="CPU">63</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="8">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:09.159Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">54.565</Db>
+      <Db N="CPU">63</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Liquidación] AS [SC0], [Es Devengo] AS [SC1], [Tipo Concepto] AS [SC2], [No_ Línea] AS [SC3] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.284301e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="9">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:09.722Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">69.579</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="10">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:09.826Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">55.247</Db>
+      <Db N="CPU">47</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Empleado] AS [SC0], [No_ Liquidación] AS [SC1], [Fecha Liquidación] AS [SC2], [No_ Línea] AS [SC3] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.282635e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="11">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:10.454Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">73.754</Db>
+      <Db N="CPU">63</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="12">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:10.974Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">23.744</Db>
+      <Db N="CPU">31</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [$systemId] AS [SC0], [No_ Liquidación] AS [SC1], [No_ Línea] AS [SC2] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.280277e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="13">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:11.118Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">67.54</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="14">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:11.785Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">67.977</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="15">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:12.340Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">67.524</Db>
+      <Db N="CPU">47</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="16">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:12.437Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">53.165</Db>
+      <Db N="CPU">47</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Cód_ Tipo Liq_] AS [SC0], [No_ Liquidación] AS [SC1], [No_ Línea] AS [SC2] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.277562e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="17">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:12.882Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">75.35</Db>
+      <Db N="CPU">78</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SC4], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], [SC4], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Cód_ Concepto] AS [SC0], [No_ Empleado] AS [SC1], [Fecha Liquidación] AS [SC2], [No_ Liquidación] AS [SC3], [No_ Línea] AS [SC4] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.275997e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SC4], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="18">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:12.980Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">47.661</Db>
+      <Db N="CPU">47</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Tipo Concepto] AS [SC0], [No_ Empleado] AS [SC1], [Estado] AS [SC2], [Fecha Liquidación] AS [SC3], [No_ Liquidación] AS [SC4], [No_ Línea] AS [SC5] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.275997e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="19">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:13.027Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">68.528</Db>
+      <Db N="CPU">47</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="20">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:13.664Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">69.576</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="21">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.078Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">13.766</Db>
+      <Db N="CPU">16</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Vigencia Concepto] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.273387e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="22">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.233Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">70.485</Db>
+      <Db N="CPU">47</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="23">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.278Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">11.188</Db>
+      <Db N="CPU">15</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Línea] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.273387e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="24">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.706Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">14.906</Db>
+      <Db N="CPU">16</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Imprime en Recibo] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.272339e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="25">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.866Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">71.84</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="26">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:14.923Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">16.439</Db>
+      <Db N="CPU">16</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0]) FROM (SELECT TOP 100 PERCENT [Cód_ Período] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890$VSIFT$K5] WITH (NOEXPAND,READUNCOMMITTED)  ORDER BY [SC0] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="27">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:15.467Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">38.805</Db>
+      <Db N="CPU">31</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Importe] AS [SC0], [No_ Liquidación] AS [SC1], [No_ Línea] AS [SC2] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.270807e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="28">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:15.524Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">69.612</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="29">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:16.147Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">60.445</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="30">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:16.608Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">71.324</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="31">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:16.617Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">77.953</Db>
+      <Db N="CPU">78</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SC4], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], [SC4], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Cód_ Concepto] AS [SC0], [Cód_ Tipo Liq_] AS [SC1], [Importe] AS [SC2], [No_ Liquidación] AS [SC3], [No_ Línea] AS [SC4] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.268592e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SC4], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="32">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:17.192Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">13.229</Db>
+      <Db N="CPU">0</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0]) FROM (SELECT TOP 100 PERCENT [Fecha Liquidación] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890$VSIFT$K4] WITH (NOEXPAND,READUNCOMMITTED)  ORDER BY [SC0] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="33">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:17.265Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">74.891</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="34">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:17.862Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">62.794</Db>
+      <Db N="CPU">62</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="35">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:18.250Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">35.72</Db>
+      <Db N="CPU">31</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Cód_ Período] AS [SC0] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.265280e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="36">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:18.387Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">72.396</Db>
+      <Db N="CPU">63</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="37">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:18.768Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">73.566</Db>
+      <Db N="CPU">62</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Empleado] AS [SC0], [Tipo Concepto] AS [SC1], [Importe] AS [SC2], [No_ Proyecto] AS [SC3], [Cód_ Tipo Liq_] AS [SC4], [No_ Liquidación] AS [SC5], [No_ Línea] AS [SC6] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.265037e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SC4], [SC5], [SC6], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="38">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:19.067Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">77.317</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="39">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:19.671Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">72.346</Db>
+      <Db N="CPU">63</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="40">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:20.223Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">71.927</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="41">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:20.740Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">55.353</Db>
+      <Db N="CPU">63</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [Cód_ Concepto] AS [SC0], [Fecha Liquidación] AS [SC1], [No_ Liquidación] AS [SC2], [No_ Línea] AS [SC3] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.282143e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="42">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:20.753Z</S>
+      <S N="Kind">DELETE</S>
+      <Db N="Ms">70.822</Db>
+      <Db N="CPU">78</Db>
+      <S N="App">Microsoft Dynamics 365 Business Central Server</S>
+      <S N="Statement">DELETE FROM "Migr2013R2".dbo."ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890" WHERE ("No_ Liquidación"=@0)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="43">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:20.880Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">87.07</Db>
+      <Db N="CPU">63</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Liquidación] AS [SC0], [Orden Cálculo] AS [SC1], [No_ Línea] AS [SC2] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.282143e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+  <Obj RefId="44">
+    <TNRef RefId="0" />
+    <MS>
+      <S N="Time">2026-09-21T12:26:20.949Z</S>
+      <S N="Kind">STATISTICS</S>
+      <Db N="Ms">47.487</Db>
+      <Db N="CPU">47</Db>
+      <S N="App"></S>
+      <S N="Statement">SELECT StatMan([SC0], [SC1], [SC2], [SC3], [SB0000]) FROM (SELECT TOP 100 PERCENT [SC0], [SC1], [SC2], [SC3], step_direction([SC0]) over (order by NULL) AS [SB0000]  FROM (SELECT [No_ Liquidación] AS [SC0], [Tipo Concepto] AS [SC1], [No_ Línea] AS [SC2], [Importe] AS [SC3] FROM [dbo].[ArbuTest$Línea Liquidación$d4f5a6b7-c8d9-4e0f-a1b2-c3d4e5f67890] TABLESAMPLE SYSTEM (1.282143e+01 PERCENT) WITH (READUNCOMMITTED) ) AS _MS_UPDSTATS_TBL_HELPER ORDER BY [SC0], [SC1], [SC2], [SC3], [SB0000] ) AS _MS_UPDSTATS_TBL  OPTION (MAXDOP 8)</S>
+    </MS>
+  </Obj>
+</Objs>

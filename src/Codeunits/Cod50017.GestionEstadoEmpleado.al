@@ -35,42 +35,95 @@ codeunit 50017 "Gestión Estado Empleado"
         Estado.SetRange("No. Empleado", PersProy."No. Empleado");
         Estado.SetRange("No. Proyecto", PersProy."No. Proyecto");
 
-        // Incomplete assignment (no default state or no start date) → remove the linked state.
-        if (CodEstado = '') or (PersProy."Fecha Alta Asignación" = 0D) then begin
-            if Estado.FindFirst() then
-                Estado.Delete(true);
+        // SI YA HAY HISTORIAL, ESTO NO LO TOCA: AVISA.
+        //
+        // Hasta el 8/10/2026 esto sincronizaba en los dos sentidos y asumía UN estado por
+        // asignación: FindFirst sobre (empleado, proyecto) y Modify con las fechas de la asignación
+        // entera. Una marea tiene VARIOS —PS de salida, NV de navegación, PL de llegada—, así que
+        // agarraba el primero por No. Mov., le escribía encima el tramo completo y descolgaba al
+        // resto. Cambiarle la fecha de embarque a un tripulante le dejó la navegación de una marea
+        // colgada de la MAREA SIGUIENTE, el PS de la otra convertido en navegación y una fila
+        // tragada. Nada de eso avisó: el historial quedó roto en silencio.
+        //
+        // El historial es la fuente de verdad —es lo que firma el capitán— y la asignación es un
+        // resumen suyo. Que el resumen reescriba la fuente es la dirección equivocada.
+        //
+        // Se conserva UNA automatización, la de crear: si no hay ningún estado para ese proyecto no
+        // hay nada que romper, y es la que hace cómoda el alta. Todo lo demás avisa y no toca.
+        if not Estado.IsEmpty() then begin
+            AvisarDesajusteConHistorial(PersProy, Estado, CodEstado);
             exit;
         end;
+
+        // Sin historial y con la asignación incompleta no hay nada que crear.
+        if (CodEstado = '') or (PersProy."Fecha Alta Asignación" = 0D) then
+            exit;
 
         // Effective-dated: the assignment maps to a single state that starts at Fecha Alta and
         // runs until the next state. The arrival/end transition (Fecha Baja → Francos/Órdenes) is
         // handled by the Cierre Marea automation via "Estado Siguiente", not stored here.
-        if Estado.FindFirst() then begin
-            // Skip when nothing state-relevant changed, so editing an unrelated assignment field
-            // (e.g. Rol) doesn't touch the state and trip its liquidation guard.
-            if (Estado."Cód. Estado" = CodEstado) and
-               (Estado."Fecha Inicio" = PersProy."Fecha Alta Asignación") and
-               (Estado."Fecha Fin" = PersProy."Fecha Baja")
-            then
+        Estado.Init();
+        Estado."Tipo Entidad" := Estado."Tipo Entidad"::Empleado;
+        Estado."No. Empleado" := PersProy."No. Empleado";
+        Estado."No. Proyecto" := PersProy."No. Proyecto";
+        Estado."Cód. Estado" := CodEstado;
+        Estado."Fecha Inicio" := PersProy."Fecha Alta Asignación";
+        // La baja de la asignación es el fin del estado. Antes solo viajaba la fecha de alta y
+        // el estado quedaba abierto: se cerraba recién cuando algo posterior lo empujaba, o no
+        // se cerraba nunca. En blanco sigue significando abierto, que es lo correcto mientras la
+        // asignación no tenga fecha de baja.
+        Estado."Fecha Fin" := PersProy."Fecha Baja";
+        Estado.Insert(true);
+    end;
+
+    /// <summary>
+    /// El historial ya existe, así que la asignación no lo pisa: se avisa si no coinciden.
+    /// </summary>
+    /// <remarks>
+    /// Sólo avisa cuando hay algo que mirar. Editar un campo de la asignación que no tenga nada que
+    /// ver con las fechas —el Rol, por ejemplo— no tiene por qué sacar un cuadro de diálogo, y el
+    /// trigger corre en cada Modify.
+    ///
+    /// El tramo que cubre el historial se calcula recorriendo, no con FindFirst/FindLast: la clave
+    /// primaria es el No. Mov. y no la fecha, así que el primero por clave no es el más temprano.
+    /// Ese supuesto es, justamente, el que rompió los datos.
+    /// </remarks>
+    local procedure AvisarDesajusteConHistorial(PersProy: Record "Personal Proyecto"; var Estado: Record "Estado Empleado"; CodEstado: Code[20])
+    var
+        Desde: Date;
+        Hasta: Date;
+        Cuantos: Integer;
+        Abierto: Boolean;
+    begin
+        if not Estado.FindSet() then
+            exit;
+        repeat
+            Cuantos += 1;
+            if (Desde = 0D) or (Estado."Fecha Inicio" < Desde) then
+                Desde := Estado."Fecha Inicio";
+            if Estado."Fecha Fin" = 0D then
+                Abierto := true
+            else
+                if Estado."Fecha Fin" > Hasta then
+                    Hasta := Estado."Fecha Fin";
+        until Estado.Next() = 0;
+
+        // Un estado abierto no tiene fin con qué comparar: alcanza con que arranquen juntos.
+        if Abierto then begin
+            if Desde = PersProy."Fecha Alta Asignación" then
                 exit;
-            Estado."Cód. Estado" := CodEstado;
-            Estado."Fecha Inicio" := PersProy."Fecha Alta Asignación";
-            Estado."Fecha Fin" := PersProy."Fecha Baja";
-            Estado.Modify(true);
-        end else begin
-            Estado.Init();
-            Estado."Tipo Entidad" := Estado."Tipo Entidad"::Empleado;
-            Estado."No. Empleado" := PersProy."No. Empleado";
-            Estado."No. Proyecto" := PersProy."No. Proyecto";
-            Estado."Cód. Estado" := CodEstado;
-            Estado."Fecha Inicio" := PersProy."Fecha Alta Asignación";
-            // La baja de la asignación es el fin del estado. Antes solo viajaba la fecha de alta y
-            // el estado quedaba abierto: se cerraba recién cuando algo posterior lo empujaba, o no
-            // se cerraba nunca. En blanco sigue significando abierto, que es lo correcto mientras la
-            // asignación no tenga fecha de baja.
-            Estado."Fecha Fin" := PersProy."Fecha Baja";
-            Estado.Insert(true);
-        end;
+        end else
+            if (Desde = PersProy."Fecha Alta Asignación") and (Hasta = PersProy."Fecha Baja") then
+                exit;
+
+        if Cuantos > 1 then
+            Message(AvisoVariosEstadosEnProyecto,
+                PersProy."No. Empleado", Cuantos, PersProy."No. Proyecto",
+                PersProy."Fecha Alta Asignación", PersProy."Fecha Baja", Desde, Hasta)
+        else
+            Message(AvisoEstadoNoSincronizado,
+                PersProy."No. Empleado", PersProy."No. Proyecto",
+                PersProy."Fecha Alta Asignación", PersProy."Fecha Baja", CodEstado, Desde, Hasta);
     end;
 
     /// <summary>
@@ -143,15 +196,31 @@ codeunit 50017 "Gestión Estado Empleado"
     end;
 
     // Removes the Estado Empleado linked to a Personal Proyecto assignment (on assignment delete).
+    /// <summary>
+    /// Al quitar la asignación se borra su estado, pero SÓLO si es uno: con varios avisa y no toca.
+    /// </summary>
+    /// <remarks>
+    /// Tenía el mismo defecto que la sincronización: `FindFirst` + `Delete` borraba **uno** de los
+    /// varios estados de una marea y dejaba al resto colgando de una asignación que ya no existe.
+    /// Y el que borraba era el primero por No. Mov., que no es el primero por fecha.
+    /// </remarks>
     procedure EliminarEstadoDeProyecto(EmployeeNo: Code[20]; JobNo: Code[20])
     var
         Estado: Record "Estado Empleado";
+        Cuantos: Integer;
     begin
         if (EmployeeNo = '') or (JobNo = '') then
             exit;
         Estado.SetRange("Tipo Entidad", Estado."Tipo Entidad"::Empleado);
         Estado.SetRange("No. Empleado", EmployeeNo);
         Estado.SetRange("No. Proyecto", JobNo);
+        Cuantos := Estado.Count();
+        if Cuantos = 0 then
+            exit;
+        if Cuantos > 1 then begin
+            Message(AvisoVariosEstadosAlQuitar, EmployeeNo, Cuantos, JobNo);
+            exit;
+        end;
         if Estado.FindFirst() then
             Estado.Delete(true);
     end;
@@ -618,6 +687,27 @@ codeunit 50017 "Gestión Estado Empleado"
         exit(AnosCompletos);
     end;
 
+    /// <summary>
+    /// Avisa si una pantalla de antigüedad se mide a una fecha que no es el fin de mes.
+    /// </summary>
+    /// <remarks>
+    /// El cálculo de la liquidación mide la antigüedad (AÑOS_ANTIGUEDAD) al fin del período, para que el
+    /// porcentaje sea el mismo en todas las liquidaciones del mes. Una pantalla que el usuario pone a
+    /// otra fecha va a mostrar lo mismo que el recibo salvo que un escalón de antigüedad caiga entre
+    /// las dos fechas. Ver la lección antiguedad-al-fin-de-mes.
+    /// </remarks>
+    procedure AvisarSiNoEsFinDeMes(Fecha: Date)
+    var
+        FinDeMes: Date;
+        TxtFechaDistinta: Label 'La antigüedad se está midiendo al %1 y no al fin de mes (%2), que es la fecha con la que el cálculo de la liquidación la mide. Si un escalón de antigüedad cae entre las dos fechas, lo que ves acá va a diferir del recibo.', Comment = '%1 = fecha elegida, %2 = fin de ese mes';
+    begin
+        if Fecha = 0D then
+            exit;
+        FinDeMes := CalcDate('<CM>', Fecha);
+        if Fecha <> FinDeMes then
+            Message(TxtFechaDistinta, Fecha, FinDeMes);
+    end;
+
     // Fractional seniority (whole completed years + fraction of the current year, rounded to
     // 0.1) — used by the AÑOS_ANTIGUEDAD system variable. CalcAntiguedadAlFecha above keeps
     // whole completed years only, on purpose: Art. 164/150 LCT vacation-day brackets need the
@@ -651,7 +741,11 @@ codeunit 50017 "Gestión Estado Empleado"
         DiasTranscurridos := FechaRef - FechaAniversario;
         DiasCiclo := FechaProximoAniversario - FechaAniversario;
         if DiasCiclo <= 0 then exit(AnosCompletos);
-        exit(AnosCompletos + Round(DiasTranscurridos / DiasCiclo, 0.1, '<'));
+        // La fracción se redondea a 0,0001 (unas horas) y NO se trunca a 0,1 como antes. El truncado
+        // a 0,1 hacia abajo descartaba hasta 0,0999 años —36 días— y como el consumidor de esto
+        // (AÑOS_ANTIGUEDAD) le aplica PISO para buscar el tramo de la escala, sólo podía restar: nunca
+        // iba a hacer subir un escalón, y sí lo hacía bajar. A 04066 le dejaba 4,9 donde tenía 4,99.
+        exit(AnosCompletos + Round(DiasTranscurridos / DiasCiclo, 0.0001));
     end;
 
     /// <summary>Años completos de antigüedad al 30 de junio que rige para FechaRef.</summary>
@@ -785,6 +879,9 @@ codeunit 50017 "Gestión Estado Empleado"
         ErrSinEstado: Label 'El empleado %1 no tiene un estado definido para la fecha %2.';
         ErrAmbitoBuque: Label 'El estado %1 no aplica a buques (su Ámbito debe ser Buque o Ambos).';
         ErrLiquidacionesBloqueantes: Label 'Existe una liquidación no revertida para el período %1 (Liq. %2, estado: %3). Revertí la liquidación antes de modificar el historial de estados.';
+        AvisoEstadoNoSincronizado: Label 'La asignación del empleado %1 al proyecto %2 cambió, pero su historial de estados NO se modificó.\\La asignación va del %3 al %4 y el estado %5 del %6 al %7.\\El historial manda sobre la asignación: si corresponde, ajustalo a mano desde la ficha del empleado.', Comment = '%1=empleado; %2=proyecto; %3=alta asignación; %4=baja asignación; %5=cód. estado; %6=inicio del estado; %7=fin del estado';
+        AvisoVariosEstadosEnProyecto: Label 'El empleado %1 tiene %2 estados en el proyecto %3 —lo normal en una marea: salida, navegación y llegada—, así que la asignación NO los modificó.\\La asignación va del %4 al %5 y los estados cubren del %6 al %7.\\Si corresponde, ajustá el historial a mano desde la ficha del empleado.', Comment = '%1=empleado; %2=cantidad de estados; %3=proyecto; %4=alta asignación; %5=baja asignación; %6=primer día cubierto; %7=último día cubierto';
+        AvisoVariosEstadosAlQuitar: Label 'El empleado %1 tiene %2 estados en el proyecto %3, así que al quitar la asignación NO se borró ninguno.\\Borralos a mano desde la ficha del empleado si corresponde.', Comment = '%1=empleado; %2=cantidad de estados; %3=proyecto';
         AvisoAltaSinBaja: Label 'Esta fase quedó sin baja y hay un alta posterior. El cálculo de antigüedad pisa la fecha de inicio con la del alta siguiente, así que este tramo entero no cuenta.';
         AvisoBajaSinAlta: Label 'Baja sin un alta previa que cerrar. El cálculo de antigüedad la ignora.';
         QstReemplazarEstadoActual: Label 'El estado %1 que comienza el %2 será reemplazado por %3. ¿Confirmás el reemplazo?';

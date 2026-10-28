@@ -53,6 +53,33 @@ table 60010 "Período Liquidación"
         {
             Caption = 'Estado';
             DataClassification = CustomerContent;
+            // Un período nuevo nace Creado: los períodos se cargan por adelantado y, abiertos, llenaban
+            // de ruido las listas y selectores de quien carga novedades. Se abre cuando le toca.
+            InitValue = Creado;
+
+            /// <remarks>
+            /// EL SELLO DE CIERRE SE PONE ACÁ Y NO EN LA ACCIÓN DE LA PÁGINA. Estaba en la acción, y
+            /// como el campo era editable en la grilla, cambiar el Estado a mano dejaba el período
+            /// cerrado SIN fecha ni usuario: al 7/10/2026, 23 de los 24 cerrados estaban así.
+            /// Puesto en la tabla, lo sella cualquier camino que cierre un período.
+            ///
+            /// SÓLO SELLA SI NO HABÍA SELLO, en vez de mirar xRec: así volver a validar un período
+            /// ya cerrado no le corre la fecha al día de hoy, y no depende de que xRec traiga el
+            /// valor anterior —que no siempre lo trae—.
+            /// </remarks>
+            trigger OnValidate()
+            begin
+                if Estado = Estado::Cerrado then begin
+                    if "Fecha Cierre" = 0D then begin
+                        "Fecha Cierre" := Today();
+                        "Usuario Cierre" := CopyStr(UserId(), 1, MaxStrLen("Usuario Cierre"));
+                    end;
+                end else begin
+                    // Reabrir o volver a Creado borra el sello: dejarlo diría que sigue cerrado.
+                    "Fecha Cierre" := 0D;
+                    "Usuario Cierre" := '';
+                end;
+            end;
         }
         field(7; "Fecha Cierre"; Date)
         {
@@ -125,6 +152,11 @@ table 60010 "Período Liquidación"
     var
         Periodo: Record "Período Liquidación";
     begin
+        // EL FILTRO DE ESTADO VA ACÁ TAMBIÉN, y no sólo en el último paso. Sin él, el período que
+        // contiene la fecha de trabajo gana aunque esté Creado, que es lo que pasaba con los once
+        // de 202602 a 202612: parado en octubre de 2026 proponía 202610 —que no se puede operar—
+        // teniendo 202601 abierto. Había que corregirlo a mano cada vez.
+        Periodo.SetFilter(Estado, '<>%1', Periodo.Estado::Creado);
         Periodo.SetFilter("Fecha Desde", '<=%1', WorkDate());
         Periodo.SetFilter("Fecha Hasta", '>=%1', WorkDate());
         if Periodo.FindFirst() then
@@ -136,10 +168,24 @@ table 60010 "Período Liquidación"
         if Periodo.FindLast() then
             exit(Periodo.Código);
 
-        Periodo.SetRange(Estado);
+        // Los Creados quedan afuera también acá: proponer uno obligaría a abrirlo para poder usarlo.
+        Periodo.SetFilter(Estado, '<>%1', Periodo.Estado::Creado);
         if Periodo.FindLast() then
             exit(Periodo.Código);
         exit('');
+    end;
+
+    /// <summary>
+    /// Corta con error si el período todavía no se abrió. Lo piden las cargas y los cálculos.
+    /// </summary>
+    /// <remarks>
+    /// Sólo mira Creado: el Cerrado lo rechaza cada llamador con su propio texto —"no se puede
+    /// reliquidar", "no se puede cargar"—, que dice más que uno genérico.
+    /// </remarks>
+    procedure ErrorSiCreado()
+    begin
+        if Estado = Estado::Creado then
+            Error(ErrCreado, Código);
     end;
 
     // Período inmediatamente anterior por fecha de inicio. No se usa Año/Mes porque un período puede
@@ -222,6 +268,7 @@ table 60010 "Período Liquidación"
     end;
 
     var
+        ErrCreado: Label 'El período %1 todavía no está abierto. Abrilo desde Períodos Liquidación (acción "Abrir Período").', Comment = '%1 = código de período';
         ErrCerrado: Label 'No se puede eliminar un período cerrado.';
         ErrConLiquidaciones: Label 'No se puede eliminar un período que contiene liquidaciones.';
 }

@@ -40,5 +40,9 @@ table 110058 "Comp. Det. Meta4 Buffer"
     {
         key(PK; "No. Línea") { Clustered = true; }
         key(PorDif; Diferencia) { }
+        // El orden natural para leer el informe: los conceptos como salen en el recibo. La PK es el
+        // número de línea, que es el orden en que se fue armando el buffer —primero todo Meta4 y
+        // después todo BC— y deja el mismo concepto en dos lugares distintos de la lista.
+        key(PorConcepto; "Cód. Concepto") { }
     }
 }

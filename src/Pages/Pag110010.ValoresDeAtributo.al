@@ -31,4 +31,24 @@ page 110010 "Valores de Atributo"
             }
         }
     }
+    actions
+    {
+        area(Processing)
+        {
+            action(ParametrosOrigen)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del valor';
+                Image = Setup;
+                Promoted = true; PromotedCategory = Process;
+                ToolTip = 'Consulta, modifica y agrega valores de parámetros vinculados al registro seleccionado, con sus vigencias.';
+                trigger OnAction()
+                var
+                    UI: Codeunit "Atributos Entidad UI";
+                begin
+                    UI.AbrirParametrosValor(Rec."Cód. Tipo Atributo", Rec."Cód. Valor Padre", Rec.Código);
+                end;
+            }
+        }
+    }
 }

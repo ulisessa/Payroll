@@ -115,6 +115,8 @@ table 110002 "Historial Fórmula Concepto"
     /// <summary>Texto corto para la grilla: una fórmula de 2048 caracteres no entra en una columna.</summary>
     procedure ResumenCambio(): Text
     begin
+        if "Tipo Cambio" = "Tipo Cambio"::Orden then
+            exit('Orden de cálculo: ' + "Fórmula Nueva");
         if "Tipo Cambio" = "Tipo Cambio"::Eliminación then
             exit("Fórmula Anterior");
         exit("Fórmula Nueva");

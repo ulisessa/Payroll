@@ -1,0 +1,627 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition" xmlns:df="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition/defaultfontfamily" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" MustUnderstand="df">
+  <df:DefaultFontFamily>Segoe UI</df:DefaultFontFamily>
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="DataSource">
+      <ConnectionProperties>
+        <DataProvider>SQL</DataProvider>
+        <ConnectString />
+      </ConnectionProperties>
+      <rd:DataSourceID>1dcacbbd-6182-4698-99ab-571549e6c3db</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Textbox Name="Titulo">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!Titulo.Value, "DataSet_Result")</Value>
+                    <Style>
+                      <FontSize>14pt</FontSize>
+                      <Color>#243B53</Color>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <Top>0cm</Top>
+            <Left>0cm</Left>
+            <Height>0.75cm</Height>
+            <Width>27.2cm</Width>
+            <Style>
+              <VerticalAlign>Middle</VerticalAlign>
+              <PaddingLeft>4pt</PaddingLeft>
+              <PaddingRight>4pt</PaddingRight>
+              <PaddingTop>4pt</PaddingTop>
+              <PaddingBottom>4pt</PaddingBottom>
+              <BackgroundColor>#E8EFF6</BackgroundColor>
+            </Style>
+          </Textbox>
+          <Textbox Name="Alcance">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!Alcance.Value, "DataSet_Result")</Value>
+                    <Style>
+                      <FontSize>9pt</FontSize>
+                      <Color>#243B53</Color>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <Top>0.85cm</Top>
+            <Left>0cm</Left>
+            <Height>0.65cm</Height>
+            <Width>27.2cm</Width>
+            <Style>
+              <VerticalAlign>Middle</VerticalAlign>
+              <PaddingLeft>4pt</PaddingLeft>
+              <PaddingRight>4pt</PaddingRight>
+              <PaddingTop>4pt</PaddingTop>
+              <PaddingBottom>4pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="Resumen">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!Resumen.Value, "DataSet_Result") &amp; vbCrLf &amp; "Revisado: " &amp; Format(First(Fields!FechaRevision.Value, "DataSet_Result"), "dd/MM/yyyy HH:mm")</Value>
+                    <Style>
+                      <FontSize>8.5pt</FontSize>
+                      <Color>#243B53</Color>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <Top>1.55cm</Top>
+            <Left>0cm</Left>
+            <Height>0.95cm</Height>
+            <Width>27.2cm</Width>
+            <Style>
+              <VerticalAlign>Middle</VerticalAlign>
+              <PaddingLeft>4pt</PaddingLeft>
+              <PaddingRight>4pt</PaddingRight>
+              <PaddingTop>4pt</PaddingTop>
+              <PaddingBottom>4pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Tablix Name="Revision">
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>2.5cm</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>3.4cm</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>5.4cm</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>7.1cm</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>8.8cm</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.7cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Cab0">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Severidad / Área</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>#E8EFF6</BackgroundColor>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Cab1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Variable / Concepto</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>#E8EFF6</BackgroundColor>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Cab2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Alcance del dato</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>#E8EFF6</BackgroundColor>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Cab3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Qué revisar</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>#E8EFF6</BackgroundColor>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Cab4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Detalle / Conceptos relacionados</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>#E8EFF6</BackgroundColor>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>1.2cm</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dato0">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Severidad.Value &amp; vbCrLf &amp; Fields!Area.Value</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Top</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F5F8FB", "White")</BackgroundColor>
+                            <BottomBorder>
+                              <Color>#DEE6ED</Color>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dato1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Variable.Value &amp; IIF(Fields!Parametro.Value = "", "", vbCrLf &amp; "Parámetro: " &amp; Fields!Parametro.Value) &amp; IIF(Fields!Concepto.Value = "", "", vbCrLf &amp; "Concepto: " &amp; Fields!Concepto.Value)</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Top</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F5F8FB", "White")</BackgroundColor>
+                            <BottomBorder>
+                              <Color>#DEE6ED</Color>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dato2">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!ContextoFila.Value</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Top</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F5F8FB", "White")</BackgroundColor>
+                            <BottomBorder>
+                              <Color>#DEE6ED</Color>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dato3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Mensaje.Value &amp; IIF(Fields!Repeticiones.Value &gt; 0, vbCrLf &amp; "Ocurrencias en este contexto: " &amp; Fields!Repeticiones.Value, "")</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Top</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F5F8FB", "White")</BackgroundColor>
+                            <BottomBorder>
+                              <Color>#DEE6ED</Color>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Dato4">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!Detalle.Value &amp; IIF(Fields!ConceptosRelacionados.Value = "", "", vbCrLf &amp; vbCrLf &amp; "Conceptos relacionados: " &amp; Fields!ConceptosRelacionados.Value)</Value>
+                                  <Style>
+                                    <FontSize>8.5pt</FontSize>
+                                    <Color>#243B53</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <Style>
+                            <VerticalAlign>Top</VerticalAlign>
+                            <PaddingLeft>4pt</PaddingLeft>
+                            <PaddingRight>4pt</PaddingRight>
+                            <PaddingTop>4pt</PaddingTop>
+                            <PaddingBottom>4pt</PaddingBottom>
+                            <BackgroundColor>=IIF(RowNumber(Nothing) Mod 2 = 0, "#F5F8FB", "White")</BackgroundColor>
+                            <BottomBorder>
+                              <Color>#DEE6ED</Color>
+                              <Style>Solid</Style>
+                              <Width>0.5pt</Width>
+                            </BottomBorder>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+                <TablixMember />
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <KeepWithGroup>After</KeepWithGroup>
+                  <RepeatOnNewPage>true</RepeatOnNewPage>
+                </TablixMember>
+                <TablixMember>
+                  <Group Name="DetalleRevision" />
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>DataSet_Result</DataSetName>
+            <Top>2.7cm</Top>
+            <Left>0cm</Left>
+            <Height>1.9cm</Height>
+            <Width>27.2cm</Width>
+            <Style />
+          </Tablix>
+        </ReportItems>
+        <Height>4.7cm</Height>
+        <Style />
+      </Body>
+      <Width>27.2cm</Width>
+      <Page>
+        <PageFooter>
+          <Height>0.6cm</Height>
+          <ReportItems>
+            <Textbox Name="Pagina">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>="Página " &amp; Globals!PageNumber &amp; " de " &amp; Globals!TotalPages</Value>
+                      <Style>
+                        <FontSize>8pt</FontSize>
+                        <Color>#243B53</Color>
+                      </Style>
+                    </TextRun>
+                  </TextRuns>
+                  <Style />
+                </Paragraph>
+              </Paragraphs>
+              <Top>0cm</Top>
+              <Left>0cm</Left>
+              <Height>0.5cm</Height>
+              <Width>27.2cm</Width>
+              <Style>
+                <VerticalAlign>Middle</VerticalAlign>
+                <PaddingLeft>4pt</PaddingLeft>
+                <PaddingRight>4pt</PaddingRight>
+                <PaddingTop>4pt</PaddingTop>
+                <PaddingBottom>4pt</PaddingBottom>
+              </Style>
+            </Textbox>
+          </ReportItems>
+          <Style />
+        </PageFooter>
+        <PageHeight>21cm</PageHeight>
+        <PageWidth>29.7cm</PageWidth>
+        <LeftMargin>1.2cm</LeftMargin>
+        <RightMargin>1.2cm</RightMargin>
+        <TopMargin>1cm</TopMargin>
+        <BottomMargin>1cm</BottomMargin>
+        <ColumnSpacing>0cm</ColumnSpacing>
+        <Style />
+      </Page>
+    </ReportSection>
+  </ReportSections>
+  <DataSets>
+    <DataSet Name="DataSet_Result">
+      <Fields>
+        <Field Name="Titulo">
+          <DataField>Titulo</DataField>
+        </Field>
+        <Field Name="Alcance">
+          <DataField>Alcance</DataField>
+        </Field>
+        <Field Name="Resumen">
+          <DataField>Resumen</DataField>
+        </Field>
+        <Field Name="FechaRevision">
+          <DataField>FechaRevision</DataField>
+        </Field>
+        <Field Name="NoLinea">
+          <DataField>NoLinea</DataField>
+        </Field>
+        <Field Name="Severidad">
+          <DataField>Severidad</DataField>
+        </Field>
+        <Field Name="Area">
+          <DataField>Area</DataField>
+        </Field>
+        <Field Name="Variable">
+          <DataField>Variable</DataField>
+        </Field>
+        <Field Name="Parametro">
+          <DataField>Parametro</DataField>
+        </Field>
+        <Field Name="Concepto">
+          <DataField>Concepto</DataField>
+        </Field>
+        <Field Name="Repeticiones">
+          <DataField>Repeticiones</DataField>
+        </Field>
+        <Field Name="ConceptosRelacionados">
+          <DataField>ConceptosRelacionados</DataField>
+        </Field>
+        <Field Name="Empleado">
+          <DataField>Empleado</DataField>
+        </Field>
+        <Field Name="Proyecto">
+          <DataField>Proyecto</DataField>
+        </Field>
+        <Field Name="Convenio">
+          <DataField>Convenio</DataField>
+        </Field>
+        <Field Name="Categoria">
+          <DataField>Categoria</DataField>
+        </Field>
+        <Field Name="TipoLiquidacion">
+          <DataField>TipoLiquidacion</DataField>
+        </Field>
+        <Field Name="FechaDesde">
+          <DataField>FechaDesde</DataField>
+        </Field>
+        <Field Name="FechaHasta">
+          <DataField>FechaHasta</DataField>
+        </Field>
+        <Field Name="VigenciaDesde">
+          <DataField>VigenciaDesde</DataField>
+        </Field>
+        <Field Name="Mensaje">
+          <DataField>Mensaje</DataField>
+        </Field>
+        <Field Name="Detalle">
+          <DataField>Detalle</DataField>
+        </Field>
+        <Field Name="ContextoFila">
+          <DataField>ContextoFila</DataField>
+        </Field>
+      </Fields>
+      <Query>
+        <DataSourceName>DataSource</DataSourceName>
+        <CommandText />
+      </Query>
+    </DataSet>
+  </DataSets>
+</Report>

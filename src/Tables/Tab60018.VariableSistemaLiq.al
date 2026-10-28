@@ -31,20 +31,36 @@ table 60018 "Variable Sistema Liq."
     //   DIAS_PROYECTO     — navigation days for the linked Job
     //   DIAS_PUERTO       — port (boundary) days of the marea within the billing window
     //   DIAS_MAREA        — DIAS_PROYECTO + DIAS_PUERTO: the marea's full window for this liquidation
+    //   HORAS_PROYECTO    — hours of the Job, from departure (date + hora de zarpada) to arrival (date + hora ingreso
+    //                       a puerto); 0 when a date is missing. The pilotaje is paid by duration tier (CCT art. 43/29)
     //   DIAS_ENROLAMIENTO — calendar days enrolled on the vessel across the whole marea (accruing states)
     //   DIAS_FRANCOS_PERIODO — calendar days in a Francos state within the billing period (francos consumed)
     //   PAGO_FRANCOS_FIFO — amount for the francos consumed this period, FIFO, each lot at its category value
     //   FRANCOS_CONSUMIDOS — francos actually consumed this period = min(días en Francos, saldo disponible)
     //   SALDO_FRANCOS     — pending franco balance (accrued − consumed) for the employee
+    //   EXCESO_NETO_GU_MES — neto que las liquidaciones ANTERIORES del mes con grossing-up pagaron de más sobre su objetivo
+    //   DIAS_ALTA_SEMESTRE — días calendario de alta desde el inicio del semestre hasta el cierre del período (DIAS_SAC de Meta4)
+    //   MEJOR_MES_ACUM_SEMESTRE — mejor mes del semestre del Cód. Acumulador, restando el Cód. Concepto (SAC de egreso de administrativos)
     //   PCT_ESCALA        — Categoría CCT."% Escala" / 100
     //   VACACIONES_ANUALES — Art. 150 LCT: annual vacation days by seniority
     //   VACACIONES_PROP_DIAS — proportional vacation days (DIAS_ALTA_AÑO / 20, rounded down)
     //   DIAS_VAC_PERIODO  — calendar days in Vacaciones state overlapping the billing period
+    //   DIAS_ESTADO_PERIODO — días del Cód. Estado configurado dentro de los tramos de liquidación.
+    //   DIAS_ESTADO_PREVIOS — días del Cód. Estado anteriores al período, desde su licencia en curso.
     //   MESES_PROM_VAC    — monthly periods to average for vacation pay (Art. 34 CCT), 0..6. Divisor
     //                       of the {PROM_DESDE}..{PROM_HASTA} window; counts months with an employment
     //                       phase, not months with earnings.
     //   DEDUC_GANANCIAS   — annual deductions: cargas de familia + gastos deducibles (AFIP tables)
     //   MES_ANUAL         — calendar month number of the reference date (1–12)
+    //   TIPO_LIQ          — Tipo de liquidación de la corrida. Se compara por código:
+    //                       TIPO_LIQ = 'LIQ_FINAL'. Numéricamente devuelve el Orden del tipo.
+    //   DIAS_ALTA_30 — Días del MES COMERCIAL DE 30 que cubre esta liquidación; el día 31 no
+    //                       cuenta. Su complemento (30 menos esto) son los días que no paga, y es lo
+    //                       que prorratea un sueldo mensual. No confundir con DIAS_MES, que da los
+    //                       días calendario del período y vale 31 en enero.
+    //                       Deja que una fórmula distinga el documento: la producción de una marea son
+    //                       los kilos de la marea entera y sólo es comparable en un cierre. Cero es "sin
+    //                       tipo", pero también es el Orden de SALDO_INICIAL.
     //   YTD_ACUM          — YTD sum of lines for concepts that feed "Cód. Acumulador" ("Invertir Signo"=false).
     //   PERIODO_ACUM      — igual que YTD_ACUM pero acotado al período y EXCLUYENDO la liquidación en
     //                       curso. Es lo que hace falta para un tope mensual (SIPA) cuando el empleado
@@ -70,7 +86,8 @@ table 60018 "Variable Sistema Liq."
                 Opciones: Text;
                 Seleccion: Integer;
             begin
-                Opciones := 'AÑOS_ANTIGUEDAD,AÑOS_ANTIG_30JUN,DIAS_HAB,DIAS_FERIADOS,DIAS_FERIADOS_MAREA,DIAS_FERIADOS_GUARDIA,DIAS_HAB_AÑO,DIAS_ALTA_AÑO,DIAS_PROYECTO,DIAS_PUERTO,DIAS_MAREA,DIAS_ENROLAMIENTO,DIAS_FRANCOS_PERIODO,PAGO_FRANCOS_FIFO,FRANCOS_CONSUMIDOS,SALDO_FRANCOS,PCT_ESCALA,VACACIONES_ANUALES,VACACIONES_PROP_DIAS,DIAS_VAC_PERIODO,MESES_PROM_VAC,DEDUC_GANANCIAS,MES_ANUAL,YTD_ACUM,PERIODO_ACUM,PERIODO_CONCEPTO,YTD_LINEAS';
+                Opciones := 'AÑOS_ANTIGUEDAD,AÑOS_ANTIG_30JUN,DIAS_HAB,DIAS_ALTA_30,DIAS_FERIADOS,DIAS_FERIADOS_MAREA,DIAS_FERIADOS_GUARDIA,DIAS_HAB_AÑO,DIAS_ALTA_AÑO,DIAS_PROYECTO,DIAS_PUERTO,DIAS_MAREA,DIAS_ENROLAMIENTO,DIAS_FRANCOS_PERIODO,PAGO_FRANCOS_FIFO,FRANCOS_CONSUMIDOS,SALDO_FRANCOS,PCT_ESCALA,VACACIONES_ANUALES,VACACIONES_PROP_DIAS,DIAS_VAC_PERIODO,MESES_PROM_VAC,DEDUC_GANANCIAS,MES_ANUAL,TIPO_LIQ,YTD_ACUM,PERIODO_ACUM,PERIODO_CONCEPTO,YTD_LINEAS';
+                Opciones +=',DIV_PROM_ENF_6,DIV_PROM_ENF_12,DIV_PROM_LIC,DIAS_ESTADO_PERIODO,DIAS_ESTADO_PREVIOS,EXCESO_NETO_GU_MES,DIAS_ALTA_SEMESTRE,MEJOR_MES_ACUM_SEMESTRE,DEDUC_GANANCIAS_ACUM,HORAS_PROYECTO';
                 Seleccion := StrMenu(Opciones, 0, 'Seleccione un código de cálculo');
                 if Seleccion > 0 then
                     Validate("Cód. Cálculo", CopyStr(SelectStr(Seleccion, Opciones), 1, MaxStrLen("Cód. Cálculo")));
@@ -81,6 +98,13 @@ table 60018 "Variable Sistema Liq."
             Caption = 'Nombre Variable';
             NotBlank = true;
             DataClassification = CustomerContent;
+
+            trigger OnValidate()
+            var
+                Nombres: Codeunit "Nombres Variables Liq.";
+            begin
+                Nombres.ExigirLibre("Nombre Variable", Database::"Variable Sistema Liq.", "Nombre Variable");
+            end;
         }
         field(3; Descripción; Text[100])
         {
@@ -137,6 +161,18 @@ table 60018 "Variable Sistema Liq."
             //
             // Sin filtro de vigencia en la relación a propósito: la variable acumula lo YA LIQUIDADO,
             // y un concepto discontinuado el mes pasado igual dejó líneas que hay que sumar.
+        }
+        field(12; "Cód. Estado"; Code[20])
+        {
+            Caption = 'Cód. Estado';
+            DataClassification = CustomerContent;
+            TableRelation = "Cód. Estado Empleado".Código;
+            // Requerido por los cálculos genéricos DIAS_ESTADO_* y DIV_PROM_LIC.
+            //
+            // Es el que permite tener DIAS_ENFERMEDAD y DIAS_ACCIDENTE sin un cálculo por cada uno:
+            // los dos son la misma cuenta sobre un estado distinto. El enum "Tipo Estado Empleado" no
+            // sirve para distinguirlos —enfermedad y accidente son los dos Normal— y agregarle valores
+            // obligaría a tocar el motor cada vez que aparece una licencia nueva.
         }
     }
 

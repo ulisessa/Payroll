@@ -1,4 +1,7 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
+
+using Microsoft.HumanResources.Employee;
+using Microsoft.Projects.Project.Job;
 
 codeunit 50015 "Evaluador Fórmula"
 {
@@ -16,7 +19,8 @@ codeunit 50015 "Evaluador Fórmula"
     //   Primary    = Number | StringLit | '(' OrExpr ')' | Ident ('(' ArgList ')')?
     //   ArgList    = OrExpr (',' OrExpr)*
     //
-    // Built-in functions: TRAMO(code, value)
+    // Built-in functions include TRAMO(code, value) and
+    // ACUM_PARAM_CCT(source, parameter, historical_quantity, divisor).
     // All other identifiers are resolved from the variable context dictionary.
     // String literals use single quotes: 'RET_4CAT'
 
@@ -30,14 +34,18 @@ codeunit 50015 "Evaluador Fórmula"
         FTrazaActiva: Boolean;
         FTrazaNivel: Integer;
         FTraza: Text;
+        FTrazaBaseEscala: Boolean;
         FTokKind: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
         FTokText: Text;
         FTokNum: Decimal;
         FContext: Dictionary of [Text, Decimal];
+        FCodigosAtributos: Dictionary of [Text, Text];
+        FCodigosValidos: Dictionary of [Text, Boolean];
         FFechaRef: Date;
         FParamLog: Text;
         FResolvedVars: Dictionary of [Text, Boolean]; // tracks which vars were actually used
         FLenient: Boolean; // when true, unknown variables resolve to 0 instead of throwing
+        FHistorico: Boolean;
         FModoValidacion: Boolean; // tolera solo los errores que dependen del valor — ver SetModoValidacion
         // TRAMO caches — valid for the lifetime of one Init() call (one liquidation).
         // FTramoVigCache avoids the Cab.FindLast query after the first call per table.
@@ -57,10 +65,22 @@ codeunit 50015 "Evaluador Fórmula"
         // referenciada — evitaba esto una recomputación entera por cada @ en cada línea, que con
         // referencias anidadas se multiplica rápido y puede volver el cálculo muy pesado.
         FLastConceptoRefValues: Dictionary of [Text, Decimal];
+        FContextoLiquidacion: Codeunit "Contexto Liquidación";
+        FContextoLiquidacionVinculado: Boolean;
+        FAcumParametroCCT: Dictionary of [Text, Decimal];
+        // Precios faltantes: parámetros sin ninguna fila para este contexto que una fórmula leyó como VALOR, no como condición ni
+        // como primer argumento de IFZERO, que es donde la ausencia es legítima. FEnSelector cuenta la profundidad de esas
+        // posiciones. Ver RegistrarPrecioFaltante.
+        FPreciosFaltantes: List of [Text];
+        FEnSelector: Integer;
 
     procedure Init(var Ctx: Dictionary of [Text, Decimal]; FechaRef: Date)
     begin
         FContext := Ctx;
+        FHistorico := false;
+        FTrazaBaseEscala := false;
+        Clear(FCodigosAtributos);
+        Clear(FCodigosValidos);
         FFechaRef := FechaRef;
         FParamLog := '';
         Clear(FResolvedVars);
@@ -69,6 +89,27 @@ codeunit 50015 "Evaluador Fórmula"
         Clear(FTramoLogCache);
         Clear(FResolvingConceptos);
         Clear(FLastConceptoRefValues);
+        Clear(FAcumParametroCCT);
+        Clear(FPreciosFaltantes);
+        FEnSelector := 0;
+        // No Clear del codeunit enlazado: la instancia pertenece al motor que nos la presta.
+        FContextoLiquidacionVinculado := false;
+    end;
+
+    procedure SetContextoLiquidacion(Contexto: Codeunit "Contexto Liquidación")
+    begin
+        FContextoLiquidacion := Contexto;
+        FContextoLiquidacionVinculado := true;
+    end;
+
+    procedure SembrarAcumParametroCCTGuardado(Fuente: Code[30]; Parametro: Code[20]; Cantidad: Code[30]; Divisor: Decimal; Valor: Decimal)
+    begin
+        FAcumParametroCCT.Set(ClaveAcumParametroCCT(Fuente, Parametro, Cantidad, Divisor), Valor);
+    end;
+
+    local procedure ClaveAcumParametroCCT(Fuente: Code[30]; Parametro: Code[20]; Cantidad: Code[30]; Divisor: Decimal): Text
+    begin
+        exit('ACUMCCT:' + Fuente + '~' + Parametro + '~' + Cantidad + '~' + Format(Divisor, 0, 9));
     end;
 
     // Lee el valor calculado en la última evaluación real de @CÓDIGO (misma línea, sin recalcular).
@@ -83,27 +124,139 @@ codeunit 50015 "Evaluador Fórmula"
         exit(false);
     end;
 
-    // Call this (instead of Init) when only the context needs refreshing mid-calculation.
-    // Does NOT reset the param log or resolved-vars tracking.
+    procedure SetCodigosAtributos(Codigos: Dictionary of [Text, Text])
+    begin
+        FCodigosAtributos := Codigos;
+    end;
+
+    procedure GetCodigosAtributos(var Codigos: Dictionary of [Text, Text])
+    begin
+        Codigos := FCodigosAtributos;
+    end;
+
+    // Call this (instead of Init) when only the numeric context changes mid-calculation.
+    // Preserves attribute codes, the param log and resolved-vars tracking.
     procedure UpdateContext(var Ctx: Dictionary of [Text, Decimal])
     begin
         FContext := Ctx;
     end;
 
     procedure EvalFormula(Formula: Text): Decimal
+    var
+        Resultado: Decimal;
     begin
         if Formula.Trim() = '' then
             exit(0);
         BeginParse(Formula.ToUpper().Trim());
-        exit(ParseAddSub());
+        Resultado := ParseOr();
+        Expect(FTokKind::EOF);
+        exit(Resultado);
     end;
 
     procedure EvalCondicion(Condicion: Text): Boolean
+    var
+        Resultado: Decimal;
     begin
         if Condicion.Trim() = '' then
             exit(true);
         BeginParse(Condicion.ToUpper().Trim());
-        exit(ParseOr() <> 0);
+        // La condición del concepto decide si aplica: un parámetro sin fila ahí es "no aplica", no un precio que falta.
+        FEnSelector += 1;
+        Resultado := ParseOr();
+        FEnSelector -= 1;
+        Expect(FTokKind::EOF);
+        exit(Resultado <> 0);
+    end;
+
+    /// <summary>
+    /// Devuelve los parámetros sin fila que las fórmulas leyeron como valor desde la última llamada, y vacía la lista.
+    /// </summary>
+    procedure TomarPreciosFaltantes(var Nombres: List of [Text])
+    begin
+        Nombres := FPreciosFaltantes;
+        Clear(FPreciosFaltantes);
+    end;
+
+    /// <summary>
+    /// Descarta los precios faltantes que no movieron el resultado de la fórmula. Se llama justo después de evaluarla.
+    /// </summary>
+    // Un precio que multiplica a algo que vale cero (PCT_PROD * PROD_KN_MAREA en una liquidación sin marea) no paga de menos: avisarlo
+    // es ruido, y en enero eran 400 avisos de los que importaban un cuarto. Se reevalúa con el precio en 1 y en un valor grande —el
+    // grande cubre un MAX que el 1 no alcanza a mover— y sólo queda el que cambia el resultado. Corre únicamente para conceptos que
+    // leyeron un precio faltante, y deja el log, las variables resueltas y las referencias @ como estaban.
+    procedure DescartarPreciosQueNoCambian(Formula: Text; Resultado: Decimal)
+    var
+        Quedan: List of [Text];
+        GuardaResueltas: Dictionary of [Text, Boolean];
+        GuardaRefs: Dictionary of [Text, Decimal];
+        GuardaLog: Text;
+        Nombre: Text;
+        Clave: Text;
+        ValorPrevio: Decimal;
+    begin
+        if FPreciosFaltantes.Count() = 0 then
+            exit;
+        GuardaLog := FParamLog;
+        foreach Clave in FResolvedVars.Keys() do
+            GuardaResueltas.Add(Clave, true);
+        foreach Clave in FLastConceptoRefValues.Keys() do
+            GuardaRefs.Add(Clave, FLastConceptoRefValues.Get(Clave));
+
+        foreach Nombre in FPreciosFaltantes do
+            if FContext.ContainsKey(Nombre) then begin
+                ValorPrevio := FContext.Get(Nombre);
+                if CambiaConValor(Formula, Nombre, 1, Resultado) or CambiaConValor(Formula, Nombre, 1000000, Resultado) then
+                    Quedan.Add(Nombre);
+                FContext.Set(Nombre, ValorPrevio);
+            end else
+                Quedan.Add(Nombre);
+
+        FPreciosFaltantes := Quedan;
+        FParamLog := GuardaLog;
+        Clear(FResolvedVars);
+        foreach Clave in GuardaResueltas.Keys() do
+            FResolvedVars.Add(Clave, true);
+        Clear(FLastConceptoRefValues);
+        foreach Clave in GuardaRefs.Keys() do
+            FLastConceptoRefValues.Add(Clave, GuardaRefs.Get(Clave));
+        FEnSelector := 0;
+    end;
+
+    // Si la reevaluación falla, se conserva el aviso: ante la duda, avisar.
+    local procedure CambiaConValor(Formula: Text; Nombre: Text; Valor: Decimal; Resultado: Decimal): Boolean
+    var
+        Otro: Decimal;
+    begin
+        FContext.Set(Nombre, Valor);
+        if not TryEvalFormula(Formula, Otro) then
+            exit(true);
+        exit(Otro <> Resultado);
+    end;
+
+    // Un parámetro sin ninguna fila vale cero y la fórmula no lo nota: multiplica por cero y paga de menos sin error. Se anota acá
+    // sólo cuando se lo lee como valor; en una condición o en el primer argumento de IFZERO la ausencia es parte de la fórmula.
+    local procedure RegistrarPrecioFaltante(VarName: Text)
+    begin
+        if (FEnSelector > 0) or FModoValidacion or FHistorico or not FContextoLiquidacionVinculado then
+            exit;
+        if not FContextoLiquidacion.EsParametroSinFila(VarName) then
+            exit;
+        // Un precio con valor no falta, diga lo que diga la lista.
+        if FContext.Get(VarName) <> 0 then
+            exit;
+        if not FPreciosFaltantes.Contains(VarName) then
+            FPreciosFaltantes.Add(VarName);
+    end;
+
+    procedure UsarDatosGuardados()
+    begin
+        FHistorico := true;
+        FLenient := false;
+    end;
+
+    procedure SembrarTramoGuardado(Tabla: Text; Base: Decimal; Valor: Decimal)
+    begin
+        FTramoResultCache.Set(Tabla.ToUpper() + '|' + Format(Base, 0, 9), Valor);
     end;
 
     procedure GetParamLog(): Text
@@ -132,6 +285,8 @@ codeunit 50015 "Evaluador Fórmula"
         // @CÓDIGO: arranca "fresca" para esta fórmula/concepto, pero se reutiliza dentro de toda
         // la cadena de referencias anidadas que dispare (ver ResolveConceptoRef).
         Clear(FLastConceptoRefValues);
+        // Un error a mitad de una fórmula anterior pudo dejar el contador de selectores arriba.
+        FEnSelector := 0;
         Result := EvalFormula(Formula);
     end;
 
@@ -147,6 +302,7 @@ codeunit 50015 "Evaluador Fórmula"
     procedure TryEvalCondicion(Condicion: Text; var Result: Boolean)
     begin
         Clear(FLastConceptoRefValues);
+        FEnSelector := 0;
         Result := EvalCondicion(Condicion);
     end;
 
@@ -209,11 +365,15 @@ codeunit 50015 "Evaluador Fórmula"
 
     local procedure ParseCompare(): Decimal
     var
+        Inicio: Integer;
+        FinIzq: Integer;
         Left: Decimal;
         Op: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
         Right: Decimal;
     begin
+        Inicio := FTokStart;
         Left := ParseAddSub();
+        FinIzq := FTokStart;
         Op := FTokKind;
         case Op of
             FTokKind::Eq, FTokKind::NEq,
@@ -221,6 +381,12 @@ codeunit 50015 "Evaluador Fórmula"
             FTokKind::LEq, FTokKind::GEq:
                 begin
                     NextTok();
+                    if FTokKind = FTokKind::StrLit then
+                        // El nombre se recorta sólo acá: ParseCompare corre en CADA expresión y casi
+                        // ninguna compara contra un código.
+                        exit(CompararCodigoAtributo(
+                            CopyStr(FExpr, Inicio, FinIzq - Inicio).Trim(),
+                            Op = FTokKind::NEq, Op in [FTokKind::Eq, FTokKind::NEq]));
                     Right := ParseAddSub();
                     case Op of
                         FTokKind::Eq:
@@ -239,6 +405,166 @@ codeunit 50015 "Evaluador Fórmula"
                 end;
         end;
         exit(Left);
+    end;
+
+    local procedure CompararCodigoAtributo(Nombre: Text; Distinto: Boolean; OperadorValido: Boolean): Decimal
+    var
+        Actual: Text;
+        Codigo: Text;
+        Coincide: Boolean;
+    begin
+        if not OperadorValido then
+            Error('Los códigos de atributo solo admiten = y <>.');
+        Codigo := FTokText;
+        if not FHistorico then
+            ValidarCodigoAtributo(Nombre, Codigo);
+        NextTok();
+        if FModoValidacion then
+            exit(0);
+        if not FCodigosAtributos.Get(Nombre, Actual) then begin
+            if FHistorico then
+                Error('No se conservó el código de atributo %1. No es posible comprobar esta condición histórica.', Nombre);
+            if FLenient then
+                exit(0);
+            Error('No se cargó el código vigente de %1. Cargá el contexto completo del empleado para evaluar esta comparación.', Nombre);
+        end;
+        // Las dos puntas en mayúsculas. La validación filtra un campo Code con collation CI, así que
+        // aceptaba 'potero' como código válido; la comparación, que iba contra el literal crudo, no
+        // coincidía nunca. La fórmula quedaba impecable y la condición era falsa siempre, sin aviso.
+        Coincide := UpperCase(Actual) = UpperCase(Codigo);
+        if Distinto then
+            Coincide := not Coincide;
+        exit(BoolToDecimal(Coincide));
+    end;
+
+    // Que el atributo sea de lista y el código exista no cambia durante un cálculo, pero se preguntaba
+    // en cada evaluación de la comparación —la validación y cada vuelta del grossing-up—: dos lecturas
+    // a la base por vez. El resultado bueno se recuerda; el malo no, porque corta con error.
+    local procedure ValidarCodigoAtributo(Nombre: Text; Codigo: Text)
+    var
+        Tipo: Record "Tipo Atributo Liq.";
+        Valor: Record "Valor Atributo Liq.";
+        Clave: Text;
+    begin
+        if Nombre.StartsWith('FILA_') then begin
+            ValidarCodigoFila(Nombre, Codigo);
+            exit;
+        end;
+        Clave := Nombre + '|' + Codigo;
+        if FCodigosValidos.ContainsKey(Clave) then
+            exit;
+
+        // TIPO_LIQ no es un atributo pero se compara igual: TIPO_LIQ = 'LIQ_FINAL'. Sus códigos
+        // válidos son los tipos de liquidación, así que la validación va contra esa tabla.
+        if EsVariableTipoLiq(Nombre) then begin
+            ValidarCodigoTipoLiq(Nombre, Codigo);
+            FCodigosValidos.Add(Clave, true);
+            exit;
+        end;
+
+        Tipo.SetRange("Nombre Variable", NombreBaseAtributo(Nombre));
+        Tipo.SetRange("Tipo Dato", Tipo."Tipo Dato"::Lista);
+        if not Tipo.FindFirst() then
+            Error('La comparación por código requiere un atributo de lista a la izquierda: %1.', Nombre);
+        Valor.SetRange("Cód. Tipo Atributo", Tipo.Código);
+        Valor.SetRange(Código, Codigo);
+        if (Codigo = '') or Valor.IsEmpty() then
+            Error('El código %1 no existe entre los valores del atributo %2.', Codigo, Nombre);
+        FCodigosValidos.Add(Clave, true);
+    end;
+
+    local procedure ValidarCodigoFila(Nombre: Text; Codigo: Text)
+    var
+        Empleado: Record Employee;
+        Proyecto: Record Job;
+        Periodo: Record "Período Liquidación";
+        Estado: Record "Cód. Estado Empleado";
+        Convenio: Record "Convenio Colectivo";
+        Categoria: Record "Categoría CCT";
+        ConvenioFila: Text;
+    begin
+        case Nombre of
+            'FILA_EMPLEADO': if not Empleado.Get(Codigo) then Error('Empleado inexistente: %1.', Codigo);
+            'FILA_PROYECTO': if Codigo <> '' then if not Proyecto.Get(Codigo) then Error('Proyecto inexistente: %1.', Codigo);
+            'FILA_PERIODO': if not Periodo.Get(Codigo) then Error('Período inexistente: %1.', Codigo);
+            'FILA_ESTADO': if Codigo <> '' then if not Estado.Get(Codigo) then Error('Estado inexistente: %1.', Codigo);
+            'FILA_CONVENIO': if not Convenio.Get(Codigo) then Error('Convenio inexistente: %1.', Codigo);
+            'FILA_CATEGORIA': begin
+                if FModoValidacion then begin
+                    Categoria.SetRange(Código, Codigo);
+                    if not Categoria.FindFirst() then Error('Categoría inexistente: %1.', Codigo);
+                    exit;
+                end;
+                FCodigosAtributos.Get('FILA_CONVENIO', ConvenioFila);
+                if not Categoria.Get(ConvenioFila, Codigo) then Error('Categoría inexistente: %1 / %2.', ConvenioFila, Codigo);
+            end;
+            'FILA_PUESTO': if Codigo <> '' then ValidarCodigoAtributo('PUESTO', Codigo);
+            'FILA_PESQUERIA': if not (Codigo in ['', 'CAL', 'LAN']) then Error('Pesquería inexistente: %1.', Codigo);
+            else Error('La variable %1 no es una dimensión de la matriz.', Nombre);
+        end;
+    end;
+
+    /// <summary>
+    /// El nombre corresponde a la variable de sistema TIPO_LIQ.
+    /// </summary>
+    /// <remarks>
+    /// Se pregunta por el Cód. Cálculo y no por el literal porque el Nombre Variable es
+    /// CONFIGURABLE: una instalación puede renombrarla para que las fórmulas se lean mejor, y
+    /// Cod50077 lo documenta. Comparar contra 'TIPO_LIQ' a secas dejaría de funcionar justo en la
+    /// instalación que se tomó el trabajo de ponerle un nombre claro.
+    /// </remarks>
+    local procedure EsVariableTipoLiq(Nombre: Text): Boolean
+    var
+        VarSis: Record "Variable Sistema Liq.";
+        CodCalcTipoLiqTok: Label 'TIPO_LIQ', Locked = true;
+    begin
+        if not VarSis.Get(CopyStr(Nombre, 1, MaxStrLen(VarSis."Nombre Variable"))) then
+            exit(false);
+        exit(VarSis."Cód. Cálculo" = CodCalcTipoLiqTok);
+    end;
+
+    local procedure ValidarCodigoTipoLiq(Nombre: Text; Codigo: Text)
+    var
+        TipoLiq: Record "Tipo Liquidación";
+        Disponibles: TextBuilder;
+    begin
+        if (Codigo <> '') and TipoLiq.Get(CopyStr(Codigo, 1, MaxStrLen(TipoLiq.Código))) then
+            exit;
+
+        // El mensaje lista los tipos: es el dato que el que escribe la fórmula no tiene a mano, y
+        // enumerarlos cuesta una lectura que sólo ocurre cuando ya hay un error.
+        if TipoLiq.FindSet() then
+            repeat
+                if Disponibles.Length() > 0 then
+                    Disponibles.Append(', ');
+                Disponibles.Append(TipoLiq.Código);
+            until TipoLiq.Next() = 0;
+        Error(ErrTipoLiqInexistente, Codigo, Nombre, Disponibles.ToText());
+    end;
+
+    /// <summary>
+    /// El Tipo de Atributo detrás de un nombre derivado: TIPOACTIVIDAD_ULT_MAREA → TIPOACTIVIDAD.
+    /// </summary>
+    /// <remarks>
+    /// El sufijo lo agrega el contexto en runtime —es el mismo atributo resuelto contra el buque de
+    /// la última marea—, así que NINGUNA fila de Tipo Atributo lo lleva en su Nombre Variable.
+    /// Buscar el nombre derecho no encuentra nada y la comparación por código corta diciendo que no
+    /// es un atributo de lista, que es cierto de la fila inexistente y engañoso sobre el problema.
+    ///
+    /// La lista de valores es la misma —la del atributo base—, así que validar contra él es lo
+    /// correcto y no una concesión.
+    ///
+    /// El sufijo está repetido en Cod50016, que lo publica, y en Cod50060, que lo cataloga. Es la
+    /// misma convención que ya tenía _ESFCY, repetida por los mismos motivos: centralizarlo obliga
+    /// a que el evaluador dependa del contexto, y hoy la dependencia va al revés.
+    /// </remarks>
+    local procedure NombreBaseAtributo(Nombre: Text): Text
+    var
+        SufijoUltMarea: Label '_ULT_MAREA', Locked = true;
+    begin
+        if Nombre.EndsWith(SufijoUltMarea) then
+            exit(CopyStr(Nombre, 1, StrLen(Nombre) - StrLen(SufijoUltMarea)));
+        exit(Nombre);
     end;
 
     local procedure ParseAddSub(): Decimal
@@ -329,7 +655,7 @@ codeunit 50015 "Evaluador Fórmula"
         Trozo := Trozo.Trim();
 
         FTraza += Format(Nivel) + TabChar() + Format(Orden) + TabChar() + Signo + TabChar() +
-                  Format(Valor, 0, 9) + TabChar() + Format(Acumulado, 0, 9) + TabChar() + Trozo +
+                  Format(Valor, 0, 9) + TabChar() + Format(Acumulado, 0, 9) + TabChar() + Trozo + TabChar() + Format(FTrazaBaseEscala, 0, 9) +
                   LfChar();
     end;
 
@@ -385,6 +711,7 @@ codeunit 50015 "Evaluador Fórmula"
         FTrazaActiva := Activa;
         FTraza := '';
         FTrazaNivel := 0;
+        FTrazaBaseEscala := false;
     end;
 
     /// <summary>
@@ -452,10 +779,7 @@ codeunit 50015 "Evaluador Fórmula"
                 end;
             FTokKind::StrLit:
                 begin
-                    // String literals evaluate to 0 in arithmetic context;
-                    // they are used as function arguments (e.g. TRAMO('CODE', x)).
-                    NextTok();
-                    exit(0);
+                    Error('Un código entre comillas solo puede usarse como argumento de texto o a la derecha de una comparación de atributo.');
                 end;
             FTokKind::LPar:
                 begin
@@ -481,18 +805,57 @@ codeunit 50015 "Evaluador Fórmula"
     local procedure CallFunction(FuncName: Text): Decimal
     var
         Arg1: Text;
+        FuenteCCT: Code[30];
+        ParametroCCT: Code[20];
+        CantidadCCT: Code[30];
+        ClaveCCT: Text;
+        Mensaje: Text;
         Arg2: Decimal;
         Arg3: Decimal;
         Result: Decimal;
+        BaseEscalaAnterior: Boolean;
     begin
         case FuncName of
+            'ACUM_PARAM_CCT':
+                begin
+                    FuenteCCT := LeerNombreAcumParametroCCT(MaxStrLen(FuenteCCT));
+                    Expect(FTokKind::Comma);
+                    ParametroCCT := LeerNombreAcumParametroCCT(MaxStrLen(ParametroCCT));
+                    Expect(FTokKind::Comma);
+                    CantidadCCT := LeerNombreAcumParametroCCT(MaxStrLen(CantidadCCT));
+                    Expect(FTokKind::Comma);
+                    Arg2 := ParseOr();
+                    Expect(FTokKind::RPar);
+                    ClaveCCT := ClaveAcumParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT, Arg2);
+                    if FAcumParametroCCT.ContainsKey(ClaveCCT) then
+                        Result := FAcumParametroCCT.Get(ClaveCCT)
+                    else begin
+                        // Una línea guardada se reproduce con su resultado persistido. No consulta
+                        // fuentes ni precios de hoy para presentarlos como si fueran los originales.
+                        if FHistorico then
+                            Error('Falta el resultado guardado de %1 para reproducir la fórmula histórica.', ClaveCCT);
+                        FContextoLiquidacion.ValidarAcumulacionParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT);
+                        if FModoValidacion or FLenient then
+                            Result := 0
+                        else begin
+                            if not FContextoLiquidacionVinculado then
+                                Error('ACUM_PARAM_CCT necesita el contexto de liquidación enlazado.');
+                            Result := FContextoLiquidacion.AcumularParametroCCT(FuenteCCT, ParametroCCT, CantidadCCT, Arg2);
+                            FAcumParametroCCT.Set(ClaveCCT, Result);
+                        end;
+                    end;
+                    AppendParamLog(ClaveCCT + '~' + Format(Result, 0, 9));
+                end;
             'TRAMO':
                 begin
                     // TRAMO('TABLE_CODE', numeric_expression)
                     Arg1 := FTokText; // string literal: the table code
                     Expect(FTokKind::StrLit);
                     Expect(FTokKind::Comma);
+                    BaseEscalaAnterior := FTrazaBaseEscala;
+                    FTrazaBaseEscala := true;
                     Arg2 := ParseOr();
+                    FTrazaBaseEscala := BaseEscalaAnterior;
                     Expect(FTokKind::RPar);
                     Result := EvalTramo(Arg1, Arg2);
                 end;
@@ -513,6 +876,29 @@ codeunit 50015 "Evaluador Fórmula"
                             Error(ErrPrecisionCero);
                     end else
                         Result := Round(Arg2, Arg3);
+                end;
+            'ERROR':
+                begin
+                    // ERROR("texto") — corta la liquidación con un mensaje escrito en la fórmula.
+                    //
+                    // Existe para que una regla que hoy sólo se puede expresar como "esto no puede
+                    // pasar" no tenga que codificarse en AL. El uso es dentro de un IF, que evalúa
+                    // SÓLO la rama elegida: IF(DIAS_MAREA > 31, ERROR("La marea no puede durar más
+                    // que el mes"), 0). Al cortar, la transacción se revierte entera y la
+                    // liquidación queda como estaba.
+                    //
+                    // EN VALIDACIÓN NO DISPARA. El motor recorre todas las fórmulas con el contexto
+                    // en cero antes de calcular, y ahí las dos ramas de un IF se miran: disparar
+                    // cortaría el cálculo antes de empezar por una condición que en runtime quizá
+                    // nunca se cumple.
+                    if FTokKind <> FTokKind::StrLit then
+                        Error(ErrErrorPideTexto);
+                    Mensaje := FTokText;
+                    NextTok();
+                    Expect(FTokKind::RPar);
+                    if FLenient or FModoValidacion then
+                        exit(0);
+                    Error(ErrFormulaCorta, Mensaje);
                 end;
             'ABS':
                 begin
@@ -545,6 +931,13 @@ codeunit 50015 "Evaluador Fórmula"
                     Expect(FTokKind::Comma);
                     Arg3 := ParseOr(); // decimal places (used as countdown)
                     Expect(FTokKind::RPar);
+                    // n es una CANTIDAD DE DECIMALES, no una precisión, y el bucle de abajo no
+                    // sabe distinguirlas: con 0,0001 —que es lo que vale PRECISION_REDONDEO—
+                    // entra UNA vez, sale con Arg3 en -0,9999 y redondea a 0,1, sin dar error.
+                    // Así el 1062 devengaba 12,4 días de franco donde la fórmula decía 12,44.
+                    // Para redondear por precisión está ROUND, que la toma tal cual.
+                    if (Arg3 < 0) or (Arg3 <> Round(Arg3, 1)) then
+                        Error(ErrRedondearDecimales, Format(Arg3));
                     Result := 1; // build precision: 1/10^n
                     while Arg3 > 0 do begin
                         Result := Result / 10;
@@ -572,7 +965,9 @@ codeunit 50015 "Evaluador Fórmula"
                     // Lazy: only the selected branch is evaluated; the other is skipped
                     // without invoking the formula engine, so division-by-zero and other
                     // errors in the dead branch will not surface.
+                    FEnSelector += 1;
                     Arg2 := ParseOr();
+                    FEnSelector -= 1;
                     Expect(FTokKind::Comma);
                     if Arg2 <> 0 then begin
                         Result := ParseOr();
@@ -583,6 +978,38 @@ codeunit 50015 "Evaluador Fórmula"
                         Expect(FTokKind::Comma);
                         Result := ParseOr();
                     end;
+                    Expect(FTokKind::RPar);
+                end;
+            'IFZERO':
+                begin
+                    // IFZERO(valor, alternativa) — el valor si no es cero, si no la alternativa.
+                    //
+                    // Existe porque el patrón IF(X = 0, alternativa, X) nombra X dos veces, y con X
+                    // siendo algo como PCT_ESCALA_CONV la fórmula se vuelve ilegible justo donde hay
+                    // que leerla con cuidado. Peor: al duplicarla es fácil corregir una aparición y
+                    // no la otra.
+                    //
+                    // El caso que lo motivó son los parámetros que no existen para todos los pares
+                    // convenio/categoría. Un parámetro sin vigencia resuelve a CERO, no a error, y
+                    // multiplicar por él da cero sin avisar: los coeficientes de pesquería dejaron
+                    // 128 líneas de sueldo de oficiales en cero en enero de 2026.
+                    //
+                    // OJO: escribir IFZERO(X, 1) convierte "el parámetro no está cargado" en "vale
+                    // 1", que es una decisión de negocio, no una defensa técnica. Úsese sólo cuando
+                    // el neutro sea realmente el valor correcto para la ausencia del dato.
+                    //
+                    // Perezosa como el IF: la alternativa no se evalúa si el valor no es cero.
+                    //
+                    // El primer argumento es justamente "¿está cargado?": un parámetro sin fila ahí no es un precio que falta.
+                    FEnSelector += 1;
+                    Arg2 := ParseOr();
+                    FEnSelector -= 1;
+                    Expect(FTokKind::Comma);
+                    if Arg2 <> 0 then begin
+                        SaltearOValidar();
+                        Result := Arg2;
+                    end else
+                        Result := ParseOr();
                     Expect(FTokKind::RPar);
                 end;
             'CASE':
@@ -653,6 +1080,14 @@ codeunit 50015 "Evaluador Fórmula"
         ResultCacheKey: Text;
         Result: Decimal;
     begin
+        if FHistorico then begin
+            if Value <= 0 then
+                exit(0);
+            ResultCacheKey := TableCode + '|' + Format(Value, 0, 9);
+            if FTramoResultCache.ContainsKey(ResultCacheKey) then
+                exit(FTramoResultCache.Get(ResultCacheKey));
+            Error('No se conservó la escala aplicada a esta base. Se muestran únicamente los datos guardados.');
+        end;
         if Value <= 0 then begin
             // Se loguea igual: una fórmula con TRAMO que devuelve cero es justamente el caso que uno
             // viene a mirar al detalle, y sin fila parece que la función nunca se llamó.
@@ -709,7 +1144,12 @@ codeunit 50015 "Evaluador Fórmula"
 
         Result := Det."Monto Fijo" + (Det.Porcentaje / 100) * (Value - Det."Límite Inferior");
         FTramoResultCache.Add(ResultCacheKey, Result);
-        GuardarLogTramo(ResultCacheKey, TableCode, Result, DescribirTramo(Det, Value));
+        // Guardar valores exactos, independientes del idioma, además del texto legible.
+        FTramoLogCache.Set(ResultCacheKey, EntradaTramo(TableCode, Result, DescribirTramo(Det, Value)) +
+            '~' + Format(Value, 0, 9) + '~' + Format(Det."Límite Inferior", 0, 9) +
+            '~' + Format(Det."Monto Fijo", 0, 9) + '~' + Format(Det.Porcentaje, 0, 9) +
+            '~' + Format(Det."Vigencia Desde", 0, 9));
+        AppendParamLog(FTramoLogCache.Get(ResultCacheKey));
         exit(Result);
     end;
 
@@ -773,7 +1213,10 @@ codeunit 50015 "Evaluador Fórmula"
         Pares: Integer;
     begin
         while true do begin
+            // Puede ser una condición o el default; se trata como condición. Un precio faltante en el default de un CASE no se anota.
+            FEnSelector += 1;
             Cond := ParseOr();
+            FEnSelector -= 1;
 
             if FTokKind = FTokKind::RPar then begin
                 // Argumento sin par = default. Con un solo argumento no hay ninguna condición y la
@@ -865,6 +1308,11 @@ codeunit 50015 "Evaluador Fórmula"
 
     local procedure ResolveVariable(VarName: Text): Decimal
     begin
+        if FHistorico then begin
+            if FContext.ContainsKey(VarName) then
+                exit(FContext.Get(VarName));
+            Error('No se conservó el valor de %1. No es posible comprobar la fórmula completa.', VarName);
+        end;
         if VarName.StartsWith('@') then
             exit(ResolveConceptoRef(CopyStr(VarName, 2)));
 
@@ -881,7 +1329,21 @@ codeunit 50015 "Evaluador Fórmula"
             FResolvedVars.Add(VarName, true);
             AppendParamLog('VAR:' + VarName);
         end;
+        RegistrarPrecioFaltante(VarName);
         exit(FContext.Get(VarName));
+    end;
+
+    local procedure LeerNombreAcumParametroCCT(LargoMaximo: Integer): Text
+    var
+        Nombre: Text;
+    begin
+        Nombre := FTokText;
+        Expect(FTokKind::StrLit);
+        if (Nombre = '') or (StrLen(Nombre) > LargoMaximo) or Nombre.Contains('#') or Nombre.Contains('@') or
+           Nombre.Contains('~') or Nombre.Contains('|')
+        then
+            Error('ACUM_PARAM_CCT requiere nombres entre comillas, sin referencias de concepto ni separadores de log. Máximo: %1 caracteres.', LargoMaximo);
+        exit(Nombre);
     end;
 
     // @CÓDIGO referencia OTRO concepto directamente: evalúa su Condición y Fórmula ahora mismo
@@ -899,6 +1361,7 @@ codeunit 50015 "Evaluador Fórmula"
         Concepto: Record "Concepto Liquidación";
         SavedExpr: Text;
         SavedPos: Integer;
+        SavedTokStart: Integer;
         SavedLen: Integer;
         SavedTokKind: Option None,Number,Ident,StrLit,Plus,Minus,Star,Slash,LPar,RPar,Comma,EOF,Eq,NEq,Lt,Gt,LEq,GEq;
         SavedTokText: Text;
@@ -927,6 +1390,7 @@ codeunit 50015 "Evaluador Fórmula"
 
         SavedExpr := FExpr;
         SavedPos := FPos;
+        SavedTokStart := FTokStart;
         SavedLen := FLen;
         SavedTokKind := FTokKind;
         SavedTokText := FTokText;
@@ -953,6 +1417,7 @@ codeunit 50015 "Evaluador Fórmula"
 
         FExpr := SavedExpr;
         FPos := SavedPos;
+        FTokStart := SavedTokStart;
         FLen := SavedLen;
         FTokKind := SavedTokKind;
         FTokText := SavedTokText;
@@ -1100,10 +1565,18 @@ codeunit 50015 "Evaluador Fórmula"
                     FPos += 1;
                     Start := FPos;
                     FTokText := '';
-                    while (FPos <= FLen) and (FExpr[FPos] <> 39) do begin
+                    while FPos <= FLen do begin
+                        if FExpr[FPos] = 39 then begin
+                            if (CopyStr(FExpr, FPos, 2) = '''''') then
+                                FPos += 1
+                            else
+                                break;
+                        end;
                         FTokText += CopyStr(FExpr, FPos, 1);
                         FPos += 1;
                     end;
+                    if FPos > FLen then
+                        Error('Falta cerrar la comilla simple del código.');
                     FPos += 1; // skip closing quote
                     FTokKind := FTokKind::StrLit;
                 end;
@@ -1260,7 +1733,11 @@ codeunit 50015 "Evaluador Fórmula"
     var
         ErrDivCero: Label 'División por cero en la fórmula.';
         ErrPrecisionCero: Label 'ROUND con precisión 0: la precisión no puede ser cero. Revisá la variable que la define.';
+        ErrFormulaCorta: Label 'El cálculo se detuvo por una regla de la parametrización:\\%1', Comment = '%1 = el mensaje escrito en la fórmula';
+        ErrErrorPideTexto: Label 'ERROR() espera un mensaje entre comillas dobles. Ej: ERROR("La marea no puede durar más que el mes").';
+        ErrRedondearDecimales: Label 'REDONDEAR espera una CANTIDAD DE DECIMALES (0, 2, 4…) y recibió %1. Si lo que tenés es una precisión —0,01 o 0,0001, como PRECISION_REDONDEO— usá ROUND(valor, precisión), que la toma tal cual.', Comment = '%1 = el valor recibido';
         ErrTokenInesperado: Label 'Token inesperado: "%1".';
+        ErrTipoLiqInexistente: Label 'El código ''%1'' no es un tipo de liquidación. %2 admite: %3.', Comment = '%1 = código escrito en la fórmula, %2 = nombre de la variable, %3 = lista de códigos válidos';
         ErrTokenEsperado: Label 'Se esperaba token %1 pero se encontró "%2".';
         ErrVariableDesconocida: Label 'Variable desconocida en la fórmula: "%1". Ningún Parámetro, Variable de Sistema, Fuente de Datos ni Tipo de Atributo la define con ese Nombre Variable.';
         ErrFuncionDesconocida: Label 'Función desconocida: "%1".';

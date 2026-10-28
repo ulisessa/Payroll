@@ -54,14 +54,12 @@ page 50170 "Líneas Liq. con Variables"
         }
         area(FactBoxes)
         {
-            // SubPageLink uses FIELD("No. Línea") from the LIST source table, so the FactBox
-            // updates automatically whenever the user navigates to a different line.
+            // Se carga a mano al cambiar de línea (OnAfterGetCurrRecord) y no con SubPageLink: el panel repone las variables que el
+            // motor no repite por línea, y eso lo hace "Variables Guardadas Liq.", no un enlace sobre la tabla.
             part(DetVariables; "Detalle Variable Línea Sub")
             {
                 ApplicationArea = All;
                 Caption = 'Variables del Concepto';
-                SubPageLink = "No. Liquidación" = FIELD("No. Liquidación"),
-                              "No. Línea" = FIELD("No. Línea");
             }
         }
     }
@@ -70,6 +68,19 @@ page 50170 "Líneas Liq. con Variables"
     {
         area(Processing)
         {
+            action(VerDetalleCalculo)
+            {
+                ApplicationArea = All;
+                Caption = 'Detalle del cálculo';
+                Image = Calculate;
+                ToolTip = 'Abre la explicación de Ganancias, francos o la fórmula aplicada según el concepto seleccionado.';
+                trigger OnAction()
+                var
+                    Presentacion: Codeunit "Presentación Cálculo Liq.";
+                begin
+                    Presentacion.Abrir(Rec);
+                end;
+            }
             action(ToggleSinCero)
             {
                 ApplicationArea = All;
@@ -114,6 +125,11 @@ page 50170 "Líneas Liq. con Variables"
             Rec."Tipo Concepto"::"Contribución Patronal":
                 TipoStyle := 'Attention';
         end;
+    end;
+
+    trigger OnAfterGetCurrRecord()
+    begin
+        CurrPage.DetVariables.Page.Cargar(Rec."No. Liquidación", Rec."No. Línea");
     end;
 
     local procedure AbrirConcepto()

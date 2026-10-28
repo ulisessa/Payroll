@@ -34,7 +34,38 @@ page 50138 "Parámetro Card"
                     ApplicationArea = All;
                     ToolTip = 'Fórmula de fecha (ej. -1M, -35D). Si se completa, al calcular una liquidación se avisa cuando el último valor vigente es anterior a esa antigüedad respecto a la fecha de liquidación. Útil para parámetros que la AFIP actualiza periódicamente (MNI, Deducción Especial). Vacío = sin chequeo.';
                 }
+                field("Edad Máxima Familiar"; Rec."Edad Máxima Familiar")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Tope de edad para deducir a un familiar a cargo en Ganancias. Sólo tiene sentido en los tipos de deducción por familiar: HIJO lleva 18 e HIJO_INC no lleva ninguno, porque los incapacitados se deducen sin límite de edad. CERO = sin límite. Si el familiar no tiene fecha de nacimiento cargada, no se aplica.';
+                }
                 field(Notas; Rec.Notas) { ApplicationArea = All; }
+            }
+
+            group(Ejes)
+            {
+                Caption = 'Ejes de atributo';
+                // Colapsado por defecto: la enorme mayoría de los parámetros no usa ningún eje, y
+                // tres campos vacíos arriba de la lista de valores sugieren que hay algo que llenar.
+                InstructionalText = 'Dimensiones, además del convenio y la categoría, por las que se parten los valores de este parámetro. El valor concreto se carga en cada fila de abajo, como el sufijo que el atributo aporta a la clave. El orden manda: el eje 1 es el que más pesa.';
+
+                field("Cód. Tipo Atributo 1"; Rec."Cód. Tipo Atributo 1")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Primer eje: el atributo que más pesa al buscar el valor. Sólo sirven los atributos cuyos valores tengan cargado un "Sufijo Parámetro" — por ejemplo TIPOACTIVIDAD, donde Potero aporta CAL y Tangonero aporta LAN.';
+                }
+                field("Cód. Tipo Atributo 2"; Rec."Cód. Tipo Atributo 2")
+                {
+                    ApplicationArea = All;
+                    Enabled = Rec."Cód. Tipo Atributo 1" <> '';
+                    ToolTip = 'Segundo eje. No se puede declarar sin el primero: la búsqueda los suelta de atrás para adelante.';
+                }
+                field("Cód. Tipo Atributo 3"; Rec."Cód. Tipo Atributo 3")
+                {
+                    ApplicationArea = All;
+                    Enabled = Rec."Cód. Tipo Atributo 2" <> '';
+                    ToolTip = 'Tercer eje. No se puede declarar sin el segundo.';
+                }
             }
 
             part(VigentesSufijo; "Parámetro Sufijo Sub")
@@ -50,6 +81,21 @@ page 50138 "Parámetro Card"
     {
         area(Processing)
         {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué fórmulas y condiciones nombran a este parámetro. Conviene mirarlo con "Incluir sufijos" prendido: la fórmula puede nombrar la forma sufijada —PRECIO_NAV_LAN— y no el nombre base.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec."Nombre Variable");
+                    PagUsos.Run();
+                end;
+            }
             action(LiberarEnUso)
             {
                 ApplicationArea = All;

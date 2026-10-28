@@ -10,5 +10,6 @@ codeunit 50057 "Tipo Liq. Upgrade"
     begin
         GestionTipoLiq.Sembrar();
         GestionTipoLiq.MigrarDatos();
+        GestionTipoLiq.ConfigurarDisparadores();
     end;
 }

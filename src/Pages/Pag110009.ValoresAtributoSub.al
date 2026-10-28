@@ -31,6 +31,32 @@ page 110009 "Valores Atributo Sub"
                     ApplicationArea = All;
                     ToolTip = 'El número que ve la fórmula cuando una entidad tiene este valor asignado. Cambiarlo NO reescribe lo ya asignado: cada asignación conserva el número con el que se cargó, para que un recálculo viejo dé lo mismo que dio.';
                 }
+                field("Sufijo Parámetro"; Rec."Sufijo Parámetro")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Texto que este valor aporta al código de un parámetro que se resuelve por él. El valor PO de TIPOACTIVIDAD lleva CAL, y así un concepto configurado con ese atributo busca VALOR_FRANCO_CAL_<convenio>_<categoría>. Vacío = el valor no participa en ningún código de parámetro.';
+                }
+            }
+        }
+    }
+
+    actions
+    {
+        area(Processing)
+        {
+            action(ParametrosOrigen)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del valor';
+                Image = Setup;
+
+                ToolTip = 'Consulta, modifica y agrega valores de parámetros vinculados al registro seleccionado, con sus vigencias.';
+                trigger OnAction()
+                var
+                    UI: Codeunit "Atributos Entidad UI";
+                begin
+                    UI.AbrirParametrosValor(Rec."Cód. Tipo Atributo", Rec."Cód. Valor Padre", Rec.Código);
+                end;
             }
         }
     }

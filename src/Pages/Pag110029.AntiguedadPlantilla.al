@@ -37,10 +37,13 @@ page 110029 "Antigüedad de la Plantilla"
                 {
                     ApplicationArea = All;
                     Caption = 'Antigüedad al';
-                    ToolTip = 'Fecha contra la que se mide todo: las fases abiertas, los años y el corte del 30 de junio que rige para esa fecha.';
+                    ToolTip = 'Fecha contra la que se mide todo: las fases abiertas, los años y el corte del 30 de junio que rige para esa fecha. Por defecto es el fin del mes en curso, que es la fecha con la que el motor mide la antigüedad en el recibo; con otra fecha, lo que se ve puede diferir del cálculo de la liquidación y la página lo avisa.';
 
                     trigger OnValidate()
+                    var
+                        EstadoMgt: Codeunit "Gestión Estado Empleado";
                     begin
+                        EstadoMgt.AvisarSiNoEsFinDeMes(FFechaRef);
                         Cargar();
                     end;
                 }
@@ -229,7 +232,7 @@ page 110029 "Antigüedad de la Plantilla"
     trigger OnOpenPage()
     begin
         if FFechaRef = 0D then
-            FFechaRef := WorkDate();
+            FFechaRef := CalcDate('<CM>', WorkDate());   // fin de mes: es la fecha con la que el motor mide la antigüedad
         FSoloDeAlta := true;
         Cargar();
     end;
@@ -269,7 +272,7 @@ page 110029 "Antigüedad de la Plantilla"
         MostrarDlg: Boolean;
     begin
         if FFechaRef = 0D then
-            FFechaRef := WorkDate();
+            FFechaRef := CalcDate('<CM>', WorkDate());   // fin de mes: es la fecha con la que el motor mide la antigüedad
 
         Rec.Reset();
         Rec.DeleteAll();

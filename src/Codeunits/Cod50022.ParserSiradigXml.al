@@ -94,11 +94,99 @@ codeunit 50022 "Parser SIRADIG XML"
             TipoValue := ExtractAttributeValue(DeduccionText, 'tipo');
             MontoValue := ExtractXmlValue(DeduccionText, 'montoTotal');
 
+            if MontoValue = '' then
+                MontoValue := '0';
             if JsonText <> '[' then
                 JsonText += ',';
-            JsonText += StrSubstNo('{"tipo":%1,"monto":%2}', TipoValue, MontoValue);
+            JsonText += StrSubstNo('{"tipo":%1,"monto":%2,"descripcion":"%3","periodos":%4}',
+                TipoValue, MontoValue, EscaparJson(DescripcionDeduccion(DeduccionText)), ExtractPeriodosJson(DeduccionText));
 
             SearchPos := EndPos + 12;
+        end;
+
+        JsonText += ']';
+        exit(JsonText);
+    end;
+
+    // A quién o a qué corresponde la deducción: "<CUIT> - <proveedor>" (descBasica) y, en el gasto educativo, el
+    // familiar que va en <detalle nombre="apellidoNombreFamiliar" valor="..."/>. El nroDoc/denominacion del
+    // <deduccion> es el del proveedor y no el de un familiar: no sirve para vincular con Employee Relative.
+    local procedure DescripcionDeduccion(var DeduccionText: Text): Text
+    var
+        Descripcion: Text;
+        Familiar: Text;
+        Pos: Integer;
+        Etiqueta: Text;
+    begin
+        Descripcion := DesescaparXml(ExtractXmlValue(DeduccionText, 'descBasica'));
+        Etiqueta := 'nombre="apellidoNombreFamiliar"';
+        Pos := DeduccionText.IndexOf(Etiqueta);
+        if Pos > 0 then begin
+            Familiar := DeduccionText.Substring(Pos);
+            if Familiar.IndexOf('/>') > 0 then
+                Familiar := Familiar.Substring(1, Familiar.IndexOf('/>'));
+            Familiar := DesescaparXml(ExtractAttributeValue(Familiar, 'valor'));
+            if Familiar <> '' then
+                if Descripcion = '' then
+                    Descripcion := Familiar
+                else
+                    Descripcion += ' · ' + Familiar;
+        end;
+        exit(Descripcion);
+    end;
+
+    local procedure DesescaparXml(Texto: Text): Text
+    begin
+        exit(Texto.Replace('&quot;', '"').Replace('&apos;', '''').Replace('&lt;', '<').Replace('&gt;', '>').Replace('&amp;', '&'));
+    end;
+
+    local procedure EscaparJson(Texto: Text): Text
+    begin
+        exit(Texto.Replace('\', '\\').Replace('"', '\"'));
+    end;
+
+    // El detalle mensual de una deducción: <periodo mesDesde="1" mesHasta="12" montoMensual="45000"/>.
+    // "montoTotal" es la suma de todos los meses; lo que el motor necesita es el importe de cada mes.
+    local procedure ExtractPeriodosJson(var DeduccionText: Text): Text
+    var
+        JsonText: Text;
+        SearchPos: Integer;
+        StartPos: Integer;
+        EndPos: Integer;
+        PeriodoText: Text;
+        MesDesde: Text;
+        MesHasta: Text;
+        Monto: Text;
+    begin
+        JsonText := '[';
+        SearchPos := 1;
+
+        while true do begin
+            // Con el espacio: "<periodos>" también empieza con "<periodo".
+            StartPos := DeduccionText.IndexOf('<periodo ', SearchPos);
+            if StartPos = 0 then
+                break;
+
+            EndPos := DeduccionText.IndexOf('/>', StartPos);
+            if EndPos = 0 then
+                break;
+
+            PeriodoText := DeduccionText.Substring(StartPos, EndPos - StartPos + 2);
+            MesDesde := ExtractAttributeValue(PeriodoText, 'mesDesde');
+            MesHasta := ExtractAttributeValue(PeriodoText, 'mesHasta');
+            Monto := ExtractAttributeValue(PeriodoText, 'montoMensual');
+            if MesDesde = '' then
+                MesDesde := '0';
+            if MesHasta = '' then
+                MesHasta := '0';
+            if Monto = '' then
+                Monto := '0';
+
+            if JsonText <> '[' then
+                JsonText += ',';
+            JsonText += StrSubstNo('{"d":%1,"h":%2,"m":%3}', MesDesde, MesHasta, Monto);
+
+            SearchPos := EndPos + 2;
         end;
 
         JsonText += ']';

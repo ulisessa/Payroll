@@ -5,10 +5,83 @@ codeunit 50021 "Test Evaluador Fórmula"
     Subtype = Test;
     TestPermissions = Disabled;
 
-    // Unit tests for the formula evaluator. No DB writes — pure expression tests.
+    // Unit tests for the formula evaluator, including attribute catalog fixtures.
     // Assertions use Error() so a failing test surfaces directly in the runner output.
 
     // ── Arithmetic ────────────────────────────────────────────────────────────
+
+    [Test]
+    procedure AtributoComparaCodigoAunqueNumeroSeRepita()
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Codigos: Dictionary of [Text, Text];
+    begin
+        PrepararAtributoLista();
+        Ctx.Add('TEST_ATR_COD', 7);
+        Codigos.Add('TEST_ATR_COD', '729/15');
+        Evaluador.Init(Ctx, Today());
+        Evaluador.SetCodigosAtributos(Codigos);
+        AssertEq(10, Evaluador.EvalFormula('IF(TEST_ATR_COD = ''729/15'', 10, 20)'), 'código vigente');
+        AssertEq(20, Evaluador.EvalFormula('IF(TEST_ATR_COD = ''175/75'', 10, 20)'), 'mismo número, distinto código');
+        AssertEq(10, Evaluador.EvalFormula('IF(TEST_ATR_COD <> ''175/75'', 10, 20)'), 'desigualdad');
+        AssertEq(10, Evaluador.EvalFormula('IF(TEST_ATR_COD = 7, 10, 20)'), 'compatibilidad numérica');
+        AssertEq(1, Evaluador.EvalFormula('test_atr_cod = ''729/15'' AND TEST_ATR_COD <> ''175/75'''), 'comparación directa y AND');
+        asserterror Evaluador.EvalCondicion('TEST_ATR_COD = ''729/15'' + 2');
+        asserterror Evaluador.EvalCondicion('TEST_ATR_COD = ''729/15');
+        asserterror Evaluador.EvalCondicion('''729/15'' = TEST_ATR_COD');
+        Codigos.Set('TEST_ATR_COD', 'D''ANGELO');
+        Evaluador.SetCodigosAtributos(Codigos);
+        AssertEq(1, Evaluador.EvalFormula('TEST_ATR_COD = ''D''''ANGELO'''), 'código con apóstrofe');
+        Codigos.Set('TEST_ATR_COD', '');
+        Evaluador.SetCodigosAtributos(Codigos);
+        AssertEq(20, Evaluador.EvalFormula('IF(TEST_ATR_COD = ''729/15'', 10, 20)'), 'sin asignación');
+    end;
+
+    [Test]
+    procedure AtributoValidaCodigosSinEmpleado()
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Resultado: Decimal;
+    begin
+        PrepararAtributoLista();
+        Ctx.Add('TEST_ATR_COD', 0);
+        Evaluador.Init(Ctx, Today());
+        Evaluador.SetModoValidacion(true);
+        AssertEq(20, Evaluador.EvalFormula('IF(TEST_ATR_COD = ''729/15'', 10, 20)'), 'validación sin contexto real');
+        asserterror Evaluador.EvalFormula('IF(TEST_ATR_COD = ''NO_EXISTE'', 10, 20)');
+        asserterror Evaluador.EvalFormula('IF(TEST_ATR_COD > ''729/15'', 10, 20)');
+        asserterror Evaluador.EvalFormula('IF(TEST_ATR_COD + 1 = ''729/15'', 10, 20)');
+        // También verifica la primera pasada de validación al guardar un concepto.
+        Evaluador.SetModoValidacion(false);
+        Evaluador.SetLenientMode(true);
+        Resultado := Evaluador.EvalFormula('IF(TEST_ATR_COD = ''729/15'', 10, 20)');
+        AssertEq(20, Resultado, 'validación tolerante');
+        Evaluador.SetLenientMode(false);
+        asserterror Evaluador.EvalFormula('IF(TEST_ATR_COD = ''729/15'', 10, 20)');
+    end;
+
+    local procedure PrepararAtributoLista()
+    var
+        Tipo: Record "Tipo Atributo Liq.";
+        Valor: Record "Valor Atributo Liq.";
+    begin
+        Tipo.Init();
+        Tipo.Código := 'TEST_ATR_COD';
+        Tipo."Nombre Variable" := 'TEST_ATR_COD';
+        Tipo."Tipo Dato" := Tipo."Tipo Dato"::Lista;
+        Tipo.Insert();
+        Valor.Init();
+        Valor."Cód. Tipo Atributo" := Tipo.Código;
+        Valor.Código := '729/15';
+        Valor."Valor Numérico" := 7;
+        Valor.Insert();
+        Valor.Código := '175/75';
+        Valor.Insert();
+        Valor.Código := 'D''ANGELO';
+        Valor.Insert();
+    end;
 
     [Test]
     procedure SumaSimple()
@@ -115,6 +188,35 @@ codeunit 50021 "Test Evaluador Fórmula"
         if not OK then
             Error('IF lazy: la rama true con división por cero NO debería evaluarse. Error: %1', GetLastErrorText());
         AssertEq(42, Result, 'IF lazy con rama true muerta peligrosa');
+    end;
+
+    [Test]
+    procedure IfZeroDevuelveElValorOLaAlternativa()
+    begin
+        AssertEq(0.3, Eval('IFZERO(0.3, 1)'), 'IFZERO con valor cargado devuelve el valor');
+        AssertEq(1, Eval('IFZERO(0, 1)'), 'IFZERO con cero devuelve la alternativa');
+        // El caso que motivó la función: un parámetro sin vigencia resuelve a cero y
+        // multiplicar por él da cero sin avisar.
+        AssertEq(500, Eval('500 * IFZERO(0, 1)'), 'IFZERO neutraliza el parámetro ausente');
+        AssertEq(150, Eval('500 * IFZERO(0.3, 1)'), 'IFZERO no toca el parámetro presente');
+        // Negativo no es cero: tiene que pasar tal cual.
+        AssertEq(-2, Eval('IFZERO(-2, 1)'), 'IFZERO con negativo devuelve el negativo');
+    end;
+
+    [Test]
+    procedure IfZeroEsPerezosa()
+    var
+        Evaluador: Codeunit "Evaluador Fórmula";
+        Ctx: Dictionary of [Text, Decimal];
+        Result: Decimal;
+        OK: Boolean;
+    begin
+        // La alternativa no se evalúa si el valor no es cero: si fuera eager, el 5 / 0 abortaría.
+        Evaluador.Init(Ctx, WorkDate());
+        OK := Evaluador.TryEvalFormula('IFZERO(42, 5 / 0)', Result);
+        if not OK then
+            Error('IFZERO lazy: la alternativa NO debería evaluarse. Error: %1', GetLastErrorText());
+        AssertEq(42, Result, 'IFZERO lazy con alternativa peligrosa');
     end;
 
     // ── Comparadores y booleanos ─────────────────────────────────────────────

@@ -10,5 +10,6 @@ codeunit 50056 "Tipo Liq. Install"
     begin
         GestionTipoLiq.Sembrar();
         GestionTipoLiq.MigrarDatos();
+        GestionTipoLiq.ConfigurarDisparadores();
     end;
 }

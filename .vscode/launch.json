@@ -65,6 +65,15 @@
             "sessionId": 38,
             "breakOnNext": "WebClient",
             "executionContext": "DebugAndProfile"
+        },
+        {
+            "name": "AL: Generated Download Symbols request",
+            "request": "launch",
+            "type": "al",
+            "server": "https://mimir.arbumasa.net.ar",
+            "serverInstance": "BC252",
+            "authentication": "Windows",
+            "port": 7049
         }
     ]
 }

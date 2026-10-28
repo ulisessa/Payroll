@@ -65,16 +65,33 @@ table 110055 "Columna Hist. Meta4"
             // A qué concepto de BC corresponde esta columna. Sale de M4SYS_CONCEPTOS, que liga
             // ID_CONCEPTO con NOMBRE_CORTO — y los códigos de concepto de BC son esos ID_CONCEPTO.
             //
-            // ES UNA AYUDA PARA COMPARAR, NO UNA AUTORIDAD, y la diferencia importa. La equivalencia
-            // por nombre es PARCIAL: el NOMBRE_CORTO es el nombre interno del concepto, que no
-            // siempre coincide con el de la columna física. El caso que lo demuestra es 1003 Sueldo,
-            // cuyo NOMBRE_CORTO es SAL_BASE mientras que en las tablas anchas la columna se llama
-            // SUELDO — y es el concepto más grande de todos. Reconstruir importes desde este mapeo
-            // dio 25% bajo; por eso las bases de Ganancias NO salieron de acá sino de diferenciar
-            // los acumuladores propios de Meta4.
+            // ES UNA AYUDA PARA COMPARAR, NO UNA AUTORIDAD. Reconstruir importes desde este mapeo dio
+            // 25% bajo, y por eso las bases de Ganancias NO salieron de acá sino de diferenciar los
+            // acumuladores propios de Meta4.
+            //
+            // El mapeo por NOMBRE_CORTO es parcial —ése es el nombre interno del concepto y no
+            // siempre coincide con el de la columna física: 1003 Sueldo tiene NOMBRE_CORTO SAL_BASE
+            // mientras la columna se llama SUELDO, y es el concepto más grande de todos—. Cruzando
+            // por N_ACUMULADO en cambio SÍ resuelve, y de ahí sale "Cód. Concepto Meta4": el campo
+            // nuevo encontró doce columnas que este mapeo no tenía, entre ellas justamente SUELDO
+            // (1003) y PR_FRANCO (1062).
             //
             // Sirve para lo que sirve: mirar un mes y ver qué concepto explica una diferencia. Que
             // una columna quede sin concepto no es un error, es que no hay equivalencia conocida.
+        }
+        field(10; "Cód. Concepto Meta4"; Code[20])
+        {
+            Caption = 'Concepto Meta4';
+            DataClassification = CustomerContent;
+            Editable = false;
+            // El ID_CONCEPTO de M4SYS_CONCEPTOS para esta columna, cruzado por N_ACUMULADO. Va aparte
+            // del "Concepto BC" PORQUE SON DOS COSAS: éste es el dato de Meta4 tal cual, y el otro es
+            // la equivalencia que decidimos nosotros. Mientras vivían en un solo campo no se podía
+            // ver dónde la equivalencia se había apartado del dato, que es justo lo que hay que
+            // revisar cuando una comparación no cierra.
+            //
+            // Los códigos de BC se copiaron de los de Meta4, así que lo NORMAL es que los dos campos
+            // coincidan; una fila donde difieren es una decisión, y conviene que esté a la vista.
         }
         field(9; "Mapeo Verificado"; Boolean)
         {

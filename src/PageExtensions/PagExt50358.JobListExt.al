@@ -6,6 +6,28 @@ pageextension 50358 "Proyecto Pesca List Ext." extends "Job List"
 {
     actions
     {
+        addfirst(Processing)
+        {
+            action(VerAtributosProyectoList)
+            {
+                ApplicationArea = All;
+                Caption = 'Atributos';
+                Image = Dimensions;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                Enabled = Rec."No." <> '';
+                ToolTip = 'Consulta, modifica y agrega atributos del proyecto seleccionado, con sus vigencias anteriores, actuales y futuras.';
+
+                trigger OnAction()
+                var
+                    AtributosUI: Codeunit "Atributos Entidad UI";
+                begin
+                    Rec.TestField("No.");
+                    AtributosUI.AbrirHistorialEntidad("Tipo Entidad Estado"::Proyecto, Rec."No.");
+                end;
+            }
+        }
         addlast(reporting)
         {
             action(ControlLiquidacionExcelList)

@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 page 50145 "Concepto Liq. Card"
 {
@@ -48,6 +48,11 @@ page 50145 "Concepto Liq. Card"
                     ApplicationArea = All;
                     ToolTip = 'Rubro del costo laboral al que pertenece este concepto (Sindical, Seguridad Social, Obra Social, INSSJP, ART, SCVO). Se usa para el detalle de composición del costo laboral en el recibo de sueldo.';
                 }
+                field("Columna SICOSS"; Rec."Columna SICOSS")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'En qué columna del reporte mensual de SICOSS entra el importe de este concepto. Es un eje aparte del Grupo Costo Laboral: el grupo dice de qué rubro es el costo, esto dice en qué casillero de la declaración se informa. En blanco el concepto no se declara, y si igual liquida importe aparece en la hoja Avisos del reporte.';
+                }
                 field("Aplica A"; Rec."Aplica A") { ApplicationArea = All; }
                 field("Par CCT a Usar"; Rec."Par CCT a Usar")
                 {
@@ -73,7 +78,16 @@ page 50145 "Concepto Liq. Card"
                         end;
                     end;
                 }
-                field("Orden Cálculo"; Rec."Orden Cálculo") { ApplicationArea = All; }
+                field("Orden Cálculo"; Rec."Fórmula Orden Cálculo")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Orden de cálculo';
+                    ToolTip = 'Orden de esta vigencia. El botón de asistencia revisa sus acumuladores relacionados y permite proponer una corrección para este concepto; no ejecuta la corrección global.';
+                    trigger OnAssistEdit()
+                    begin
+                        AbrirControlOrden();
+                    end;
+                }
                 // "Activo" ya no se muestra: dejó de tener efecto en el cálculo y verlo en No sobre
                 // un concepto que igual se liquida es peor que no verlo. La baja va por "Vigencia
                 // Hasta"; las versiones que quedaron en false se revisan desde su propia página.
@@ -98,10 +112,32 @@ page 50145 "Concepto Liq. Card"
                     ApplicationArea = All;
                     ToolTip = 'Rol del concepto en el ledger FIFO de francos. Devengo: acumula días de franco (usar con Es Devengo). Consumo: paga francos disfrutados (importe = PAGO_FRANCOS_FIFO, valuado por la categoría de cada lote).';
                 }
+                field("Fuente Matriz"; Rec."Fuente Matriz") { ApplicationArea = All; }
+                field("Cantidad Matriz"; Rec."Cantidad Matriz") { ApplicationArea = All; }
+                field("Factor Importe Consumo"; Rec."Factor Importe Consumo")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Multiplica sólo el importe de los lotes FIFO; conserva los días consumidos. Vacío equivale a uno.';
+                }
                 field("Cód. Tipo Atributo Detalle"; Rec."Cód. Tipo Atributo Detalle")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Qué atributo del empleado explica esta línea. Cargado, la liquidación muestra al lado del importe la descripción del valor que el empleado tenía en ese atributo a esa fecha: en la cuota sindical, el gremio; en el aporte de obra social, la obra social. No interviene en el cálculo.';
+                }
+                field("Cód. Parámetro Valor"; Rec."Cód. Parámetro Valor")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Parámetro base del que sale el valor unitario cuando el precio no lo pone la fórmula sino el motor, como en el consumo de francos. Se le agregan el convenio y la categoría del lote, y el sufijo del atributo de precio si hay: VALOR_FRANCO_LAN_729/15_MR05.';
+                }
+                field("Cód. Tipo Atributo Precio"; Rec."Cód. Tipo Atributo Precio")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Atributo cuyo valor aporta un sufijo al código del parámetro, preguntado a la entidad del lote y a la fecha en que se devengó. Con TIPOACTIVIDAD del buque, un franco ganado en un tangonero se valúa distinto que uno ganado en un potero. Vacío = un solo precio por convenio y categoría.';
+                }
+                field("Divisor Valor"; Rec."Divisor Valor")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Por cuánto se divide el parámetro para llevarlo a la unidad del concepto. 30 cuando el parámetro está por mes y el concepto paga por día. Cero = el parámetro ya está en la unidad correcta.';
                 }
             }
             group(GrpFormula)
@@ -140,6 +176,13 @@ page 50145 "Concepto Liq. Card"
                     begin
                         GuardarTextoDeEditor(Campo, Texto);
                         EnviarDiagnostico(Campo);
+                    end;
+
+                    trigger OnAbrirFicha(Tipo: Text; Nombre: Text)
+                    var
+                        AbrirFicha: Codeunit "Abrir Ficha Fórmula Liq.";
+                    begin
+                        AbrirFicha.Abrir(Tipo, Nombre);
                     end;
                 }
             }
@@ -210,6 +253,36 @@ page 50145 "Concepto Liq. Card"
     {
         area(Processing)
         {
+            action(RecalcularOrdenes)
+            {
+                ApplicationArea = All;
+                Caption = 'Recalcular órdenes';
+                Image = Calculate;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                AccessByPermission = tabledata "Concepto Liquidación" = I;
+                ToolTip = 'Abre la revisión de esta vigencia y sus acumuladores relacionados. Permite corregir el orden de este concepto, o los aportes de su base si es acumulador. Conserva fórmulas y recibos; no ejecuta una corrección global.';
+                trigger OnAction()
+                begin
+                    AbrirControlOrden();
+                end;
+            }
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué otras fórmulas, condiciones, filtros y acumuladores nombran a este concepto, y cuáles lo leen antes de que esté calculado.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec.Código);
+                    PagUsos.Run();
+                end;
+            }
             action(FormatearFormula)
             {
                 ApplicationArea = All;
@@ -447,6 +520,19 @@ page 50145 "Concepto Liq. Card"
         FTextoPlanoVisible := true;
     end;
 
+    local procedure AbrirControlOrden()
+    var
+        ControlOrden: Page "Control Orden Acumuladores";
+    begin
+        Rec.TestField(Código);
+        CurrPage.SaveRecord();
+        // Guardar puede actualizar la rowversion física sin refrescar la copia de la ficha.
+        Rec.Get(Rec.Código, Rec."Vigencia Desde");
+        ControlOrden.ConfigurarConcepto(Rec);
+        // Run abre la revisión después de guardar, sin diálogo modal ni Commit adicional.
+        ControlOrden.Run();
+    end;
+
     /// <remarks>
     /// El control de sintaxis del campo (OnValidate en Concepto Liquidación) NO corre por el camino
     /// del editor: el add-in guarda con asignación directa y Modify, que dispara el trigger de la
@@ -620,6 +706,7 @@ page 50145 "Concepto Liq. Card"
         else begin
             AsegurarContexto();
             Evaluador.Init(FCtxCatalogo, WorkDate());
+            Evaluador.SetModoValidacion(true);
             if Campo = CampoCondicionTok then begin
                 if Evaluador.TryEvalCondicion(Texto, ValorBool) then
                     AgregarDiag(Diag, 'ok', ValoresOrientativosMsg, Format(ValorBool))

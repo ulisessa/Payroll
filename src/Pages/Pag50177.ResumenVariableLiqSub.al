@@ -13,6 +13,7 @@ page 50177 "Resumen Variable Liq. Sub"
     Caption = 'Contexto del Cálculo';
     PageType = ListPart;
     SourceTable = "Resumen Variable Liq.";
+    SourceTableTemporary = true;
     SourceTableView = SORTING("No. Liquidación", "Nombre Variable");
     Editable = false;
 
@@ -29,7 +30,30 @@ page 50177 "Resumen Variable Liq. Sub"
                     ApplicationArea = All;
                     Style = Strong;
                 }
+                field(Moneda; Rec.Moneda)
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'En una cotización, la moneda del tipo de cambio con el que se calculó.';
+                }
+                field("Fecha Cotización"; Rec."Fecha Cotización")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'En una cotización, la fecha a la que se pidió el tipo de cambio.';
+                }
             }
         }
     }
+
+    /// <summary>
+    /// Carga todas las variables de la liquidación: las guardadas y los parámetros que el resumen omite porque ya están en el uso
+    /// del parámetro. Lo llama la ficha al cambiar de registro.
+    /// </summary>
+    procedure Cargar(LiqNo: Code[20])
+    var
+        VariablesGuardadas: Codeunit "Variables Guardadas Liq.";
+    begin
+        VariablesGuardadas.Cargar(LiqNo, Rec);
+        if Rec.FindFirst() then;
+        CurrPage.Update(false);
+    end;
 }

@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.Foundation.UOM;
 using Microsoft.HumanResources.Employee;
@@ -27,6 +27,8 @@ table 60012 "Línea Liquidación"
 
     fields
     {
+        field(32; "No. Lote Franco"; Integer) { DataClassification = CustomerContent; Editable = false; }
+        field(33; "Id. Selección Francos"; Guid) { DataClassification = CustomerContent; Editable = false; }
         field(1; "No. Liquidación"; Code[20])
         {
             Caption = 'No. Liquidación';
@@ -82,8 +84,9 @@ table 60012 "Línea Liquidación"
             Caption = 'Fuente Parámetros';
             DataClassification = CustomerContent;
             Editable = false;
-            // Pipe-separated list of "PARAM_CODE|DATE" pairs identifying which
-            // ParametroVigente records were used, for audit traceability.
+            // Lo que leyó la fórmula de ESTE concepto (VAR:, TRAMO:, ACUMCCT:…), separado por |. Hasta la 1.0.0.696 llevaba delante
+            // la traza del contexto de toda la liquidación, que la cortaba en 2048 antes de llegar a las variables del concepto; ahora
+            // esa traza va una sola vez en "Liquidación"."Traza Contexto".
         }
         field(31; "Vigencias Distribución"; Text[250])
         {
@@ -212,10 +215,17 @@ table 60012 "Línea Liquidación"
 
     keys
     {
+        // SIN SumIndexFields A PROPOSITO. Una SIFT sobre la clave primaria agrupa por
+        // (No. Liquidación, No. Línea), que es única: la vista indexada terminaba con UNA FILA POR
+        // LÍNEA —104.588, igual que la tabla— y no ahorraba ninguna suma. Ningún CalcSums la usaba:
+        // los de UpdateTotals y CalcNetoDesdeBD filtran por "Es Devengo" y "Tipo Concepto" y van a
+        // K2; los acumulados recorren los índices ordinarios K4/K5 y suman en memoria. Medido
+        // sobre 90 horas de uso real de la antigua SIFT de PK: 0 lecturas contra
+        // 1.020.888 mantenimientos. Mantener una vista indexada es la escritura más cara que hay, y
+        // esta tabla es el 45% del tiempo ocupado del cálculo.
         key(PK; "No. Liquidación", "No. Línea")
         {
             Clustered = true;
-            SumIndexFields = Importe;
         }
         // "Es Devengo" va en el MEDIO a propósito: los dos únicos consumidores de esta SIFT
         // (UpdateTotals y CalcNetoDesdeBD en Cod50014) filtran siempre por los tres campos.
@@ -230,13 +240,18 @@ table 60012 "Línea Liquidación"
         key(K3; "No. Liquidación", "Orden Cálculo", "No. Línea")
         {
         }
+        // Se conservan las claves de lectura y el contrato de CalcSums, sin mantener las vistas
+        // acumuladas por empleado en cada INSERT/DELETE. Los lectores anual/período suman en
+        // memoria; K2 sigue manteniendo la SIFT usada por los totales y el neto de grossing-up.
         key(K4; "No. Empleado", "Fecha Liquidación", "Tipo Concepto")
         {
             SumIndexFields = Importe;
+            MaintainSIFTIndex = false;
         }
         key(K5; "No. Empleado", "Cód. Período", "Tipo Concepto")
         {
             SumIndexFields = Importe;
+            MaintainSIFTIndex = false;
         }
         // Consultas de configuración: "¿esta versión del concepto ya se usó, y después de qué
         // fecha?". La usa Concepto Liquidación para no dejar cerrar una vigencia por delante de una
@@ -245,6 +260,16 @@ table 60012 "Línea Liquidación"
         // problema que describe el comentario de K2.
         key(K6; "Cód. Concepto", "Vigencia Concepto", "Fecha Liquidación")
         {
+        }
+        // Lecturas por concepto + empleado + fecha: el ledger de francos (Cod50053) y los acumulados
+        // por concepto. Reemplaza al missing_index_5916_5915, que SQL había armado con CUATRO columnas
+        // de clave y las 30 restantes en INCLUDE: una copia entera de la tabla (357 MB contra 275 del
+        // clustered), que cada Insert y cada Delete del cálculo tenía que mantener. Estado queda
+        // afuera —se filtra con un <> y en el medio cortaría el rango de fechas—; Cantidad e Importe
+        // viajan incluidos porque son lo único que esas lecturas traen.
+        key(K7; "Cód. Concepto", "No. Empleado", "Fecha Liquidación")
+        {
+            IncludedFields = Cantidad, Importe;
         }
     }
 

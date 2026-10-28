@@ -4,8 +4,51 @@ using Microsoft.Projects.Project.Job;
 
 pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
 {
+    // QUÉ SE CARGA Y EN QUÉ ORDEN. Medido sobre los 263 proyectos creados desde 10/2025: de la ficha estándar sólo se completan
+    // descripción, estado, fechas y —en 11 casos— el cliente. Todo lo demás (facturación, envío, WIP, comercio exterior,
+    // responsables) queda oculto por defecto; sigue disponible desde "Personalizar" o "Mostrar más". Lo que define una marea va
+    // primero y en el orden en que se conoce: qué es (tipo, buque, marea), cuándo zarpa, cuándo arriba, y cómo se trata al personal.
     layout
     {
+        // General: identidad del proyecto.
+        addafter(Description)
+        {
+            field(TipoProyectoPesca; Rec.Tipo)
+            {
+                ApplicationArea = All;
+                ToolTip = 'Productivo (marea o planta) o de nómina (improductivo). Decide qué liquidaciones corresponden y el destino de nómina del personal.';
+            }
+            // CaptionClass literal ('3,…'): el del campo toma el nombre de la dimensión global ("Cód. departamento", "Marea/Ciudad"),
+            // que en esta empresa no dice lo que es para un proyecto de pesca.
+            field(BuqueProyecto; Rec."Global Dimension 1 Code")
+            {
+                ApplicationArea = All;
+                CaptionClass = '3,Buque';
+                ToolTip = 'Buque del proyecto (dimensión global 1). De él salen los atributos del buque, como el proyecto de nómina y la veda.';
+            }
+            field(MareaProyecto; Rec."Global Dimension 2 Code")
+            {
+                ApplicationArea = All;
+                CaptionClass = '3,Marea';
+                ToolTip = 'Marea (dimensión global 2).';
+            }
+        }
+        moveafter(MareaProyecto; Status)
+
+        // Fechas de la marea: zarpada y arribo, cada fecha con su hora.
+        modify(Duration)
+        {
+            Caption = 'Fechas de la marea';
+        }
+        addafter("Starting Date")
+        {
+            field("Hora de zarpada"; Rec."Hora de zarpada")
+            {
+                ApplicationArea = All;
+                Caption = 'Hora de zarpada';
+                ToolTip = 'Hora de salida del puerto. AM (antes de las 12:00) = día de navegación; PM (12:00 o después) = día de puerto.';
+            }
+        }
         addafter("Ending Date")
         {
             field("Hora ingreso a puerto"; Rec."Hora ingreso a puerto")
@@ -13,12 +56,6 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                 ApplicationArea = All;
                 Caption = 'Hora de arribo';
                 ToolTip = 'Hora de entrada a puerto. AM (antes de las 12:00) = día de puerto; PM (12:00 o después) = día de navegación.';
-            }
-            field("Hora de zarpada"; Rec."Hora de zarpada")
-            {
-                ApplicationArea = All;
-                Caption = 'Hora de zarpada';
-                ToolTip = 'Hora de salida del puerto. AM (antes de las 12:00) = día de navegación; PM (12:00 o después) = día de puerto.';
             }
             field("Estado Liq. Personal Predet."; Rec."Estado Liq. Personal Predet.")
             {
@@ -36,6 +73,24 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                 ToolTip = 'Proyecto al que se asigna automáticamente un empleado de esta marea cuando pasa de un estado activo a uno inactivo (ej. NV → FR). Si está en blanco, se usa el "Proyecto Nómina" de Configuración RR.HH.';
             }
         }
+        // Lo que no se carga, oculto por defecto.
+        modify("Sell-to Customer No.") { Visible = false; }
+        modify("Sell-to Customer Name") { Visible = false; }
+        modify("Sell-to") { Visible = false; }
+        modify("Search Description") { Visible = false; }
+        modify("External Document No.") { Visible = false; }
+        modify("Your Reference") { Visible = false; }
+        modify("Person Responsible") { Visible = false; }
+        modify(Blocked) { Visible = false; }
+        modify("Last Date Modified") { Visible = false; }
+        modify("Project Manager") { Visible = false; }
+        modify("No. of Archived Versions") { Visible = false; }
+        modify("Creation Date") { Visible = false; }
+        modify(Posting) { Visible = false; }
+        modify("Invoice and Shipping") { Visible = false; }
+        modify("Foreign Trade") { Visible = false; }
+        modify("WIP and Recognition") { Visible = false; }
+
         addlast(FactBoxes)
         {
             part(Personal; "Personal Proyecto")
@@ -50,6 +105,28 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
 
     actions
     {
+        addfirst(processing)
+        {
+            action(VerAtributosProyecto)
+            {
+                ApplicationArea = All;
+                Caption = 'Atributos';
+                Image = Dimensions;
+                Promoted = true;
+                PromotedCategory = Process;
+                PromotedIsBig = true;
+                Enabled = Rec."No." <> '';
+                ToolTip = 'Consulta, modifica y agrega atributos de este proyecto, con sus vigencias anteriores, actuales y futuras.';
+
+                trigger OnAction()
+                var
+                    AtributosUI: Codeunit "Atributos Entidad UI";
+                begin
+                    Rec.TestField("No.");
+                    AtributosUI.AbrirHistorialEntidad("Tipo Entidad Estado"::Proyecto, Rec."No.");
+                end;
+            }
+        }
         addlast(reporting)
         {
             action(ControlLiquidacionExcel)

@@ -1,0 +1,47 @@
+[
+  {
+    "Codigo": "1003",
+    "Desde": "2023-01-12T00:00:00",
+    "Descripcion": "Sueldo",
+    "Condicion": "",
+    "Tipos": "",
+    "ParCCT": 0,
+    "Formula": "round(\n    IF(\n        ES_GROSSING_UP > 0,\n        COMPLEMENTO_GU,\n        round(IF(BASICO_ESFCY, BASICO * TC_VENDEDOR, BASICO), 0.0001)\n    ),\n    PRECISION_REDONDEO\n)"
+  },
+  {
+    "Codigo": "1053",
+    "Desde": "2023-01-12T00:00:00",
+    "Descripcion": "Antiguedad Tripulación",
+    "Condicion": "",
+    "Tipos": "",
+    "ParCCT": 0,
+    "Formula": "IF(\n    TIPOACTIVIDAD = 1,\n    round(\n        PRECIO_NAV_CAL / 30 * (#PCT_ANTIG_SOMU + #PCT_ANTIG_OFICIALES) / 100 * (\n            DIAS_VAC_INICIO + DIAS_PROYECTO + DIAS_PUERTO + DIAS_FRANCOS_PERIODO\n                + DIAS_ORD_PERIODO\n        ) * IFZERO(COEF_POTERO, 1),\n        PRECISION_REDONDEO\n    ),\n    round(\n        PRECIO_NAV_LAN / 30 * (#PCT_ANTIG_SOMU + #PCT_ANTIG_OFICIALES) / 100 * (\n            DIAS_VAC_INICIO + DIAS_PROYECTO + DIAS_PUERTO + DIAS_FRANCOS_PERIODO\n                + DIAS_ORD_PERIODO\n        ) * IF(COEF_TANGONERO = 0, 1, COEF_TANGONERO),\n        PRECISION_REDONDEO\n    )\n)"
+  },
+  {
+    "Codigo": "2003",
+    "Desde": "2026-01-01T00:00:00",
+    "Descripcion": "A cuenta futuros aumentos (175/75)",
+    "Condicion": "",
+    "Tipos": "CIERRE_MAREA",
+    "ParCCT": 0,
+    "Formula": "IF(\n    TIPOACTIVIDAD = 1,\n    #PROD_EMPRESA\n        - PROD_KN_MAREA / 1000 * USD_TON_PROD * TC_COMPRADOR * PCT_DOLAR_PROD / 100 * PCT_PROD_CAPECA / 100,\n    (\n        #2499 + IF(#2073 <> 0, #2499 * PCT_TAR_MEC, 0) - @2610\n            + PROD_KN_MAREA / 1000 * VALOR_PLUS_PROD * TC_COMPRADOR\n    ) * COEF_TANGONERO - BASE_IG4\n)"
+  },
+  {
+    "Codigo": "PCT_ANTIG_OFICIALES",
+    "Desde": "2023-01-12T00:00:00",
+    "Descripcion": "Porcentaje Antigüedad Oficialidad",
+    "Condicion": "",
+    "Tipos": "CIERRE_MAREA|DEVENGADOS|REGULAR",
+    "ParCCT": 0,
+    "Formula": "CASE(\n    AÑOS_ANTIGUEDAD >= 10, 25,\n    AÑOS_ANTIGUEDAD >= 7, 18,\n    AÑOS_ANTIGUEDAD >= 6, 14,\n    AÑOS_ANTIGUEDAD >= 5, 12,\n    AÑOS_ANTIGUEDAD >= 4, 10,\n    AÑOS_ANTIGUEDAD >= 3, 8,\n    AÑOS_ANTIGUEDAD >= 2, 4,\n    AÑOS_ANTIGUEDAD >= 1, 2,\n    0\n)"
+  },
+  {
+    "Codigo": "PROD_EMPRESA",
+    "Desde": "2026-01-01T00:00:00",
+    "Descripcion": "Producción Acuerdo Empresa",
+    "Condicion": "",
+    "Tipos": "",
+    "ParCCT": 2,
+    "Formula": "PROD_KN_MAREA / 1000 * USD_TON_PROD * TC_COMPRADOR * PCT_PROD / 100\n    + USD_MAREA * TC_COMPRADOR / 30 * DIAS_MAREA + @ADIC_PROD_PESCA"
+  }
+]

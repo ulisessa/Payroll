@@ -43,6 +43,12 @@ table 110004 "Valor Atributo Liq."
             DecimalPlaces = 0 : 6;
             // Lo que ve la fórmula cuando la entidad tiene este valor asignado.
         }
+        field(6; "Sufijo Parámetro"; Code[10])
+        {
+            Caption = 'Sufijo de parámetro';
+            DataClassification = CustomerContent;
+            ToolTip = 'Texto que este valor aporta al código de un parámetro que se resuelve por él. Por ejemplo, el valor PO de TIPOACTIVIDAD lleva CAL, y así el motor busca VALOR_FRANCO_CAL_<convenio>_<categoría>. Vacío = el valor no participa en ningún código de parámetro.';
+        }
         field(5; "Cód. Valor Padre"; Code[20])
         {
             Caption = 'Valor Padre';

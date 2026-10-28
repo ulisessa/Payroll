@@ -34,6 +34,11 @@ controladdin "Editor Fórmula Liq."
     /// mientras se escribe, y de inmediato al salir del campo.</summary>
     event OnTextoCambiado(Campo: Text; Texto: Text);
 
+    /// <summary>El usuario pidió abrir la ficha de lo que hay bajo el cursor (botón derecho).
+    /// Tipo = 'concepto' | 'Parámetro' | 'Fuente Datos' | 'Sistema' | 'Atributo'; Nombre = código del
+    /// concepto o nombre de la variable.</summary>
+    event OnAbrirFicha(Tipo: Text; Nombre: Text);
+
     /// <summary>Catálogo JSON (funciones, operadores, variables, conceptos) para el autocompletado.</summary>
     procedure SetCatalogo(CatalogoJson: Text);
 

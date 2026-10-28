@@ -95,7 +95,7 @@ page 50171 "Importaciones SIRADIG"
                 ApplicationArea = All;
                 Caption = 'Importar Archivos SIRADIG';
                 Image = Import;
-                ToolTip = 'Selecciona uno o varios archivos SIRADIG (.xml o .xml.zip) desde tu PC para importar.';
+                ToolTip = 'Selecciona uno o varios archivos SIRADIG desde tu PC para importar: .xml, .xml.zip (una presentación) o un .zip con las presentaciones de todos los trabajadores.';
                 AllowMultipleFiles = true;
 
                 trigger OnAction(files: List of [FileUpload])
@@ -120,13 +120,25 @@ page 50171 "Importaciones SIRADIG"
                 ApplicationArea = All;
                 Caption = 'Procesar Importación';
                 Image = Process;
-                ToolTip = 'Procesa la importación seleccionada y actualiza los datos del empleado.';
-                Enabled = (Rec.Estado = "Estado Importación SIRADIG"::"Pendiente Procesar");
+                ToolTip = 'Procesa las importaciones seleccionadas (todas las filas marcadas) que estén pendientes y actualiza los datos de cada empleado.';
 
                 trigger OnAction()
+                var
+                    Seleccion: Record "Importación SIRADIG";
+                    Orquestador: Codeunit "Orquestador SIRADIG";
                 begin
-                    ProcesarImportacionActual();
+                    CurrPage.SetSelectionFilter(Seleccion);
+                    Orquestador.ProcesarFiltradas(Seleccion);
+                    CurrPage.Update(false);
                 end;
+            }
+            action("Ver por Mes")
+            {
+                ApplicationArea = All;
+                Caption = 'Ver por Mes de Presentación';
+                Image = Hierarchy;
+                ToolTip = 'Abre las importaciones agrupadas por mes de presentación y estado, para procesar o eliminar de a un mes entero.';
+                RunObject = Page "Árbol de Importaciones SIRADIG";
             }
             action("Eliminar")
             {
@@ -172,6 +184,9 @@ page 50171 "Importaciones SIRADIG"
                 {
                 }
                 actionref("Procesar Importación_Promoted"; "Procesar Importación")
+                {
+                }
+                actionref("Ver por Mes_Promoted"; "Ver por Mes")
                 {
                 }
             }
@@ -231,27 +246,6 @@ page 50171 "Importaciones SIRADIG"
         HumanResourcesSetup.Modify();
     end;
 
-    local procedure ProcesarImportacionActual()
-    var
-        GestorArchivos: Codeunit "Gestor Archivos SIRADIG";
-        ProcesadorSiradig: Codeunit "Procesador Importación SIRADIG";
-        RutaArchivoOrigen: Text;
-        XmlContent: Text;
-    begin
-        if Rec."Archivo Origen" = '' then begin
-            Message('No se encontró la ruta del archivo origen.');
-            exit;
-        end;
-
-        RutaArchivoOrigen := Rec."Archivo Origen";
-
-        if RutaArchivoOrigen.EndsWith('.zip') then
-            XmlContent := GestorArchivos.DescomprimirArchivoZip(RutaArchivoOrigen)
-        else
-            XmlContent := GestorArchivos.LeerArchivoXml(RutaArchivoOrigen);
-
-        ProcesadorSiradig.ProcesarImportacionSiradig(Rec, XmlContent);
-    end;
 
     local procedure GetInputFolder(): Text
     var

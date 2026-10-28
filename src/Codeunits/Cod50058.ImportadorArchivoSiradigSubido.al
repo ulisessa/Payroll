@@ -14,7 +14,11 @@ codeunit 50058 "Importador Archivo SIRADIG"
         XmlContent: Text;
         Cuil: Code[20];
     begin
-        if FNombreArchivo.EndsWith('.xml.zip') then
+        if FUsaContenido then
+            // El orquestador ya leyó el archivo (un XML suelto, un .xml.zip o una entrada de un ZIP
+            // con todas las presentaciones): FNombreArchivo es el del XML que corresponde al CUIL.
+            XmlContent := FContenido
+        else if FNombreArchivo.EndsWith('.xml.zip') then
             XmlContent := GestorArchivos.DescomprimirArchivoZipDesdeStream(FInStreamArchivo)
         else if FNombreArchivo.EndsWith('.xml') then
             XmlContent := GestorArchivos.LeerArchivoXmlDesdeStream(FInStreamArchivo)
@@ -56,6 +60,17 @@ codeunit 50058 "Importador Archivo SIRADIG"
         FNombreArchivo := NombreArchivo;
         FInStreamArchivo := InStreamArchivo;
         FAutoProcesar := AutoProcesar;
+        FUsaContenido := false;
+    end;
+
+    // Variante con el XML ya leído, para los ZIP que traen muchas presentaciones: los streams de las
+    // entradas no sobreviven al cierre del ZIP, así que se importa desde el texto.
+    procedure SetContenido(NombreArchivo: Text; XmlContent: Text; AutoProcesar: Boolean)
+    begin
+        FNombreArchivo := NombreArchivo;
+        FContenido := XmlContent;
+        FAutoProcesar := AutoProcesar;
+        FUsaContenido := true;
     end;
 
     var
@@ -65,6 +80,8 @@ codeunit 50058 "Importador Archivo SIRADIG"
         AuditoriaAfip: Codeunit "Auditoria AFIP Interface";
         FInStreamArchivo: InStream;
         FNombreArchivo: Text;
+        FContenido: Text;
+        FUsaContenido: Boolean;
         FAutoProcesar: Boolean;
         FDeducciones: Integer;
         FCargas: Integer;

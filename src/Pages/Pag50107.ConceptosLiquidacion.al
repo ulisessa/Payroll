@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 page 50107 "Conceptos Liquidación"
 {
@@ -31,7 +31,7 @@ page 50107 "Conceptos Liquidación"
                 }
                 field("Aplica A"; Rec."Aplica A") { ApplicationArea = All; }
                 field("Tipos Liq. Aplicables"; Rec."Tipos Liq. Aplicables") { ApplicationArea = All; }
-                field("Orden Cálculo"; Rec."Orden Cálculo") { ApplicationArea = All; }
+                field("Orden Cálculo"; Rec."Fórmula Orden Cálculo") { ApplicationArea = All; Caption = 'Orden de cálculo'; }
                 // "Activo" ya no se muestra: dejó de tener efecto en el cálculo y verlo en No sobre
                 // un concepto que igual se liquida es peor que no verlo. La baja va por "Vigencia
                 // Hasta"; las versiones que quedaron en false se revisan desde su propia página.
@@ -40,6 +40,12 @@ page 50107 "Conceptos Liquidación"
                 field("Es Acumulador"; Rec."Es Acumulador") { ApplicationArea = All; Visible = false; }
                 field("Imprime en Recibo"; Rec."Imprime en Recibo") { ApplicationArea = All; }
                 field("Es Devengo"; Rec."Es Devengo") { ApplicationArea = All; }
+                field("Columna SICOSS"; Rec."Columna SICOSS")
+                {
+                    ApplicationArea = All;
+                    Visible = false;
+                    ToolTip = 'En qué columna del reporte mensual de SICOSS entra el importe de este concepto. En blanco el concepto no se declara. Se completa de una vez con "Proponer Columna SICOSS" y se revisa a mano.';
+                }
             }
         }
     }
@@ -48,6 +54,21 @@ page 50107 "Conceptos Liquidación"
     {
         area(Processing)
         {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué otras fórmulas, condiciones, filtros y acumuladores nombran al concepto seleccionado, y cuáles lo leen antes de que esté calculado.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec.Código);
+                    PagUsos.Run();
+                end;
+            }
             action(NuevaVigencia)
             {
                 ApplicationArea = All;
@@ -177,6 +198,23 @@ page 50107 "Conceptos Liquidación"
                     CurrPage.Update(false);
                 end;
             }
+            action(ProponerColumnaSicoss)
+            {
+                ApplicationArea = All;
+                Caption = 'Proponer Columna SICOSS';
+                Image = SuggestField;
+                ToolTip = 'Completa la Columna SICOSS de los conceptos que la tengan en blanco, deduciéndola del Grupo Costo Laboral, el Tipo Concepto y la descripción. No pisa ninguna columna ya asignada ni toca los devengos, que no se declaran. Es una propuesta: hay que revisarla, y el reporte lista en su hoja de Avisos todo concepto con importe que quede sin columna.';
+
+                trigger OnAction()
+                var
+                    Reporte: Codeunit "Reporte SICOSS Liq.";
+                begin
+                    if not Confirm(CnfProponerSicoss) then
+                        exit;
+                    Message(MsgColumnasPropuestas, Reporte.ProponerColumnas());
+                    CurrPage.Update(false);
+                end;
+            }
             action(FormatearFormulas)
             {
                 ApplicationArea = All;
@@ -272,4 +310,6 @@ page 50107 "Conceptos Liquidación"
     var
         TipoStyle: Text;
         ErrVigenciaExiste: Label 'Ya existe una vigencia del concepto %1 con fecha %2. Insertá manualmente la nueva versión con otra fecha desde la lista.';
+        CnfProponerSicoss: Label '¿Completar la Columna SICOSS de los conceptos que la tengan en blanco? No se pisa ninguna columna ya asignada.';
+        MsgColumnasPropuestas: Label '%1 concepto(s) con Columna SICOSS propuesta. Revisalos antes de declarar.', Comment = '%1 = cantidad';
 }

@@ -127,6 +127,26 @@ codeunit 50070 "Historial Fórmulas Liq."
         Historial.Insert();
     end;
 
+    procedure RegistrarCambioOrden(Anterior: Record "Concepto Liquidación"; Nuevo: Record "Concepto Liquidación")
+    var
+        Historial: Record "Historial Fórmula Concepto";
+        Motor: Codeunit "Motor Liquidación";
+        OrdenAnterior: Text;
+        OrdenNuevo: Text;
+    begin
+        OrdenAnterior := Motor.FormulaOrdenConfigurada(Anterior);
+        OrdenNuevo := Motor.FormulaOrdenConfigurada(Nuevo);
+        if OrdenAnterior = OrdenNuevo then
+            exit;
+        // El tipo identifica qué fórmula se audita; los campos existentes conservan hasta 2048
+        // caracteres sin mezclar esta entrada con una edición de la fórmula de importe.
+        InicializarEntrada(Historial, Nuevo, "Tipo Cambio Fórmula"::Orden);
+        Historial."Fórmula Anterior" := CopyStr(OrdenAnterior, 1, MaxStrLen(Historial."Fórmula Anterior"));
+        Historial."Fórmula Nueva" := CopyStr(OrdenNuevo, 1, MaxStrLen(Historial."Fórmula Nueva"));
+        Historial."Cambió Fórmula" := true;
+        Historial.Insert();
+    end;
+
     /// <summary>
     /// Si el mismo usuario ya venía editando esta misma fórmula hace poco, actualiza esa entrada en
     /// vez de crear otra: el "anterior" queda como estaba —el texto con el que arrancó la sesión— y
@@ -198,6 +218,8 @@ codeunit 50070 "Historial Fórmulas Liq."
     var
         Concepto: Record "Concepto Liquidación";
     begin
+        if Historial."Tipo Cambio" = Historial."Tipo Cambio"::Orden then
+            Error(ErrRestaurarOrden);
         if Historial."Tipo Cambio" = Historial."Tipo Cambio"::Alta then
             Error(ErrRestaurarAlta);
         if not Concepto.Get(Historial."Cód. Concepto", Historial."Vigencia Desde") then
@@ -213,6 +235,7 @@ codeunit 50070 "Historial Fórmulas Liq."
     end;
 
     var
+        ErrRestaurarOrden: Label 'Para restaurar un orden, creá una nueva vigencia desde el Control de Orden de Cálculo. Esta entrada contiene la fórmula de orden y no debe reemplazar la fórmula de importe.';
         ErrRestaurarAlta: Label 'Esta entrada es el alta del concepto: no hay texto anterior al que volver.';
         ErrConceptoNoExiste: Label 'Ya no existe la vigencia %2 del concepto %1.';
         QstRestaurar: Label '¿Restaurar la fórmula y la condición anteriores en el concepto %1, vigencia %2?';

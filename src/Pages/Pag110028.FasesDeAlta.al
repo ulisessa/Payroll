@@ -44,10 +44,13 @@ page 110028 "Fases de Alta"
                 {
                     ApplicationArea = All;
                     Caption = 'Antigüedad al';
-                    ToolTip = 'Fecha contra la que se mide la fase abierta y el total de antigüedad.';
+                    ToolTip = 'Fecha contra la que se mide la fase abierta y el total de antigüedad. Por defecto es el fin del mes en curso, que es la fecha con la que el motor mide la antigüedad en el recibo; con otra fecha, el total puede diferir del cálculo de la liquidación.';
 
                     trigger OnValidate()
+                    var
+                        EstadoMgt: Codeunit "Gestión Estado Empleado";
                     begin
+                        EstadoMgt.AvisarSiNoEsFinDeMes(FFechaRef);
                         AplicarFiltro();
                     end;
                 }
@@ -150,7 +153,7 @@ page 110028 "Fases de Alta"
     trigger OnOpenPage()
     begin
         if FFechaRef = 0D then
-            FFechaRef := WorkDate();
+            FFechaRef := CalcDate('<CM>', WorkDate());   // fin de mes: es la fecha con la que el motor mide la antigüedad
         AplicarFiltro();
     end;
 
@@ -181,7 +184,7 @@ page 110028 "Fases de Alta"
         Emp: Record Employee;
     begin
         if FFechaRef = 0D then
-            FFechaRef := WorkDate();
+            FFechaRef := CalcDate('<CM>', WorkDate());   // fin de mes: es la fecha con la que el motor mide la antigüedad
 
         Rec.Reset();
         if FEmpleado <> '' then

@@ -40,6 +40,11 @@ page 110014 "Ficha Valor Parámetro"
                     ApplicationArea = All;
                     ToolTip = 'Si se completa, el valor se considera cargado en moneda extranjera y la fórmula puede convertirlo con la bandera <VARIABLE>_ESFCY.';
                 }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Qué variable convierte este valor a pesos: TC_COMPRADOR, TC_VENDEDOR u otra. Va junto con la Moneda. El motor todavía no la lee: hoy el grossing-up convierte siempre con el vendedor.';
+                }
                 field(Descripción; Rec.Descripción) { ApplicationArea = All; }
                 field(Notas; Rec.Notas) { ApplicationArea = All; MultiLine = true; }
                 field("En Uso"; Rec."En Uso")
@@ -77,6 +82,31 @@ page 110014 "Ficha Valor Parámetro"
                         CurrPage.Update(false);
                     end;
                 }
+            }
+        }
+    }
+
+    actions
+    {
+        area(Processing)
+        {
+            action(VerUsos)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Navigate;
+                Promoted = true;
+                PromotedCategory = Process;
+                ToolTip = 'Muestra las liquidaciones que resolvieron este valor, que es lo que lo mantiene "En Uso".';
+
+                trigger OnAction()
+                var
+                    Uso: Record "Uso Parámetro Liq.";
+                begin
+                    Uso.SetRange("Cód. Parámetro", Rec."Cód. Parámetro");
+                    Uso.SetRange("Vigencia Desde", Rec."Vigencia Desde");
+                    Page.Run(Page::"Usos Valor Parámetro", Uso);
+                end;
             }
         }
     }

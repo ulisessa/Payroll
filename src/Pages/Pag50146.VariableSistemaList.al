@@ -18,7 +18,7 @@ page 50146 "Variable Sistema Liq."
                 field("Cód. Cálculo"; Rec."Cód. Cálculo")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Código que identifica la lógica de cálculo. Valores disponibles: AÑOS_ANTIGUEDAD, DIAS_HAB, DIAS_HAB_AÑO, DIAS_ALTA_AÑO, DIAS_PROYECTO, PCT_ESCALA, VACACIONES_ANUALES, VACACIONES_PROP_DIAS, DIAS_VAC_PERIODO, DEDUC_GANANCIAS, MES_ANUAL, HAB_GRAV_ANUAL, HAB_EXTORD_ANUAL, RETENIDO_ANUAL, TIPO_LIQ, YTD_ACUM (requiere Cód. Acumulador), PERIODO_ACUM (requiere Cód. Acumulador), PERIODO_CONCEPTO (requiere Cód. Concepto), YTD_LINEAS (requiere Tipo Concepto). El botón de búsqueda del campo muestra la lista completa.';
+                    ToolTip = 'Código que identifica la lógica de cálculo. Valores disponibles: AÑOS_ANTIGUEDAD, DIAS_HAB, DIAS_ALTA_30, DIAS_HAB_AÑO, DIAS_ALTA_AÑO, DIAS_PROYECTO, PCT_ESCALA, VACACIONES_ANUALES, VACACIONES_PROP_DIAS, DIAS_VAC_PERIODO, DEDUC_GANANCIAS, DEDUC_GANANCIAS_ACUM, MES_ANUAL, HAB_GRAV_ANUAL, HAB_EXTORD_ANUAL, RETENIDO_ANUAL, TIPO_LIQ, YTD_ACUM (requiere Cód. Acumulador), PERIODO_ACUM (requiere Cód. Acumulador), PERIODO_CONCEPTO (requiere Cód. Concepto), YTD_LINEAS (requiere Tipo Concepto). El botón de búsqueda del campo muestra la lista completa.';
                 }
                 field("Cód. Acumulador"; Rec."Cód. Acumulador")
                 {
@@ -34,6 +34,11 @@ page 50146 "Variable Sistema Liq."
                 {
                     ApplicationArea = All;
                     ToolTip = 'Requerido cuando Cód. Cálculo = PERIODO_CONCEPTO. Concepto cuyo importe ya liquidado en el período se suma, sin contar la liquidación en curso. Para incluir también la actual, la fórmula suma #CÓDIGO.';
+                }
+                field("Cód. Estado"; Rec."Cód. Estado")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Estado que cuenta DIAS_ESTADO_PERIODO o DIAS_ESTADO_PREVIOS. El primer cálculo cuenta sus días dentro de los tramos de la liquidación; el segundo, los días anteriores al período de la licencia en curso de ese estado.';
                 }
                 field("Nombre Variable"; Rec."Nombre Variable")
                 {
@@ -78,6 +83,21 @@ page 50146 "Variable Sistema Liq."
     {
         area(Processing)
         {
+            action(DondeSeUsa)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Links;
+                ToolTip = 'Qué fórmulas y condiciones nombran a esta variable. Sin usos, la fila está de más; con usos, dice a quién le afecta cambiarla.';
+
+                trigger OnAction()
+                var
+                    PagUsos: Page "Dónde se Usa";
+                begin
+                    PagUsos.SetSimbolo(Rec."Nombre Variable");
+                    PagUsos.Run();
+                end;
+            }
             action(RevisarNombres)
             {
                 ApplicationArea = All;
@@ -132,7 +152,7 @@ page 50146 "Variable Sistema Liq."
     var
         // Sin Confirm previo: la acción no pisa ni borra nada, así que no hay nada que confirmar.
         // Lo que sí importa decir es lo que NO sembró, que es lo único que queda por hacer a mano.
-        MsgSembradas: Label '%1 variable(s) agregada(s).\\Falta configurar a mano las que necesitan que se les diga QUÉ sumar: YTD_ACUM y PERIODO_ACUM piden un acumulador, PERIODO_CONCEPTO un concepto y YTD_LINEAS un tipo de concepto. Una misma instalación suele tener varias de cada una, por eso no se siembran.', Comment = '%1=cantidad de variables agregadas';
+        MsgSembradas: Label '%1 variable(s) agregada(s).\\Falta configurar las que necesitan un parámetro: YTD_ACUM y PERIODO_ACUM piden un acumulador, PERIODO_CONCEPTO un concepto, YTD_LINEAS un tipo de concepto y DIAS_ESTADO_PERIODO/PREVIOS un estado. Los nombres y estados de ausentismo se cargan como configuración de la instalación; el sembrado no los agrega.', Comment = '%1=cantidad de variables agregadas';
         MsgSinConflictos: Label 'Ningún nombre está repetido entre parámetros, variables de sistema, fuentes de datos y códigos de concepto.';
         MsgConflictos: Label 'Estos nombres resuelven a dos cosas distintas. El que se calcule último pisa al otro, sin error:\%1\Renombrá uno de los dos. Ojo: el código de un concepto no se puede renombrar —viaja dentro del texto de las fórmulas— así que lo que conviene cambiar es el nombre de la variable.', Comment = '%1 = lista de conflictos';
         MsgNadaQueSembrar: Label 'No había nada que agregar: todos los códigos de cálculo estándar ya están configurados.';

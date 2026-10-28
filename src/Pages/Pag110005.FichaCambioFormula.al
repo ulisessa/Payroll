@@ -30,7 +30,7 @@ page 110005 "Ficha Cambio Fórmula"
             group(GrpFormula)
             {
                 Caption = 'Fórmula';
-                Visible = Rec."Cambió Fórmula";
+                Visible = Rec."Cambió Fórmula" and (Rec."Tipo Cambio" <> Rec."Tipo Cambio"::Orden);
 
                 field("Fórmula Anterior"; Rec."Fórmula Anterior")
                 {
@@ -42,6 +42,27 @@ page 110005 "Ficha Cambio Fórmula"
                 field("Fórmula Nueva"; Rec."Fórmula Nueva")
                 {
                     ApplicationArea = All;
+                    MultiLine = true;
+                    Style = Favorable;
+                    StyleExpr = true;
+                }
+            }
+            group(GrpOrden)
+            {
+                Caption = 'Orden de cálculo';
+                Visible = Rec."Tipo Cambio" = Rec."Tipo Cambio"::Orden;
+                field(OrdenAnterior; Rec."Fórmula Anterior")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Orden anterior';
+                    MultiLine = true;
+                    Style = Unfavorable;
+                    StyleExpr = true;
+                }
+                field(OrdenNuevo; Rec."Fórmula Nueva")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Orden nuevo';
                     MultiLine = true;
                     Style = Favorable;
                     StyleExpr = true;
@@ -78,6 +99,7 @@ page 110005 "Ficha Cambio Fórmula"
             {
                 ApplicationArea = All;
                 Caption = 'Restaurar texto anterior';
+                Enabled = Rec."Tipo Cambio" <> Rec."Tipo Cambio"::Orden;
                 Image = Undo;
                 Promoted = true;
                 PromotedCategory = Process;

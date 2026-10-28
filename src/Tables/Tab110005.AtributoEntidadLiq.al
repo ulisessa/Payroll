@@ -311,6 +311,46 @@ table 110005 "Atributo Entidad Liq."
     /// exista: al cargar una categoría hay que ofrecer solo las del convenio que el empleado tiene
     /// ese día, y en una fila nueva "Cód. Valor Padre" todavía está vacío.
     /// </remarks>
+    /// <summary>
+    /// Se posiciona en la vigencia que rige a una fecha. Devuelve false si no hay ninguna.
+    /// </summary>
+    /// <remarks>
+    /// LA REGLA TEMPORAL DEL SISTEMA, EN UN SOLO LUGAR: la última vigencia que empezó antes de la
+    /// fecha y que no cerró antes de ella. El historial es contiguo, así que la última que empezó
+    /// antes es la que rige; el filtro de fin acepta la abierta (0D) además de la que todavía no
+    /// cerró.
+    ///
+    /// Vive en la tabla y no en un codeunit porque la usan dos mundos que no deberían depender uno
+    /// del otro: el motor, al armar el contexto de la liquidación, y la página, al mostrar el valor
+    /// del día. Hasta ahora cada uno tenía su copia del filtro —con el mismo comentario diciendo
+    /// "misma resolución temporal que el motor"—, que es la forma en que dos reglas iguales se van
+    /// separando sin que nadie lo note.
+    ///
+    /// Sin entidad o sin fecha devuelve false en vez de filtrar: leer el atributo de TODAS las
+    /// entidades y quedarse con el último es la peor forma de fallar, porque devuelve un valor
+    /// plausible que pertenece a otro.
+    /// </remarks>
+    procedure Vigente(CodTipoAtributo: Code[20]; TipoEntidad: Enum "Tipo Entidad Estado"; CodEntidad: Code[20]; FechaRef: Date): Boolean
+    begin
+        Reset();
+        if (CodEntidad = '') or (CodTipoAtributo = '') or (FechaRef = 0D) then
+            exit(false);
+        SetRange("Tipo Entidad", TipoEntidad);
+        SetRange("Cód. Entidad", CodEntidad);
+        SetRange("Cód. Tipo Atributo", CodTipoAtributo);
+        SetFilter("Vigencia Desde", '<=%1', FechaRef);
+        SetFilter("Vigencia Hasta", '%1|>=%2', 0D, FechaRef);
+        exit(FindLast());
+    end;
+
+    /// <summary>El código de valor vigente a una fecha, o vacío.</summary>
+    procedure ValorVigente(CodTipoAtributo: Code[20]; TipoEntidad: Enum "Tipo Entidad Estado"; CodEntidad: Code[20]; FechaRef: Date): Code[20]
+    begin
+        if not Vigente(CodTipoAtributo, TipoEntidad, CodEntidad, FechaRef) then
+            exit('');
+        exit("Cód. Valor");
+    end;
+
     procedure ValorPadreVigente(): Code[20]
     var
         TipoAtr: Record "Tipo Atributo Liq.";

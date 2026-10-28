@@ -46,6 +46,7 @@ codeunit 110028 "Control Marea Excel Liq."
     var
         Job: Record Job;
         Libro: Record "Excel Buffer" temporary;
+        LibroDif: Record "Excel Buffer" temporary;
         Filas: List of [Text];
         Nombre: Dictionary of [Text, Text];
     begin
@@ -71,20 +72,25 @@ codeunit 110028 "Control Marea Excel Liq."
         // la matriz obligaba a scrollear la marea entera para llegar. La hoja se crea sólo si hay algo
         // que poner — una segunda hoja vacía hace dudar de si el informe corrió completo.
         if RecolectarDiferencias(Filas, Nombre) > 0 then begin
-            // El buffer es el contenido de UNA hoja: hay que vaciarlo y volver el cursor al origen
-            // antes de armar la siguiente.
-            Libro.Reset();
-            Libro.DeleteAll();
-            Libro.ClearNewRow();
-            EscribirDiferencias(Libro, Filas, Nombre);
+            // La segunda hoja se arma en un buffer APARTE, y no vaciando y reusando el primero.
+            //
+            // "Excel Buffer" guarda el WorkbookWriter de .NET en una global de la tabla, o sea en la
+            // variable: es Libro quien tiene el libro abierto, no la sesión. Vaciar esa variable con
+            // DeleteAll para reusarla dejaba el writer sin instanciar, y SelectOrAddSheet moría con
+            // "No se pudo crear el libro de Excel" —el Error de su línea 5, cuando IsNull(XlWrkBkWriter)—.
+            // La primera hoja salía bien y el informe reventaba justo al final.
+            //
+            // Es el mismo patrón que usa la base en WriteSheet para su hoja de información:
+            // SelectOrAddSheet sobre el buffer que abrió el libro, y WriteAllToCurrentSheet volcando
+            // el otro. Nunca vacía el que tiene el writer; mantiene TempInfoExcelBuf al lado.
+            EscribirDiferencias(LibroDif, Filas, Nombre);
 
             // WriteSheet va UNA sola vez, para la primera hoja: arranca por AddPageSetup sobre el
             // worksheet writer y en una hoja recién agregada eso revienta con "No se ha creado la
             // instancia de la variable DotNet". Las hojas siguientes se escriben con
-            // SelectOrAddSheet + WriteAllToCurrentSheet, que solo vuelca el buffer — es el mismo
-            // camino que usa "Export Analysis View" en la base para su segunda hoja.
+            // SelectOrAddSheet + WriteAllToCurrentSheet, que solo vuelca el buffer.
             Libro.SelectOrAddSheet(TxtHojaDif);
-            Libro.WriteAllToCurrentSheet(Libro);
+            Libro.WriteAllToCurrentSheet(LibroDif);
         end;
 
         Libro.CloseBook();

@@ -833,6 +833,8 @@ page 110026 "Control de Cobertura Liq."
         Periodo: Record "Período Liquidación";
     begin
         Periodo.SetCurrentKey(Año, Mes);
+        // Los Creados no se recorren: no tienen liquidaciones y sólo harían clic en vacío.
+        Periodo.SetFilter(Estado, '<>%1', Periodo.Estado::Creado);
         // Página recién abierta, sin nada elegido: se arranca en el período de la fecha de trabajo,
         // que es de donde partía antes, y el primer clic lleva al anterior o al siguiente. Sin esto
         // los dos botones morían con "no hay más períodos" sobre una pantalla vacía, que es la peor
@@ -844,6 +846,7 @@ page 110026 "Control de Cobertura Liq."
                 CodPeriodo := Periodo.Código;
             Periodo.Reset();
             Periodo.SetCurrentKey(Año, Mes);
+            Periodo.SetFilter(Estado, '<>%1', Periodo.Estado::Creado);
         end;
 
         if CodPeriodo <> '' then begin

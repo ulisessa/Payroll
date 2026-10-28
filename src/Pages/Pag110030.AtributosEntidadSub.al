@@ -13,7 +13,7 @@ page 110030 "Atributos Entidad Sub"
     Caption = 'Atributos';
     PageType = ListPart;
     SourceTable = "Atributo Entidad Liq.";
-    InsertAllowed = false;
+    InsertAllowed = true;
     // Ordena por FECHA DE INICIO descendente: lo último asignado arriba, sin importar de qué tipo
     // sea. Es el orden con el que se lee una ficha —qué le pasó a esta persona, de lo más reciente
     // hacia atrás— y el mismo del historial de estados y de las asignaciones a proyecto.
@@ -28,6 +28,21 @@ page 110030 "Atributos Entidad Sub"
     {
         area(Content)
         {
+            group(Vista)
+            {
+                ShowCaption = false;
+                field(HistorialCompleto; VerTodasActivo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mostrar historial completo';
+                    ToolTip = 'Muestra todas las vigencias y permite agregar una nueva desde esta ficha.';
+                    trigger OnValidate()
+                    begin
+                        SoloActuales := not VerTodasActivo;
+                        AplicarFiltros();
+                    end;
+                }
+            }
             repeater(Lines)
             {
                 field("Vigencia Desde"; Rec."Vigencia Desde")
@@ -103,6 +118,17 @@ page 110030 "Atributos Entidad Sub"
     {
         area(Processing)
         {
+            action(ParametrosDelAtributo)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros del atributo';
+                Image = Setup;
+                ToolTip = 'Consulta o carga las vigencias de los parámetros vinculados al atributo o valor seleccionado.';
+                trigger OnAction()
+                begin
+                    AtributosUI.AbrirParametrosAsignacion(Rec);
+                end;
+            }
             // Dos acciones que se turnan la visibilidad: en AL el Caption de una acción es constante
             // y no admite expresión, así que es la única forma de que el botón diga qué va a hacer.
             action(VerTodas)
@@ -152,6 +178,14 @@ page 110030 "Atributos Entidad Sub"
     trigger OnNewRecord(BelowxRec: Boolean)
     begin
         ValorEntrada := '';
+        // Una nueva vigencia debe quedar visible después de insertarla; el resumen por SystemId
+        // sólo incluye filas que ya existen. Se abre el historial antes de empezar el alta.
+        if SoloActuales then begin
+            SoloActuales := false;
+            SoloActualesActivo := false;
+            VerTodasActivo := true;
+            AtributosUI.FiltrarVigentes(Rec, false, WorkDate());
+        end;
     end;
 
     local procedure AplicarFiltros()
@@ -161,15 +195,25 @@ page 110030 "Atributos Entidad Sub"
         // Los filtros del vínculo con la ficha viven en otro grupo, así que esto no los toca: sigue
         // siendo la entidad de la ficha, con o sin historial.
         //
-        // En el resumen NO SE PUEDE INSERTAR, y es a propósito: el filtro es por SystemId, así que
-        // una fila nueva no lo matchearía y desaparecería al guardarse — el usuario la cargaría dos
-        // veces creyendo que no quedó. Cargar una vigencia es además algo que se hace mirando el
-        // historial, no el resumen.
+        // OnNewRecord sale del resumen antes de cargar una vigencia, para que el filtro por
+        // SystemId no oculte la fila recién insertada.
         if SoloActuales then
             AtributosUI.FiltrarUltimaPorTipo(Rec)
         else
             AtributosUI.FiltrarVigentes(Rec, false, WorkDate());
         CurrPage.Update(false);
+    end;
+
+    procedure SetEmpleado(CodEmpleado: Code[20])
+    begin
+        if UltimoEmpleado = CodEmpleado then
+            exit;
+        UltimoEmpleado := CodEmpleado;
+        Rec.FilterGroup(4);
+        Rec.SetRange("Tipo Entidad", Rec."Tipo Entidad"::Empleado);
+        Rec.SetRange("Cód. Entidad", CodEmpleado);
+        Rec.FilterGroup(0);
+        AplicarFiltros();
     end;
 
     var
@@ -178,4 +222,5 @@ page 110030 "Atributos Entidad Sub"
         SoloActualesActivo: Boolean;
         VerTodasActivo: Boolean;
         ValorEntrada: Text;
+        UltimoEmpleado: Code[20];
 }

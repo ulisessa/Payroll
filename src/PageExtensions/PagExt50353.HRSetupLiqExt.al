@@ -44,6 +44,58 @@ pageextension 50353 "HR Setup Liq. Ext." extends "Human Resources Setup"
                     ApplicationArea = All;
                     ToolTip = 'Acumulador del que se toma el importe que se guarda en "Haberes Ordinarios Gravados" de cada liquidación, que es la base de la que después parten los informes de Ganancias. Sólo se pueden elegir conceptos marcados como acumulador. Si queda vacío, ese campo de la liquidación queda en cero: el cálculo se completa igual y no da error, pero el dato no llega a los informes.';
                 }
+                field("Cód. Acum. Excl. Neto GU"; Rec."Cód. Acum. Excl. Neto GU")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Acumulador que junta los conceptos que NO deben pesar cuando el grossing-up mide si alcanzó el neto objetivo. El caso típico es el anticipo de llegada: como es un descuento baja el neto, y sin esto la convergencia lo compensa inflando el bruto, de modo que el empleado cobra el objetivo completo MÁS el anticipo que ya tenía. Qué conceptos entran se define en las Fracciones de ese acumulador. En blanco cuentan todos.';
+                }
+                field("Motivos Baja Liq. Final"; Rec."Motivos Baja Liq. Final")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Qué bajas disparan la Liquidación Final. Es una expresión de filtro sobre el Cód. Motivo Baja de la fase de alta, así que admite varios separados por "|" (por ejemplo BAJ-1|BAJ-2). En blanco cuenta cualquier fecha de baja dentro del período. Hace falta porque no toda baja es una desvinculación: hay bajas de corrección —alta y baja el mismo día, con reingreso en el mismo mes— y de fin de temporada, y a ésas no les corresponde liquidación final.';
+                }
+                field("Convertir Param. por TC"; Rec."Convertir Param. por TC")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Encendida, cada parámetro que declara una moneda se convierte a pesos al armar el contexto, leyendo la "Variable Tipo de Cambio" de su fila de valor, y las fórmulas lo reciben ya convertido. Apagada, los parámetros llegan en divisa y cada fórmula decide si convierte. Es una llave de paso: apagarla vuelve al comportamiento anterior sin publicar. No la enciendas sin haber migrado las fórmulas que multiplican por un tipo de cambio, porque sobre un parámetro ya convertido volverían a multiplicar.';
+                }
+            }
+            group(GrossingUpLiq)
+            {
+                Caption = 'Grossing-up';
+
+                // Los cinco nacen en blanco y en blanco significa el valor de siempre, así que
+                // esta pestaña se puede dejar vacía para siempre. Está para los casos en que haya
+                // que convivir con nombres distintos, no para cargarla.
+                field("Cód. Var. Es Grossing-Up"; Rec."Cód. Var. Es Grossing-Up")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Nombre con el que las fórmulas preguntan si esta liquidación converge por grossing-up. En blanco el motor usa ES_GROSSING_UP, que es lo que usan las fórmulas actuales.';
+                }
+                field("Cód. Var. Neto Garantizado"; Rec."Cód. Var. Neto Garantizado")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Nombre de la variable donde el motor deja el neto objetivo. No confundir con "Concepto Neto Garantizado", que es qué concepto lo calcula. En blanco el motor usa NETO_GARANTIZADO.';
+                }
+                field("Cód. Var. Complemento GU"; Rec."Cód. Var. Complemento GU")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Nombre del ajuste que el bucle mueve hasta alcanzar el objetivo. Lo paga cualquier concepto cuya fórmula lo nombre, así que renombrarlo obliga a cambiar esas fórmulas en el mismo movimiento o el complemento deja de pagarse. En blanco el motor usa COMPLEMENTO_GU.';
+                }
+                field("Máx. Iter. Grossing-Up"; Rec."Máx. Iter. Grossing-Up")
+                {
+                    ApplicationArea = All;
+                    // Un cero significa "sin cargar", no "cero iteraciones". Mostrarlo en blanco es
+                    // la unica forma de que la pantalla cuente la misma historia que el fallback.
+                    BlankZero = true;
+                    ToolTip = 'Cuántas vueltas intenta el cálculo antes de detenerse con un error. En blanco o cero son 20, que alcanzan para llegar a la tolerancia desde cualquier punto de partida. Subirlo no arregla una liquidación que no converge: sólo tarda más en avisar.';
+                }
+                field("Tolerancia Grossing-Up"; Rec."Tolerancia Grossing-Up")
+                {
+                    ApplicationArea = All;
+                    BlankZero = true;
+                    ToolTip = 'A qué distancia del objetivo, en pesos, se considera alcanzado el neto. En blanco o cero es 1. Bajarlo a centavos puede dejar liquidaciones sin converger por los redondeos de los conceptos intermedios, que no tienen por qué cerrar al centavo.';
+                }
             }
         }
     }

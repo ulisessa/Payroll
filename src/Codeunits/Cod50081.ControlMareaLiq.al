@@ -28,22 +28,47 @@ codeunit 50081 "Control Marea Liq."
     procedure Construir(var Buffer: Record "Control Marea Buffer" temporary; NoProyecto: Code[20]) Liquidaciones: Integer
     var
         Liq: Record "Liquidación";
+    begin
+        if NoProyecto = '' then begin
+            Buffer.Reset();
+            Buffer.DeleteAll();
+            exit(0);
+        end;
+        Liq.SetCurrentKey("No. Proyecto");
+        Liq.SetRange("No. Proyecto", NoProyecto);
+        exit(ConstruirFiltrado(Buffer, Liq, ''));
+    end;
+
+    /// <summary>
+    /// El mismo informe, sobre CUALQUIER conjunto de liquidaciones ya filtrado por quien llama.
+    /// </summary>
+    /// <remarks>
+    /// Construir() es el caso particular "las de esta marea". Esto existe para el control por
+    /// PERÍODO, donde el recorte no es un proyecto sino una combinación —empleado, concepto,
+    /// proyecto, fechas, convenio, categoría, tipo— que sólo la página sabe armar.
+    ///
+    /// El filtro de CONCEPTO va aparte y no en el Record de liquidaciones porque recorta LÍNEAS, no
+    /// cabeceras: pedir un concepto no quita liquidaciones del informe, quita filas de cada una. Si
+    /// se aplicara sobre la cabecera desaparecerían las liquidaciones enteras que no lo tienen, y la
+    /// pregunta "¿a quién no le salió este concepto?" —que es justamente para la que sirve— no se
+    /// podría contestar.
+    /// </remarks>
+    procedure ConstruirFiltrado(var Buffer: Record "Control Marea Buffer" temporary; var Liq: Record "Liquidación"; FiltroConcepto: Text) Liquidaciones: Integer
+    var
         Lin: Record "Línea Liquidación";
     begin
         Buffer.Reset();
         Buffer.DeleteAll();
-        if NoProyecto = '' then
-            exit(0);
-
-        Liq.SetCurrentKey("No. Proyecto");
-        Liq.SetRange("No. Proyecto", NoProyecto);
         if not Liq.FindSet() then
             exit(0);
 
         repeat
             Liquidaciones += 1;
+            Lin.Reset();
             Lin.SetCurrentKey("No. Liquidación", "Orden Cálculo", "No. Línea");
             Lin.SetRange("No. Liquidación", Liq."No.");
+            if FiltroConcepto <> '' then
+                Lin.SetFilter("Cód. Concepto", FiltroConcepto);
             if Lin.FindSet() then
                 repeat
                     AgregarDetalle(Buffer, Liq, Lin);
@@ -252,7 +277,8 @@ codeunit 50081 "Control Marea Liq."
     procedure ConstruirVariablesComunes(var Comunes: Record "Resumen Variable Liq." temporary; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20])
     var
         Liq: Record "Liquidación";
-        Res: Record "Resumen Variable Liq.";
+        Res: Record "Resumen Variable Liq." temporary;
+        VariablesGuardadas: Codeunit "Variables Guardadas Liq.";
         Descartadas: List of [Code[30]];
         Vistas: Integer;
     begin
@@ -264,7 +290,9 @@ codeunit 50081 "Control Marea Liq."
 
         repeat
             Vistas += 1;
-            Res.SetRange("No. Liquidación", Liq."No.");
+            // Completas: los parámetros que el resumen omite (ya están en el uso del parámetro) tienen que contar, o toda variable
+            // de convenio saldría "no presente" y se descartaría de las comunes de la marea.
+            VariablesGuardadas.Cargar(Liq."No.", Res);
             if Vistas = 1 then begin
                 if Res.FindSet() then
                     repeat
@@ -430,36 +458,26 @@ codeunit 50081 "Control Marea Liq."
     /// 31/07/26" = cuántos pesos vale un dólar.
     /// </summary>
     /// <remarks>
-    /// OJO con ExchangeRate: NO devuelve la cotización sino el factor, que es su inversa
-    /// ("Exchange Rate Amount" / "Relational Exch. Rate Amount"). Con el dólar a 1.045,50 devuelve
-    /// 0,000956. Es el número correcto para pasarle a ExchangeAmtFCYToLCY —y por eso el motor lo usa
-    /// así en la convergencia de Grossing Up— pero mostrarlo tal cual no dice nada.
+    /// Se pide al motor en lugar de resolverlo acá: la liquidación usa el VENDEDOR, que vive en
+    /// "Relational Adjmt Exch Rate Amt", y que el control muestre el comprador sería peor que no
+    /// mostrar nada —invita a revisar una diferencia que no existe—.
     ///
-    /// Se invierte en lugar de leer los campos de la cotización a mano: FindCurrency resuelve además
-    /// las cadenas de moneda relacional, y rehacer esa lógica acá abriría la puerta a que el control
-    /// muestre un tipo de cambio distinto del que se usó para liquidar.
-    ///
-    /// ExchangeRate hace TestField y por lo tanto FALLA si no hay cotización a esa fecha. En un
-    /// control eso cerraría la página entera por un dato accesorio, así que primero se verifica que
-    /// exista alguna y, si no, se lo dice.
+    /// OJO con ExchangeRate, que es lo que uno busca primero: NO devuelve la cotización sino su
+    /// inversa, resuelve siempre contra el comprador, y hace TestField, así que en un control
+    /// cerraría la página entera por un dato accesorio.
     /// </remarks>
     local procedure Cotizacion(Moneda: Code[10]; Fecha: Date): Text
     var
-        CurrExchRate: Record "Currency Exchange Rate";
-        Factor: Decimal;
+        Motor: Codeunit "Motor Liquidación";
+        TipoCambio: Decimal;
     begin
-        CurrExchRate.SetRange("Currency Code", Moneda);
-        CurrExchRate.SetRange("Starting Date", 0D, Fecha);
-        if not CurrExchRate.FindLast() then
-            exit(StrSubstNo(TxtSinCotizacion, Moneda, Fecha));
-
-        Factor := CurrExchRate.ExchangeRate(Fecha, Moneda);
-        if Factor = 0 then
+        TipoCambio := Motor.TipoCambioVendedor(Moneda, Fecha);
+        if TipoCambio = 0 then
             exit(StrSubstNo(TxtSinCotizacion, Moneda, Fecha));
 
         exit(StrSubstNo(TxtCotizacion, Moneda,
-            Format(1 / Factor, 0, '<Precision,2:4><Standard Format,0>'),
-            Format(CurrExchRate."Starting Date")));
+            Format(TipoCambio, 0, '<Precision,2:4><Standard Format,0>'),
+            Format(Fecha)));
     end;
 
     local procedure FiltrarLiq(var Liq: Record "Liquidación"; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20])

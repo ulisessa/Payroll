@@ -23,10 +23,10 @@ codeunit 110044 "Detalle Cálculo Línea"
     var
         TxtTotal: Label 'TOTAL — resultado de la fórmula';
         TxtCoincide: Label 'Coincide con el importe de la línea';
-        TxtNoCoincide: Label 'NO COINCIDE con el importe de la línea (%1). La fórmula o los datos cambiaron desde que se calculó.', Comment = '%1 = importe guardado';
+        TxtNoCoincide: Label 'NO COINCIDE con el importe de la línea (%1). Revisar ajustes, incidencias y redondeo.', Comment = '%1 = importe guardado';
         TxtSinFormula: Label 'La línea no tiene fórmula guardada: nada que explicar.';
         TxtSubtotal: Label 'Subtotal del bloque';
-        TxtSinTraza: Label 'La fórmula no es una suma de términos, así que no hay paso a paso. El valor sale de una sola expresión.';
+
 
     /// <summary>
     /// Llena <paramref name="Pasos"/> (temporal) con el paso a paso de la línea.
@@ -49,25 +49,32 @@ codeunit 110044 "Detalle Cálculo Línea"
             exit;
         end;
 
-        if not Liq.Get(LinLiq."No. Liquidación") then
+        if not Liq.Get(LinLiq."No. Liquidación") then begin
+            AgregarNota(Pasos, 'No comprobado: no se encontró la liquidación de origen.');
             exit;
+        end;
 
         CargarContexto(LinLiq, Ctx);
 
         Evaluador.Init(Ctx, Liq."Fecha Liquidación");
-        // Tolerante a propósito: si una variable que se usó aquel día ya no existe, el paso a paso
-        // tiene que poder armarse igual y dejar que el control final avise de la diferencia. Fallar
-        // con un error dejaría al usuario sin ninguna explicación, que es peor que una incompleta.
-        Evaluador.SetLenientMode(true);
+        // No resolver datos actuales ni reemplazar variables faltantes por cero.
+        Evaluador.UsarDatosGuardados();
         SembrarReferencias(LinLiq, Evaluador);
 
         Evaluador.ActivarTraza(true);
-        Evaluador.TryEvalFormula(Formula, Resultado);
+        if not Evaluador.TryEvalFormula(Formula, Resultado) then begin
+            AgregarNota(Pasos, 'No comprobado: ' + GetLastErrorText());
+            exit;
+        end;
         Traza := Evaluador.GetTraza();
         Evaluador.ActivarTraza(false);
 
         if Traza = '' then begin
-            AgregarNota(Pasos, TxtSinTraza);
+            AgregarNota(Pasos, 'Aplicación de la expresión completa');
+            Pasos.Término := CopyStr(Formula, 1, MaxStrLen(Pasos.Término));
+            Pasos.Valor := Resultado;
+            Pasos.Acumulado := Resultado;
+            Pasos.Modify();
             AgregarTotal(Pasos, LinLiq, Resultado);
             exit;
         end;
@@ -77,22 +84,19 @@ codeunit 110044 "Detalle Cálculo Línea"
     end;
 
     /// <summary>
-    /// Reconstruye el contexto de variables desde el detalle guardado. Las referencias @CÓDIGO y
-    /// #CÓDIGO se guardan CON el prefijo para que se vea cuál de los dos mecanismos se usó, pero
-    /// en el contexto viven bajo el código pelado — ver WriteVariableDetail en el motor.
+    /// Conserva los prefijos: @CÓDIGO y #CÓDIGO pueden tener valores distintos.
     /// </summary>
     local procedure CargarContexto(LinLiq: Record "Línea Liquidación"; var Ctx: Dictionary of [Text, Decimal])
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        Guardadas: Codeunit "Variables Guardadas Liq.";
         Clave: Text;
     begin
-        Det.SetRange("No. Liquidación", LinLiq."No. Liquidación");
-        Det.SetRange("No. Línea", LinLiq."No. Línea");
+        // Con las variables que el motor no repite por línea ya repuestas desde el resumen de la liquidación.
+        Guardadas.CargarDetalle(LinLiq."No. Liquidación", LinLiq."No. Línea", Det);
         if not Det.FindSet() then exit;
         repeat
             Clave := Det."Nombre Variable";
-            if Clave.StartsWith('@') or Clave.StartsWith('#') then
-                Clave := CopyStr(Clave, 2);
             if Ctx.ContainsKey(Clave) then
                 Ctx.Set(Clave, Det.Valor)
             else
@@ -102,17 +106,33 @@ codeunit 110044 "Detalle Cálculo Línea"
 
     local procedure SembrarReferencias(LinLiq: Record "Línea Liquidación"; var Evaluador: Codeunit "Evaluador Fórmula")
     var
-        Det: Record "Detalle Variable Línea Liq.";
+        Det: Record "Detalle Variable Línea Liq." temporary;
+        Guardadas: Codeunit "Variables Guardadas Liq.";
         Clave: Text;
+        Codigos: Dictionary of [Text, Text];
+        CamposAcumCCT: List of [Text];
+        DivisorAcumCCT: Decimal;
     begin
-        Det.SetRange("No. Liquidación", LinLiq."No. Liquidación");
-        Det.SetRange("No. Línea", LinLiq."No. Línea");
+        // Por el cargador y no directo: el código de atributo de una variable que el motor no repite por línea viaja en la fila ~USO
+        // (TIPO_LIQ=REGULAR), y sin él la condición por código no se puede comprobar.
+        Guardadas.CargarDetalle(LinLiq."No. Liquidación", LinLiq."No. Línea", Det);
         if not Det.FindSet() then exit;
         repeat
             Clave := Det."Nombre Variable";
-            if Clave.StartsWith('@') or Clave.StartsWith('#') then
-                Evaluador.SeedConceptoRef(CopyStr(Clave, 2), Det.Valor);
+            if Det."Snapshot Tramo" then
+                Evaluador.SembrarTramoGuardado(Det."Tabla Tramo", Det."Base Tramo", Det.Valor);
+            if Det.Detalle.StartsWith('ACUMCCT:') then begin
+                CamposAcumCCT := CopyStr(Det.Detalle, StrLen('ACUMCCT:') + 1).Split('~');
+                if CamposAcumCCT.Count() <> 4 then
+                    Error('El resultado histórico ACUM_PARAM_CCT de la línea %1 tiene una clave inválida.', LinLiq."No. Línea");
+                if not Evaluate(DivisorAcumCCT, CamposAcumCCT.Get(4), 9) then
+                    Error('El divisor histórico ACUM_PARAM_CCT de la línea %1 no es válido.', LinLiq."No. Línea");
+                Evaluador.SembrarAcumParametroCCTGuardado(CamposAcumCCT.Get(1), CamposAcumCCT.Get(2), CamposAcumCCT.Get(3), DivisorAcumCCT, Det.Valor);
+            end;
+            if Det."Código Atributo" <> '' then
+                Codigos.Set(Clave, Det."Código Atributo");
         until Det.Next() = 0;
+        Evaluador.SetCodigosAtributos(Codigos);
     end;
 
     /// <summary>
@@ -141,6 +161,7 @@ codeunit 110044 "Detalle Cálculo Línea"
         Nivel: Integer;
         i: Integer;
         Idx: Integer;
+        EsBaseEscala: Boolean;
     begin
         // Primera pasada: quedarse con las filas útiles y su nivel.
         foreach Fila in Traza.Split(LfChar()) do
@@ -179,6 +200,11 @@ codeunit 110044 "Detalle Cálculo Línea"
                 Acumulado := 0;
             Pasos.Valor := Valor;
             Pasos.Acumulado := Acumulado;
+            EsBaseEscala := false;
+            if Campos.Count() >= 7 then
+                if not Evaluate(EsBaseEscala, Campos.Get(7), 9) then
+                    EsBaseEscala := false;
+            Pasos."Es Base Escala" := EsBaseEscala;
             // EL TÉRMINO VA LIMPIO. La sangría la dibuja el árbol de la página a partir de
             // "Nivel" — antes se simulaba con puntos adentro del texto, porque una columna de
             // espacios la recorta el cliente web. Con ShowAsTree eso sobra, y además cada rama
@@ -186,6 +212,8 @@ codeunit 110044 "Detalle Cálculo Línea"
             // falta.
             Pasos.Término := CopyStr(Resumir(Campos.Get(6)), 1, MaxStrLen(Pasos.Término));
             Pasos.Descripción := CopyStr(DescribirTermino(Campos.Get(6)), 1, MaxStrLen(Pasos.Descripción));
+            if Pasos.Descripción = '' then
+                Pasos.Descripción := 'Evaluación de la expresión';
             Pasos.Detalle := CopyStr(BuscarDetalle(LinLiq, Campos.Get(6)), 1, MaxStrLen(Pasos.Detalle));
             Pasos.Insert();
 
@@ -202,6 +230,7 @@ codeunit 110044 "Detalle Cálculo Línea"
                     Pasos.Término := CopyStr(TxtSubtotal, 1, MaxStrLen(Pasos.Término));
                     Pasos.Acumulado := Acumulado;
                     Pasos."Es Subtotal" := true;
+                    Pasos."Es Base Escala" := EsBaseEscala;
                     Pasos.Insert();
                 end;
         end;
@@ -213,7 +242,7 @@ codeunit 110044 "Detalle Cálculo Línea"
     /// expresión y no un nombre suelto —"(A + B) / 12"— no hay nada que traducir y se deja vacío:
     /// el texto de la fórmula ya se muestra en su propia columna.
     /// </summary>
-    local procedure DescribirTermino(Termino: Text): Text
+    internal procedure DescribirTermino(Termino: Text): Text
     var
         Concepto: Record "Concepto Liquidación";
         Param: Record "Parámetro";

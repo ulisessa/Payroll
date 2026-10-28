@@ -22,4 +22,24 @@ page 50106 "Categorías CCT"
             }
         }
     }
+    actions
+    {
+        area(Processing)
+        {
+            action(ParametrosOrigen)
+            {
+                ApplicationArea = All;
+                Caption = 'Parámetros de la categoría';
+                Image = Setup;
+                Promoted = true; PromotedCategory = Process;
+                ToolTip = 'Consulta, modifica y agrega valores de parámetros vinculados al registro seleccionado, con sus vigencias.';
+                trigger OnAction()
+                var
+                    UI: Codeunit "Atributos Entidad UI";
+                begin
+                    UI.AbrirParametrosOrigen('', Rec."Cód. Convenio", Rec.Código);
+                end;
+            }
+        }
+    }
 }

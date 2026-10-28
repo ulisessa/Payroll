@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
 
@@ -27,7 +27,7 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                     ApplicationArea = All;
                     Caption = 'Antigüedad';
                     Editable = false;
-                    ToolTip = 'La antigüedad que usa el cálculo: suma todos los tramos entre cada alta y su baja, más la Antigüedad Reconocida. Clic para ver las fases una por una.';
+                    ToolTip = 'La antigüedad que usa el cálculo: suma todos los tramos entre cada alta y su baja, más la Antigüedad Reconocida. Se mide al fin del mes en curso, que es la fecha con la que el motor la mide en el recibo. Clic para ver las fases una por una.';
 
                     trigger OnDrillDown()
                     var
@@ -140,6 +140,20 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                 Caption = 'Liquidación';
                 Image = PaymentHistory;
 
+                action(CuentaFrancos)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cuenta corriente de francos';
+                    Image = LedgerEntries;
+                    trigger OnAction()
+                    var
+                        Cuenta: Page "Cuenta Corriente Francos";
+                    begin
+                        Rec.TestField("No.");
+                        Cuenta.SetEmpleado(Rec."No.");
+                        Cuenta.RunModal();
+                    end;
+                }
                 action(VerEstados)
                 {
                     ApplicationArea = All;
@@ -175,6 +189,21 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
                     RunObject = Page "Atributos de Entidad";
                     RunPageLink = "Tipo Entidad" = const(Empleado), "Cód. Entidad" = field("No.");
                     ToolTip = 'Atributos del empleado con sus vigencias: convenio, categoría y todo lo que se haya definido. Abre mostrando los de hoy; desde ahí se ve el historial completo y se cargan vigencias nuevas.';
+                }
+                action(ParametrosEmpleado)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Parámetros del empleado';
+                    Image = Setup;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    ToolTip = 'Consulta, modifica y agrega valores parametrizados para este número de empleado, con sus vigencias.';
+                    trigger OnAction()
+                    var
+                        UI: Codeunit "Atributos Entidad UI";
+                    begin
+                        UI.AbrirParametrosOrigen(Rec."No.", '', '');
+                    end;
                 }
                 action(VerNovedades)
                 {
@@ -254,6 +283,7 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
     trigger OnAfterGetCurrRecord()
     begin
         CurrPage.AtributosVigentes.Page.SetEntidad("Tipo Entidad Estado"::Empleado, Rec."No.");
+        CurrPage.Atributos.Page.SetEmpleado(Rec."No.");
         CalcularAntiguedad();
     end;
 
@@ -272,12 +302,15 @@ pageextension 50350 "Empleado Pesca Card Ext." extends "Employee Card"
         EstadoMgt: Codeunit "Gestión Estado Empleado";
         Fraccion: Decimal;
         Completos: Decimal;
+        FechaMedicion: Date;
     begin
         AntiguedadTexto := '';
         if Rec."No." = '' then
             exit;
-        Fraccion := EstadoMgt.CalcAntiguedadFraccionAlFecha(Rec."No.", WorkDate());
-        Completos := EstadoMgt.CalcAntiguedadAlFecha(Rec."No.", WorkDate());
+        // Fin del mes en curso: es la fecha con la que el motor mide la antigüedad en el recibo.
+        FechaMedicion := CalcDate('<CM>', WorkDate());
+        Fraccion := EstadoMgt.CalcAntiguedadFraccionAlFecha(Rec."No.", FechaMedicion);
+        Completos := EstadoMgt.CalcAntiguedadAlFecha(Rec."No.", FechaMedicion);
         AntiguedadTexto := CopyStr(StrSubstNo(TxtAntiguedad, Fraccion, Completos), 1, MaxStrLen(AntiguedadTexto));
     end;
 

@@ -33,6 +33,10 @@ codeunit 50068 "Registro Procesos Liq."
         FResumen: Text;
         MsgInterrumpidoTxt: Label 'El proceso anterior quedó sin cerrar (probablemente terminó en un error no controlado) y sus anotaciones se descartaron.';
         MsgSinDetalleTxt: Label 'Proceso completado.';
+        MsgControlesOrdenTxt: Label 'Control de bases y orden: %1 observación(es) para revisar.';
+        SeccionAvisosTxt: Label 'Advertencias y errores';
+        SeccionOrdenTxt: Label 'Control de bases y orden';
+        LecturaOrdenTxt: Label '%1 lee %2. %3';
 
     // ── Sesión (agrupa una corrida por lote) ──────────────────────────────────
 
@@ -45,6 +49,34 @@ codeunit 50068 "Registro Procesos Liq."
     procedure CerrarSesion()
     begin
         Clear(FSesion);
+    end;
+
+    /// <summary>
+    /// Al terminar un proceso largo, muestra los avisos de la corrida como informe — pero sólo si
+    /// son suficientes como para que valga la pena. Se llama ANTES de CerrarSesion.
+    /// </summary>
+    /// <remarks>
+    /// Va acá y no en cada proceso porque la sesión vive acá: el llamador no tiene que acordarse de
+    /// qué Guid era. Devuelve si lo mostró, para que el proceso decida si además saca su resumen de
+    /// texto o si con el informe alcanza.
+    ///
+    /// EL COMMIT NO ES OPCIONAL. Un informe con página de solicitud no puede abrirse dentro de una
+    /// transacción de escritura: la plataforma corta con "No se permite Form.RunModal en
+    /// transacciones de escritura" y REVIERTE EL LOTE ENTERO. Acá es seguro porque se llama al final
+    /// del proceso, con todo calculado y las entradas del registro ya volcadas de la tabla temporal.
+    /// </remarks>
+    procedure MostrarAvisosDeLaSesion(): Boolean
+    var
+        Avisos: Report "Avisos del Cálculo";
+        Sesion: Guid;
+    begin
+        Sesion := FSesion;
+        if not Avisos.ValeLaPena(Sesion) then
+            exit(false);
+        Commit();
+        Avisos.SetSesion(Sesion);
+        Avisos.Run();
+        exit(true);
     end;
 
     // ── Apertura y cierre ─────────────────────────────────────────────────────
@@ -148,6 +180,11 @@ codeunit 50068 "Registro Procesos Liq."
         Agregar("Severidad Registro Liq."::Información, Categoria, Mensaje, '', CodConcepto, '', ImporteEntrada);
     end;
 
+    procedure InfoVariable(Categoria: Enum "Categoría Registro Liq."; Mensaje: Text; NombreVariable: Code[30]; CodConcepto: Code[20])
+    begin
+        Agregar("Severidad Registro Liq."::Información, Categoria, Mensaje, '', CodConcepto, NombreVariable, 0);
+    end;
+
     procedure Advertir(Categoria: Enum "Categoría Registro Liq."; Mensaje: Text)
     begin
         Agregar("Severidad Registro Liq."::Advertencia, Categoria, Mensaje, '', '', '', 0);
@@ -194,6 +231,7 @@ codeunit 50068 "Registro Procesos Liq."
         ImporteEntrada: Decimal)
     var
         Siguiente: Integer;
+        DetalleCompleto: Text;
     begin
         // Anotar sin proceso abierto no es un error del que valga la pena avisar: hay caminos de
         // cálculo que se invocan desde herramientas de diagnóstico, y ahí simplemente no hay dónde
@@ -215,7 +253,13 @@ codeunit 50068 "Registro Procesos Liq."
         TempEntrada.Severidad := Severidad;
         TempEntrada.Categoría := Categoria;
         TempEntrada.Mensaje := CopyStr(Mensaje, 1, MaxStrLen(TempEntrada.Mensaje));
-        TempEntrada.Detalle := CopyStr(Detalle, 1, MaxStrLen(TempEntrada.Detalle));
+        DetalleCompleto := Detalle;
+        // El título es corto, pero el aviso completo debe seguir disponible en el registro/informe.
+        if StrLen(Mensaje) > MaxStrLen(TempEntrada.Mensaje) then begin
+            DetalleCompleto := Mensaje;
+            if Detalle <> '' then DetalleCompleto += ' | ' + Detalle;
+        end;
+        TempEntrada.Detalle := CopyStr(DetalleCompleto, 1, MaxStrLen(TempEntrada.Detalle));
         TempEntrada."Cód. Concepto" := CodConcepto;
         TempEntrada."Nombre Variable" := NombreVariable;
         TempEntrada."Fecha Hora" := CurrentDateTime();
@@ -263,7 +307,7 @@ codeunit 50068 "Registro Procesos Liq."
                 Entrada.Insert();
             until TempEntrada.Next() = 0;
 
-        FResumen := ArmarResumen(Registro);
+        FResumen := ArmarResumen();
         TempEntrada.Reset();
         TempEntrada.DeleteAll();
     end;
@@ -311,28 +355,55 @@ codeunit 50068 "Registro Procesos Liq."
         if TempEntrada.FindFirst() then
             exit(TempEntrada.Mensaje);
         TempEntrada.SetRange(Severidad, TempEntrada.Severidad::Advertencia);
+        TempEntrada.SetFilter(Categoría, '<>%1', TempEntrada.Categoría::"Orden Cálculo");
         if TempEntrada.FindFirst() then
             exit(TempEntrada.Mensaje);
+        TempEntrada.Reset();
+        TempEntrada.SetFilter(Severidad, '%1|%2', TempEntrada.Severidad::Información, TempEntrada.Severidad::Advertencia);
+        TempEntrada.SetRange(Categoría, TempEntrada.Categoría::"Orden Cálculo");
+        if not TempEntrada.IsEmpty() then
+            exit(StrSubstNo(MsgControlesOrdenTxt, TempEntrada.Count()));
         TempEntrada.Reset();
         exit(MsgSinDetalleTxt);
     end;
 
-    local procedure ArmarResumen(Registro: Record "Registro Proceso Liq."): Text
+    local procedure ArmarResumen(): Text
     var
         Texto: TextBuilder;
+        Controles: TextBuilder;
     begin
-        if (Registro."Cant. Errores" = 0) and (Registro."Cant. Advertencias" = 0) then
-            exit('');
-
         TempEntrada.Reset();
         TempEntrada.SetFilter(Severidad, '<>%1', TempEntrada.Severidad::Información);
+        if TempEntrada.FindSet() then begin
+            repeat
+                if (TempEntrada.Severidad = TempEntrada.Severidad::Error) or
+                   (TempEntrada.Categoría <> TempEntrada.Categoría::"Orden Cálculo")
+                then begin
+                    if Texto.Length() = 0 then Texto.Append(SeccionAvisosTxt);
+                    Texto.Append('\');
+                    Texto.Append(TempEntrada.Mensaje);
+                end;
+            until TempEntrada.Next() = 0;
+        end;
+        TempEntrada.Reset();
+
+        // Estas observaciones deben verse aunque el cálculo no haya dejado advertencias. La
+        // demás información es la traza normal del cálculo y no pertenece al resumen.
+        TempEntrada.SetFilter(Severidad, '%1|%2', TempEntrada.Severidad::Información, TempEntrada.Severidad::Advertencia);
+        TempEntrada.SetRange(Categoría, TempEntrada.Categoría::"Orden Cálculo");
         if TempEntrada.FindSet() then
             repeat
-                if Texto.Length() > 0 then
-                    Texto.Append('\');
-                Texto.Append(TempEntrada.Mensaje);
+                if Controles.Length() > 0 then
+                    Controles.Append('\');
+                Controles.Append(StrSubstNo(LecturaOrdenTxt,
+                    TempEntrada."Cód. Concepto", TempEntrada."Nombre Variable", TempEntrada.Mensaje));
             until TempEntrada.Next() = 0;
         TempEntrada.Reset();
+        if Controles.Length() > 0 then begin
+            if Texto.Length() > 0 then Texto.Append('\\');
+            Texto.Append(SeccionOrdenTxt + '\');
+            Texto.Append(Controles.ToText());
+        end;
         exit(Texto.ToText());
     end;
 }

@@ -80,10 +80,13 @@ table 60025 "Detalle Ganancias Liq."
 
     keys
     {
+        // Igual que en Línea Liquidación: la SIFT sobre la clave primaria agrupaba por una
+        // clave única y no ahorraba ninguna suma. 0 lecturas contra 12.208 mantenimientos en 90
+        // horas. Si alguna vez hace falta totalizar por liquidación, la clave para la SIFT es
+        // ("No. Liquidación") más el campo por el que se corte, no la PK entera.
         key(PK; "No. Liquidación", "No. Línea")
         {
             Clustered = true;
-            SumIndexFields = "Importe Total";
         }
     }
 }

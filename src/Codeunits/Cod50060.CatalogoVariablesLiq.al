@@ -68,15 +68,20 @@ codeunit 50064 "Catálogo Variables Liq."
         Fuente: Record "Fuente Datos Liquidación";
         TipoAtr: Record "Tipo Atributo Liq.";
         Concepto: Record "Concepto Liquidación";
+        Motor: Codeunit "Motor Liquidación";
     begin
         // 1. Constantes que el motor inyecta por código (Cod50014 Inject*), no son dato de tabla.
         SetVarCat(Cat, 'COD_ZONA', 0, 'Zona desfavorable aplicada. La define una Fuente de Datos llamada COD_ZONA si existe (ej. el atributo con historial); si no, sale del Proyecto, o de la Ficha Empleado cuando el proyecto no la tiene', 'Sistema');
         SetVarCat(Cat, 'CANT_INCIDENCIA', 0, 'Cantidad cargada como incidencia/novedad PARA ESTE concepto (ej. horas extras). 0 si no hay. Permite que la fórmula la valorice en vez de recibir un importe ya hecho', 'Sistema');
         SetVarCat(Cat, 'ES_JUBILADO', 0, 'Empleado jubilado a la fecha de referencia (1) o no (0)', 'Sistema');
-        SetVarCat(Cat, 'ES_GROSSING_UP', 0, 'Liquidación con grossing-up activo (1) o no (0)', 'Sistema');
-        SetVarCat(Cat, 'NETO_GARANTIZADO', 0, 'Neto garantizado objetivo del grossing-up', 'Sistema');
-        SetVarCat(Cat, 'COMPLEMENTO_GU', 0, 'Complemento de grossing-up (se autoconverge en la liquidación real)', 'Sistema');
-        SetVarCat(Cat, 'NETO_GARANTIZADO_ESFCY', 0, 'El neto garantizado está cargado en moneda extranjera (1) o local (0)', 'Sistema');
+        // Los tres del grossing-up salen de Config. RRHH, no de un literal: si alguien los renombra
+        // ahí, el catálogo tiene que listar el nombre nuevo. De otro modo el editor de fórmulas
+        // seguiría ofreciendo un nombre que el motor ya no define, y una fórmula escrita con él
+        // valdría cero sin que nada avise.
+        SetVarCat(Cat, Motor.VarEsGrossingUp(), 0, 'Liquidación con grossing-up activo (1) o no (0)', 'Sistema');
+        SetVarCat(Cat, Motor.VarNetoGarantizado(), 0, 'Neto garantizado objetivo del grossing-up', 'Sistema');
+        SetVarCat(Cat, Motor.VarComplementoGU(), 0, 'Complemento de grossing-up (se autoconverge en la liquidación real)', 'Sistema');
+        SetVarCat(Cat, Motor.VarNetoGarantizado() + '_ESFCY', 0, 'El neto garantizado está cargado en moneda extranjera (1) o local (0)', 'Sistema');
 
         // 2. Parámetros con Nombre Variable: valor vigente para el contexto recibido, si alcanza.
         Param.SetFilter("Nombre Variable", '<>%1', '');
@@ -118,6 +123,13 @@ codeunit 50064 "Catálogo Variables Liq."
             repeat
                 SetVarCat(Cat, TipoAtr."Nombre Variable", 0,
                     StrSubstNo(TxtDescAtributo, TipoAtr.Descripción, Format(TipoAtr."Tipo Entidad")), 'Atributo');
+                // El compañero <VAR>_ULT_MAREA, para los atributos de buque que lo publican. Es un
+                // nombre que el motor inyecta en runtime, igual que los _ESFCY: si no se declara
+                // acá, el control estático de fórmulas lo da por desconocido y la liquidación no
+                // llega a calcularse.
+                if TipoAtr."Publicar Última Marea" then
+                    SetVarCat(Cat, TipoAtr."Nombre Variable" + '_ULT_MAREA', 0,
+                        StrSubstNo(TxtDescUltMarea, TipoAtr.Descripción), 'Atributo');
             until TipoAtr.Next() = 0;
 
         // Sin filtro de vigencia a propósito. Esto es un diccionario de NOMBRES, no el conjunto que
@@ -212,6 +224,8 @@ codeunit 50064 "Catálogo Variables Liq."
         if TipoAtr.FindSet() then
             repeat
                 Anotar(Origen, Reportados, Salida, TipoAtr."Nombre Variable", TxtOrigenAtributo);
+                if TipoAtr."Publicar Última Marea" then
+                    Anotar(Origen, Reportados, Salida, TipoAtr."Nombre Variable" + '_ULT_MAREA', TxtOrigenAtributo);
             until TipoAtr.Next() = 0;
 
         // TODOS los conceptos, no solo los acumuladores: el motor deja el importe de cada uno en el
@@ -403,15 +417,78 @@ codeunit 50064 "Catálogo Variables Liq."
                 Obj.Add('tipo', Todas.Tipo);
                 Obj.Add('valor', Format(Todas.Valor, 0, '<Precision,2:2><Standard Format,0>'));
                 Obj.Add('desc', Todas.Descripción);
+                Obj.Add('valoresAtributo', BuildValoresAtributoJson(Todas.Nombre));
                 Arr.Add(Obj);
             until Todas.Next() = 0;
         exit(Arr);
     end;
 
-    // Conceptos activos para autocompletar @CÓDIGO (reevalúa la fórmula del otro concepto) y
-    // #CÓDIGO (lee el importe ya calculado). La clave primaria es (Código, Vigencia Desde), así que
-    // recorriendo en orden natural la última descripción que se escribe por código es la de la
-    // vigencia más reciente.
+    local procedure BuildValoresAtributoJson(Nombre: Text): JsonArray
+    var
+        Tipo: Record "Tipo Atributo Liq.";
+        Valor: Record "Valor Atributo Liq.";
+        Arr: JsonArray;
+        Obj: JsonObject;
+    begin
+        // TIPO_LIQ no es un atributo, pero se compara con la misma sintaxis —TIPO_LIQ = 'LIQ_FINAL'—
+        // así que viaja por el mismo canal. Es lo que hace que el editor ofrezca la lista de tipos al
+        // escribir la comilla, y lo que convierte un Orden que había que memorizar en algo que se
+        // elige de una lista.
+        if EsVariableTipoLiq(Nombre) then
+            exit(BuildValoresTipoLiqJson());
+
+        Tipo.SetRange("Nombre Variable", Nombre);
+        Tipo.SetRange("Tipo Dato", Tipo."Tipo Dato"::Lista);
+        if not Tipo.FindFirst() then
+            exit(Arr);
+        Valor.SetRange("Cód. Tipo Atributo", Tipo.Código);
+        if Valor.FindSet() then
+            repeat
+                Clear(Obj);
+                Obj.Add('codigo', Valor.Código);
+                Obj.Add('desc', Valor.Descripción);
+                Obj.Add('padre', Valor."Cód. Valor Padre");
+                Arr.Add(Obj);
+            until Valor.Next() = 0;
+        exit(Arr);
+    end;
+
+    /// <remarks>
+    /// Por Cód. Cálculo y no por el literal: el Nombre Variable es configurable (ver Cod50077).
+    /// </remarks>
+    local procedure EsVariableTipoLiq(Nombre: Text): Boolean
+    var
+        VarSis: Record "Variable Sistema Liq.";
+    begin
+        if not VarSis.Get(CopyStr(Nombre, 1, MaxStrLen(VarSis."Nombre Variable"))) then
+            exit(false);
+        exit(VarSis."Cód. Cálculo" = CodCalcTipoLiqTok);
+    end;
+
+    // Los tipos de liquidación, con el Orden a la vista: es el valor numérico que la variable
+    // devuelve, y verlo al lado del código deja leer las fórmulas viejas que todavía comparan números.
+    local procedure BuildValoresTipoLiqJson(): JsonArray
+    var
+        TipoLiq: Record "Tipo Liquidación";
+        Arr: JsonArray;
+        Obj: JsonObject;
+    begin
+        // Sin filtro de Activo: un tipo dado de baja sigue apareciendo en fórmulas y en
+        // liquidaciones viejas, y el catálogo es un diccionario de nombres, no el conjunto vigente.
+        TipoLiq.SetCurrentKey(Orden);
+        if TipoLiq.FindSet() then
+            repeat
+                Clear(Obj);
+                Obj.Add('codigo', TipoLiq.Código);
+                Obj.Add('desc', StrSubstNo(TxtDescTipoLiq, TipoLiq.Descripción, TipoLiq.Orden));
+                Obj.Add('padre', '');
+                Arr.Add(Obj);
+            until TipoLiq.Next() = 0;
+        exit(Arr);
+    end;
+
+    // Conceptos activos para autocompletar @CÓDIGO y #CÓDIGO. En orden de clave,
+    // la última descripción de cada código corresponde a la vigencia más reciente.
     local procedure BuildConceptosJson(): JsonArray
     var
         Concepto: Record "Concepto Liquidación";
@@ -452,14 +529,17 @@ codeunit 50064 "Catálogo Variables Liq."
         FInicializado := true;
 
         DefFunc('TRAMO', 'TRAMO(código, valor)', 'código|valor', AyudaTramo, true);
+        DefFunc('ACUM_PARAM_CCT', 'ACUM_PARAM_CCT(fuente, parámetro, cantidad_histórica, divisor)', 'fuente|parámetro|cantidad_histórica|divisor', 'Suma precio CCT por cantidad en cabeceras históricas del empleado/proyecto. Los tres nombres van entre comillas simples. Usa convenio/categoría y vigencia de cada cabecera, sin precio personal; cantidad y TC guardados. No modifica los documentos históricos.', true);
         DefFunc('ROUND', 'ROUND(valor, precisión)', 'valor|precisión', AyudaRound, false);
         DefFunc('REDONDEAR', 'REDONDEAR(valor, decimales)', 'valor|decimales', AyudaRedondear, false);
+        DefFunc('ERROR', 'ERROR("mensaje")', 'mensaje', AyudaError, false);
         DefFunc('ABS', 'ABS(valor)', 'valor', AyudaAbs, false);
         DefFunc('PISO', 'PISO(valor)', 'valor', AyudaPiso, false);
         DefFunc('TECHO', 'TECHO(valor)', 'valor', AyudaTecho, false);
         DefFunc('MIN', 'MIN(a, b)', 'a|b', AyudaMin, false);
         DefFunc('MAX', 'MAX(a, b)', 'a|b', AyudaMax, false);
         DefFunc('IF', 'IF(condición, si_verdadero, si_falso)', 'condición|si_verdadero|si_falso', AyudaIf, false);
+        DefFunc('IFZERO', 'IFZERO(valor, alternativa)', 'valor|alternativa', AyudaIfZero, false);
         DefFunc('CASE', 'CASE(cond1, valor1, cond2, valor2, …, default)', 'cond1|valor1|cond2|valor2|default', AyudaCase, false);
         DefFunc('DIV', 'DIV(a, b)', 'a|b', AyudaDiv, false);
 
@@ -491,8 +571,11 @@ codeunit 50064 "Catálogo Variables Liq."
         TxtOrigenAtributo: Label 'tipo de atributo';
         TxtOrigenConcepto: Label 'concepto';
         TxtConflicto: Label '%1  —  es %2 y también %3', Comment = '%1=nombre, %2 y %3=orígenes';
+        TxtDescTipoLiq: Label '%1 (Orden %2)', Comment = '%1=descripción del tipo de liquidación, %2=su Orden, que es el valor numérico de la variable';
+        CodCalcTipoLiqTok: Label 'TIPO_LIQ', Locked = true;
         AyudaTramo: Label 'Consulta una tabla escalonada vigente. El código va entre comillas simples. Ej: TRAMO(''TAB_IMP_4CAT'', BASE_IG4 * 12)';
         AyudaRound: Label 'Redondea al múltiplo indicado. Ej: ROUND(x, 0.01) redondea a centavos.';
+        AyudaError: Label 'Detiene la liquidación con un mensaje y revierte el cálculo. Va dentro de un IF, que evalúa sólo la rama elegida. Ej: IF(DIAS_MAREA > 31, ERROR("La marea no puede durar más que el mes"), 0). No dispara en la validación previa, donde todo vale cero.';
         AyudaRedondear: Label 'Redondea a la cantidad de decimales indicada. Ej: REDONDEAR(5473.286, 2) = 5473,29';
         AyudaAbs: Label 'Valor absoluto.';
         AyudaPiso: Label 'Entero inmediatamente menor o igual al valor.';
@@ -500,6 +583,7 @@ codeunit 50064 "Catálogo Variables Liq."
         AyudaMin: Label 'El menor de los dos valores.';
         AyudaMax: Label 'El mayor de los dos valores.';
         AyudaIf: Label 'Condicional. Solo se evalúa la rama elegida, así que un error en la rama descartada no se dispara.';
+        AyudaIfZero: Label 'El valor si no es cero; si es cero, la alternativa. Para parámetros que pueden no estar cargados para un par convenio/categoría: sin vigencia resuelven a cero y multiplican por cero sin avisar.';
         AyudaCase: Label 'Devuelve el valor de la primera condición verdadera. El último argumento suelto es el default. Ej: CASE(ANTIG >= 10, PCT_10, ANTIG >= 5, PCT_5, 0)';
         AyudaDiv: Label 'División segura: devuelve 0 si el divisor es 0, en vez de error.';
         AyudaAnd: Label 'Conjunción lógica. Debe escribirse en mayúsculas.';
@@ -509,5 +593,6 @@ codeunit 50064 "Catálogo Variables Liq."
         // Lo esencial va primero: si un nombre de variable largo hace que SetVarCat recorte, lo que
         // se pierde es el ejemplo, no el significado.
         TxtDescAtributo: Label 'Atributo: %1 (se carga en %2)', Comment = '%1=descripción del tipo de atributo, %2=maestro en el que se carga';
+        TxtDescUltMarea: Label '%1 (del buque de la última marea en que estuvo embarcado, no del de la liquidación)', Comment = '%1=descripción del tipo de atributo';
         TxtDescEsFCY: Label '1 = %1 está en moneda extranjera. Ej: IF(%1_ESFCY, %1 * TC_CERCANO, %1)';
 }

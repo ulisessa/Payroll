@@ -15,9 +15,13 @@ table 60019 "Concepto CCT Vigente"
     // Desde más reciente <= fecha de liquidación. Agregar una vigencia nueva para un convenio
     // NO revoca la vigencia todavía válida de los demás convenios del mismo concepto.
     // Dentro de un convenio restringido, "Cód. Categoría" en blanco = aplica a TODAS las
-    // categorías de ese convenio; una fila con categoría puntual restringe solo a esa. Ahí sí
-    // la vigencia más reciente DE ESE CONVENIO reemplaza a la anterior, de modo que una versión
-    // nueva puede acotar el concepto a categorías puntuales.
+    // categorías de ese convenio; una fila con categoría puntual restringe solo a esa.
+    // Para cada categoría vale la última vigencia del convenio que la NOMBRE —sea por su código o
+    // por una fila en blanco—, no la última vigencia a secas: una vigencia nueva agrega y
+    // actualiza, y no revoca lo que no menciona. Para sacarle un concepto a una categoría hay que
+    // cargar una fila con "Excluye"; omitirla de la vigencia nueva no alcanza, a propósito. Antes
+    // sí alcanzaba, y una carga que enumeró las categorías de otro convenio dejó a los OF04 del
+    // 175/75 sin sueldo, sin antigüedad y sin francos desde el 1/1/2026, sin un solo aviso.
 
     fields
     {
@@ -59,9 +63,13 @@ table 60019 "Concepto CCT Vigente"
             //
             // Una exclusión activa GANA sobre cualquier inclusión, y no participa del versionado por
             // convenio: es una capa aparte. Para volver a incluir un convenio excluido se borra la
-            // fila, no se agrega una vigencia posterior. Es a propósito: meterla en el mismo flujo de
-            // vigencias haría que excluir UNA categoría dejara afuera a todas las demás del convenio,
-            // porque dentro de un convenio la vigencia más reciente reemplaza a la anterior.
+            // fila, no se agrega una vigencia posterior.
+            //
+            // Esto es también lo que hace que sacar un concepto SIEMPRE sea explícito: desde que la
+            // resolución por categoría busca hacia atrás la última vigencia que la nombra, omitirla
+            // de una vigencia nueva ya no la deja afuera. La contracara es que una exclusión no
+            // tiene fecha de fin: si alguna vez hace falta "excluida durante 2026 y de vuelta en
+            // 2027", hay que darle vigencia propia acá, no resolverlo por omisión.
         }
     }
 

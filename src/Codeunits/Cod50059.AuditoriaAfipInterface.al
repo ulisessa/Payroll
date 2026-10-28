@@ -46,6 +46,29 @@ codeunit 50059 "Auditoria AFIP Interface"
             CrearRegistro('SIRADIG', RegistroImportacion."Archivo Origen", RegistroImportacion."CUIL Empleado", UniqueId, XmlContent);
     end;
 
+    // El XML tal como se importó, desde el registro de auditoría. Es lo que permite procesar una
+    // importación pendiente de un archivo SUBIDO desde la PC: de ése sólo queda el nombre (no hay ruta
+    // de servidor), pero el contenido se guardó acá al importar.
+    procedure LeerXmlRegistrado(EntryNo: Integer) XmlContent: Text
+    var
+        Registro: Record "AFIP Interface Register";
+        InStr: InStream;
+        Linea: Text;
+    begin
+        if EntryNo = 0 then
+            exit('');
+        if not Registro.Get(EntryNo) then
+            exit('');
+        Registro.CalcFields(File);
+        if not Registro.File.HasValue() then
+            exit('');
+        Registro.File.CreateInStream(InStr, TextEncoding::UTF8);
+        while not InStr.EOS do begin
+            InStr.ReadText(Linea);
+            XmlContent += Linea;
+        end;
+    end;
+
     procedure RegistrarDetalle(RegisterEntryNo: Integer; TableNo: Integer; FieldNo: Integer; TipoCambio: Option Insertion,Modification,Deletion,"No change"; OldValue: Text[250]; NewValue: Text[250]; ClaveRegistro: Text[250])
     var
         Detalle: Record "AFIP Interface Register detail";

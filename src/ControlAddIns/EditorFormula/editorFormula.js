@@ -42,6 +42,7 @@ var UASEditorFormula = (function () {
     var MAX_RECONSTRUCCIONES = 20;
     var editores = {};
     var popup = null;
+    var menu = null;
     var pop = { abierto: false, ed: null, items: [], sel: 0, rango: null };
 
     // ── Tokenizador (espejo de NextTok en Cod50015) ───────────────────────────
@@ -94,7 +95,13 @@ var UASEditorFormula = (function () {
             }
             if (c === "'") {
                 var j3 = i + 1;
-                while (j3 < n && s.charAt(j3) !== "'") j3++;
+                while (j3 < n) {
+                    if (s.charAt(j3) === "'") {
+                        if (s.charAt(j3 + 1) === "'") { j3 += 2; continue; }
+                        break;
+                    }
+                    j3++;
+                }
                 var cerrada = j3 < n;
                 if (cerrada) j3++;
                 agregar('cadena', i, j3, { cerrada: cerrada });
@@ -209,9 +216,41 @@ var UASEditorFormula = (function () {
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function tramo(cls, texto) {
+    function tramo(cls, texto, extra) {
         if (texto === '') return '';
-        return '<span class="uas-tk uas-tk-' + cls + '">' + escapar(texto) + '</span>';
+        return '<span class="uas-tk uas-tk-' + cls + (extra ? ' ' + extra : '') + '">' + escapar(texto) + '</span>';
+    }
+
+    // ¿Qué paréntesis manda donde está el cursor? Devuelve los índices del '(' que lo abre y del ')'
+    // que lo cierra, o null si el cursor no está dentro de ningún grupo.
+    //
+    // El que vale es el grupo MÁS INTERNO que lo contiene, que es el que decide qué se está
+    // escribiendo: parado en el segundo argumento de un IF anidado dentro de un ROUND, lo que
+    // importa es el IF. Recorriendo de izquierda a derecha ese grupo es el PRIMERO que cierra
+    // conteniendo al cursor, porque los de adentro cierran antes que los de afuera.
+    //
+    // El cursor cuenta como adentro también cuando está sobre los propios paréntesis: pararse en un
+    // ')' y ver dónde abría es justamente para lo que se usa esto.
+    function grupoDelCursor(toks, caret) {
+        var pila = [];
+        var i, t;
+        for (i = 0; i < toks.length; i++) {
+            t = toks[i];
+            if (t.tipo !== 'par') continue;
+            if (t.texto === '(') {
+                pila.push(i);
+            } else if (pila.length) {
+                var abre = pila.pop();
+                if (caret >= toks[abre].ini && caret <= t.fin)
+                    return { abre: abre, cierra: i };
+            }
+        }
+        // Grupos abiertos y todavía sin cerrar: es el estado normal mientras se escribe, y es cuando
+        // más sirve saber cuál es el paréntesis que quedó abierto. Se toma el último que empezó
+        // antes del cursor, que es el más interno de los que lo contienen.
+        for (i = pila.length - 1; i >= 0; i--)
+            if (caret >= toks[pila[i]].ini) return { abre: pila[i], cierra: -1 };
+        return null;
     }
 
     function render(ed) {
@@ -220,17 +259,23 @@ var UASEditorFormula = (function () {
         var caret = ed.ta.selectionStart;
         var html = '';
         var marcaPuesta = false;
+        // Sólo con el foco puesto: si no, el resaltado queda pintado sobre un cursor que ya no está.
+        var grupo = (document.activeElement === ed.ta) ? grupoDelCursor(toks, caret) : null;
 
         for (var i = 0; i < toks.length; i++) {
             var tk = toks[i];
             var cls = clasificar(tk, toks, i).cls;
+            // El de apertura se marca aparte del de cierre: es el que se pidió ver, y cuando el
+            // grupo quedó sin cerrar es el único que hay.
+            var extra = grupo ? (i === grupo.abre ? 'uas-par-abre' : (i === grupo.cierra ? 'uas-par-cierra' : '')) : '';
             if (!marcaPuesta && caret >= tk.ini && caret < tk.fin) {
                 // El cursor cae dentro de este token: se parte en dos para poder anclar la marca
-                // invisible que después se usa para posicionar el popup.
-                html += tramo(cls, texto.substring(tk.ini, caret)) + MARCA + tramo(cls, texto.substring(caret, tk.fin));
+                // invisible que después se usa para posicionar el popup. Los dos pedazos llevan el
+                // resaltado, o parado sobre el propio paréntesis se vería sólo media letra pintada.
+                html += tramo(cls, texto.substring(tk.ini, caret), extra) + MARCA + tramo(cls, texto.substring(caret, tk.fin), extra);
                 marcaPuesta = true;
             } else {
-                html += tramo(cls, tk.texto);
+                html += tramo(cls, tk.texto, extra);
             }
         }
         if (!marcaPuesta) html += MARCA;
@@ -270,11 +315,22 @@ var UASEditorFormula = (function () {
             var c = clasificar(tk, toks, i);
             html += tramo(c.cls, tk.texto);
 
-            var sigla = tk.tipo === 'ident' ? tk.texto.charAt(0) : '';
-            if (sigla !== '@' && sigla !== '#') continue;
-            hayRefs = true;
-            if (c.ref && c.ref.desc) html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
-            else html += '<span class="uas-nom uas-nom-falta">no existe</span>';
+            if (tk.tipo !== 'ident') continue;
+            var sigla = tk.texto.charAt(0);
+            if (sigla === '@' || sigla === '#') {
+                hayRefs = true;
+                if (c.ref && c.ref.desc) html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
+                else html += '<span class="uas-nom uas-nom-falta">no existe</span>';
+                continue;
+            }
+            // Las VARIABLES (parámetros, variables de sistema, fuentes de datos, atributos) también
+            // llevan su descripción. Antes sólo salía la de los conceptos @/#, y justo las variables
+            // son lo que más cuesta reconocer por el nombre. Una variable sin descripción no muestra
+            // nada, y una desconocida tampoco: ya sale subrayada como error en la vista normal.
+            if (c.ref && c.ref.tipo && c.ref.desc) {
+                hayRefs = true;
+                html += '<span class="uas-nom">' + escapar(c.ref.desc) + '</span>';
+            }
         }
 
         // Sin referencias el botón no tiene nada que mostrar, así que desaparece en vez de quedar
@@ -496,6 +552,46 @@ var UASEditorFormula = (function () {
         popup.style.left = x + 'px';
     }
 
+    // ── Menú contextual: abrir la ficha de lo que hay bajo el cursor ──────────
+
+    // Qué ficha corresponde a un token, o null si no tiene. Los tipos son los del catálogo; AL los
+    // resuelve contra su tabla (Cod110071), porque acá sólo se conocen nombres.
+    function destinoDeFicha(info) {
+        if (!info || !info.ref) return null;
+        if (info.cls === 'concepto')
+            return { tipo: 'concepto', nombre: String(info.ref.codigo), etiqueta: 'Abrir ficha del concepto ' + info.ref.codigo };
+        var t = info.ref.tipo;
+        // Un acumulador (BASE_PROMEDIO, REMUNERATIVO_BRUTO...) ES un concepto con "Es Acumulador": su
+        // ficha es la del concepto, y por eso se manda como 'concepto' y no con su tipo de catálogo.
+        if (t === 'Acumulador')
+            return { tipo: 'concepto', nombre: String(info.ref.nombre), etiqueta: 'Abrir ficha del acumulador ' + info.ref.nombre };
+        if (t === 'Parámetro' || t === 'Fuente Datos' || t === 'Sistema' || t === 'Atributo')
+            return { tipo: t, nombre: String(info.ref.nombre), etiqueta: 'Abrir ficha de ' + info.ref.nombre + ' (' + t + ')' };
+        return null;
+    }
+
+    function cerrarMenu() {
+        if (menu) menu.style.display = 'none';
+    }
+
+    function abrirMenu(ed, destino, x, y) {
+        menu.innerHTML = '<div class="uas-item uas-menu-item">' + escapar(destino.etiqueta) + '</div>';
+        menu.firstChild.addEventListener('mousedown', function (e) {
+            // preventDefault: que el textarea no pierda el foco, o el blur emitiría el texto sin motivo.
+            e.preventDefault();
+            cerrarMenu();
+            invocar('OnAbrirFicha', [destino.tipo, destino.nombre]);
+        });
+        menu.style.display = 'block';
+        // Coordenadas respecto de la raíz del editor, que es el contenedor posicionado del menú; y
+        // sin salirse del borde derecho/inferior, que en un iframe angosto se come el texto.
+        var r = raiz.getBoundingClientRect();
+        var left = Math.max(0, Math.min(x - r.left, raiz.clientWidth - menu.offsetWidth - 4));
+        var top = Math.max(0, Math.min(y - r.top, raiz.clientHeight - menu.offsetHeight - 4));
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+    }
+
     function cerrarPopup() {
         if (!pop.abierto) return;
         pop.abierto = false;
@@ -541,11 +637,55 @@ var UASEditorFormula = (function () {
     }
 
     function actualizarPopup(ed, forzado) {
+        var atributo = valoresAtributoEnCursor(ed);
+        if (atributo) {
+            if (atributo.items.length) abrirPopup(ed, atributo.rango, atributo.items);
+            else cerrarPopup();
+            return;
+        }
         var pref = prefijoEnCursor(ed);
         if (!forzado && pref.texto.length === 0) { cerrarPopup(); return; }
         var items = sugerencias(pref.texto);
         if (!items.length) { cerrarPopup(); return; }
         abrirPopup(ed, pref, items);
+    }
+
+    // Reconoce solo VARIABLE = literal y VARIABLE <> literal, fuera de otras cadenas.
+    function valoresAtributoEnCursor(ed) {
+        var s = ed.ta.value, p = ed.ta.selectionStart;
+        var toks = tokenizar(s.substring(0, p)).filter(function (t) { return t.tipo !== 'espacio'; });
+        var ultimo = toks[toks.length - 1], pref = '', ini = p, fin = p;
+        if (!ultimo) return null;
+        if (ultimo.tipo === 'cadena' && ultimo.cerrada) return null;
+        if (ultimo.tipo !== 'op') {
+            pref = ultimo.texto;
+            ini = ultimo.ini;
+            if (ultimo.tipo === 'cadena') pref = pref.substring(1).replace(/''/g, "'");
+            toks.pop();
+            // Reemplaza también el resto del literal si se completa en medio de uno existente.
+            var completo = tokenizar(s).filter(function (t) { return t.ini === ini; })[0];
+            if (completo) fin = completo.fin;
+        }
+        var op = toks[toks.length - 1], variable = toks[toks.length - 2];
+        if (!op || (op.texto !== '=' && op.texto !== '<>') || !variable || variable.tipo !== 'ident') return null;
+        var anterior = toks[toks.length - 3];
+        if (anterior && anterior.texto !== '(' && anterior.texto !== ',' &&
+            !/^(AND|OR|NOT)$/i.test(anterior.texto)) return null;
+        var def = mapaVariablesUp[variable.texto.toUpperCase()];
+        if (!def || !def.valoresAtributo || !def.valoresAtributo.length) return null;
+        var q = pref.toUpperCase(), items = [];
+        def.valoresAtributo.forEach(function (v) {
+            var codigo = String(v.codigo), desc = String(v.desc || '');
+            var pun = codigo.toUpperCase().indexOf(q) === 0 ? 0 :
+                ((codigo + ' ' + desc + ' ' + (v.padre || '')).toUpperCase().indexOf(q) >= 0 ? 1 : -1);
+            if (pun < 0) return;
+            var ins = "'" + codigo.replace(/'/g, "''") + "'";
+            // "Código válido" y no "Valor de atributo": por este mismo canal viajan ahora los tipos
+            // de liquidación (TIPO_LIQ = 'LIQ_FINAL'), que no son un atributo.
+            items.push({ pun: pun, it: { nombre: codigo, tipo: 'Código válido',
+                valor: v.padre || '', desc: desc, insertar: ins, caretRel: ins.length } });
+        });
+        return { rango: { ini: ini, fin: fin }, items: ordenar(items) };
     }
 
     // ── Ayuda de firma y barra de estado ──────────────────────────────────────
@@ -754,6 +894,7 @@ var UASEditorFormula = (function () {
         var ta = ed.ta;
 
         ta.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') cerrarMenu();
             if (pop.abierto && pop.ed === ed) {
                 if (e.key === 'ArrowDown') { mover(1); e.preventDefault(); e.stopPropagation(); return; }
                 if (e.key === 'ArrowUp') { mover(-1); e.preventDefault(); e.stopPropagation(); return; }
@@ -795,8 +936,21 @@ var UASEditorFormula = (function () {
             actualizarPopup(ed, false);
         });
 
+        // Las teclas que el popup YA CONSUMIÓ en keydown no se vuelven a procesar acá.
+        //
+        // Sin esto las flechas no movían la lista. Bajar hacía las dos cosas: el keydown corría
+        // mover(1) y marcaba la fila, y al soltar la tecla este keyup llamaba a actualizarPopup, que
+        // recalcula las mismas sugerencias y termina en abrirPopup —donde hay un pop.sel = 0—. La
+        // selección saltaba a la primera fila en cada pulsación, así que parecía que la lista no
+        // respondía: en realidad se movía y rebotaba.
+        //
+        // Izquierda y derecha NO entran acá: el keydown no las intercepta, mueven el cursor de
+        // verdad y el popup tiene que recalcularse con el prefijo nuevo.
+        var CONSUMIDAS_POR_POPUP = { ArrowDown: 1, ArrowUp: 1, PageDown: 1, PageUp: 1 };
+
         ta.addEventListener('keyup', function (e) {
             if (!e.key) return;
+            if (pop.abierto && pop.ed === ed && CONSUMIDAS_POR_POPUP[e.key]) return;
             if (e.key.indexOf('Arrow') === 0 || e.key === 'Home' || e.key === 'End') {
                 render(ed);
                 actualizarEstado(ed);
@@ -804,7 +958,23 @@ var UASEditorFormula = (function () {
             }
         });
 
+        // Botón derecho sobre un concepto, parámetro, fuente, variable de sistema o atributo: menú
+        // para abrir su ficha. Sobre cualquier otra cosa NO se intercepta, para no quitarle al usuario
+        // el menú del navegador (copiar, pegar, cortar).
+        ta.addEventListener('contextmenu', function (e) {
+            var x = e.clientX, y = e.clientY;
+            // El mousedown derecho ya movió el cursor, pero se lee en el mismo turno del evento:
+            // el token se ubica con la posición actual del cursor, no con las coordenadas del clic.
+            if (!ed.toks) ed.toks = tokenizar(ta.value);
+            var destino = destinoDeFicha((tokenEnCursor(ed) || {}).info);
+            if (!destino) { cerrarMenu(); return; }
+            e.preventDefault();
+            cerrarPopup();
+            abrirMenu(ed, destino, x, y);
+        });
+
         ta.addEventListener('click', function () {
+            cerrarMenu();
             cerrarPopup();
             render(ed);
             actualizarEstado(ed);
@@ -812,12 +982,18 @@ var UASEditorFormula = (function () {
 
         ed.editor.addEventListener('scroll', function () { if (pop.abierto && pop.ed === ed) posicionarPopup(ed); });
 
-        ta.addEventListener('focus', function () { ed.editor.className = 'uas-editor uas-editor-foco'; });
+        // Los dos vuelven a pintar por el resaltado del paréntesis, que sólo se muestra con el foco
+        // puesto: sin esto aparecería recién al mover el cursor y quedaría dibujado al irse.
+        ta.addEventListener('focus', function () {
+            ed.editor.className = 'uas-editor uas-editor-foco';
+            render(ed);
+        });
 
         ta.addEventListener('blur', function () {
             ed.editor.className = 'uas-editor';
             cerrarPopup();
             emitir(ed, true);
+            render(ed);
         });
 
         // El textarea solo mide lo que ocupa su texto; sin esto, clickear en el espacio vacío de
@@ -1012,6 +1188,13 @@ var UASEditorFormula = (function () {
             popup.style.display = 'none';
             raiz.appendChild(popup);
             conectarPopup();
+
+            menu = document.createElement('div');
+            menu.className = 'uas-popup uas-menu';
+            menu.style.display = 'none';
+            raiz.appendChild(menu);
+            // Cualquier clic fuera del menú lo cierra; el de adentro actúa en su mousedown.
+            raiz.addEventListener('mousedown', function (e) { if (!menu.contains(e.target)) cerrarMenu(); });
 
             var pista = document.createElement('div');
             pista.className = 'uas-pista';

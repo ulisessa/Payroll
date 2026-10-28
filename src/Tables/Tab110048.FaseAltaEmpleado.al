@@ -150,7 +150,11 @@ table 110048 "Fase Alta Empleado"
         if Abierta then
             Días := 0
         else
-            Días := "Fecha Baja" - "Fecha Alta";
+            // AMBOS EXTREMOS CUENTAN: el día de alta y el de baja son días trabajados. Una fase del
+            // 13/11/2013 al 10/3/2014 son 118 días, no 117. La resta sola se come un día por fase, y
+            // con un historial fragmentado eso se acumula: a 04066, con 18 fases, le faltaban 18 días
+            // de antigüedad y lo dejaban un escalón abajo en la escala del CCT.
+            Días := "Fecha Baja" - "Fecha Alta" + 1;
     end;
 
     /// <summary>
@@ -377,8 +381,11 @@ table 110048 "Fase Alta Empleado"
                 Hasta := Fase."Fecha Baja";
                 if (Hasta = 0D) or (Hasta > FechaRef) then
                     Hasta := FechaRef;
-                if Hasta > Fase."Fecha Alta" then
-                    Dias += Hasta - Fase."Fecha Alta";
+                // Inclusive en los dos extremos, igual que el campo Días (ver Recalcular). El >= y no
+                // el > es parte de lo mismo: una fase de un solo día —alta y baja la misma fecha— es
+                // un día trabajado, y antes contaba cero.
+                if Hasta >= Fase."Fecha Alta" then
+                    Dias += Hasta - Fase."Fecha Alta" + 1;
             until Fase.Next() = 0;
     end;
 

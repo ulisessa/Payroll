@@ -1945,6 +1945,12 @@
         <Field Name="LinNetoGraficoFormat">
           <DataField>LinNetoGraficoFormat</DataField>
         </Field>
+        <Field Name="LinClaveFila">
+          <DataField>LinClaveFila</DataField>
+        </Field>
+        <Field Name="LinFrancoDetalle">
+          <DataField>LinFrancoDetalle</DataField>
+        </Field>
       </Fields>
       <Query>
         <DataSourceName>DataSource</DataSourceName>

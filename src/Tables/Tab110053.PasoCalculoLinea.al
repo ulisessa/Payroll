@@ -86,6 +86,11 @@ table 110053 "Paso Cálculo Línea"
             DataClassification = CustomerContent;
             // Marca la fila final, la que compara lo reconstruido contra el importe guardado.
         }
+        field(12; "Es Base Escala"; Boolean)
+        {
+            Caption = 'Forma la base de la escala';
+            DataClassification = CustomerContent;
+        }
         field(11; "Es Subtotal"; Boolean)
         {
             Caption = 'Es Subtotal';

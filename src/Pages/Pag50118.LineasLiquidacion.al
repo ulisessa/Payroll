@@ -192,13 +192,12 @@ page 50118 "Líneas Liquidación"
                 ApplicationArea = All;
                 Caption = 'Detalle del cálculo';
                 Image = Calculate;
-                ToolTip = 'Muestra el paso a paso de la fórmula: cada término con su signo, su valor y el total corriente. Reconstruye el cálculo con la fórmula y los valores GUARDADOS, no con los de hoy.';
+                ToolTip = 'Explica el importe de la línea: Ganancias por etapas, francos por lotes y los demás conceptos con su fórmula y los valores utilizados.';
                 trigger OnAction()
                 var
-                    DetPage: Page "Detalle Cálculo Línea";
+                    Presentacion: Codeunit "Presentación Cálculo Liq.";
                 begin
-                    DetPage.CargarDesdeLinea(Rec);
-                    DetPage.RunModal();
+                    Presentacion.Abrir(Rec);
                 end;
             }
             action(VerVariables)
@@ -209,12 +208,9 @@ page 50118 "Líneas Liquidación"
                 ToolTip = 'Muestra las variables que se utilizaron al calcular esta línea.';
                 trigger OnAction()
                 var
-                    Det: Record "Detalle Variable Línea Liq.";
                     VarPage: Page "Variables Cálculo Línea";
                 begin
-                    Det.SetRange("No. Liquidación", Rec."No. Liquidación");
-                    Det.SetRange("No. Línea", Rec."No. Línea");
-                    VarPage.SetTableView(Det);
+                    VarPage.Cargar(Rec."No. Liquidación", Rec."No. Línea");
                     VarPage.Caption := Rec."Descripción Concepto";
                     VarPage.RunModal();
                 end;
@@ -280,6 +276,7 @@ page 50118 "Líneas Liquidación"
     begin
         UnidadMostrada := Rec.UnidadParaMostrar();
         DetalleAtributo := ResolverDetalleAtributo();
+
         case Rec."Tipo Concepto" of
             Rec."Tipo Concepto"::"Haber Remunerativo":
                 TipoStyle := 'Favorable';
@@ -405,6 +402,7 @@ page 50118 "Líneas Liquidación"
         TipoStyle: Text;
         FilaStyle: Text;
         EsAcumulador: Boolean;
+
         OcultarCero: Boolean;
         OcultarNoImprimibles: Boolean;
         OcultarAcumuladores: Boolean;

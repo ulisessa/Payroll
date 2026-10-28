@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
 
@@ -66,6 +66,7 @@ codeunit 110029 "Saldo Inicial Francos Liq."
     /// </remarks>
     procedure Revertir(var Carga: Record "Saldo Inicial Francos Liq."): Integer
     var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
         Lin: Record "Línea Liquidación";
         Liq: Record "Liquidación";
         Restantes: Record "Línea Liquidación";
@@ -77,6 +78,7 @@ codeunit 110029 "Saldo Inicial Francos Liq."
         if not Carga.FindSet() then
             Error(ErrNadaQueRevertir);
         repeat
+            Cuenta.RevertirOrigen(Carga."No. Liquidación Generada", Carga."No. Línea Generada");
             if Lin.Get(Carga."No. Liquidación Generada", Carga."No. Línea Generada") then
                 Lin.Delete(true);
             if not Generadas.Contains(Carga."No. Liquidación Generada") then
@@ -103,6 +105,7 @@ codeunit 110029 "Saldo Inicial Francos Liq."
 
     local procedure AplicarEmpleado(var Carga: Record "Saldo Inicial Francos Liq."; Concepto: Record "Concepto Liquidación"; EmpNo: Code[20]): Integer
     var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
         Fila: Record "Saldo Inicial Francos Liq.";
         Liq: Record "Liquidación";
         Aplicadas: Integer;
@@ -124,6 +127,7 @@ codeunit 110029 "Saldo Inicial Francos Liq."
         // recibirlas, y una vez cerrada ningún proceso del motor la vuelve a tocar.
         Liq.Estado := Liq.Estado::Aprobada;
         Liq.Modify();
+        Cuenta.RegistrarLiquidacion(Liq);
         exit(Aplicadas);
     end;
 

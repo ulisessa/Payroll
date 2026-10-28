@@ -1621,7 +1621,7 @@
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value>=Fields!LinNombre.Value</Value>
+                                                <Value>=Fields!LinNombre.Value &amp; IIF(Fields!LinFrancoDetalle.Value &lt;&gt; "", " - " &amp; Fields!LinFrancoDetalle.Value, "")</Value>
                                                 <Style>
                                                   <FontSize>8pt</FontSize>
                                                 </Style>
@@ -1753,7 +1753,7 @@
                                   <TablixMember>
                                     <Group Name="GrpConceptosV2">
                                       <GroupExpressions>
-                                        <GroupExpression>=Fields!LinCodConcepto.Value</GroupExpression>
+                                        <GroupExpression>=Fields!LinCodConcepto.Value &amp; Fields!LinClaveFila.Value</GroupExpression>
                                       </GroupExpressions>
                                       <Filters>
                                         <Filter>
@@ -3307,6 +3307,12 @@
         </Field>
         <Field Name="LinNetoGraficoFormat">
           <DataField>LinNetoGraficoFormat</DataField>
+        </Field>
+        <Field Name="LinClaveFila">
+          <DataField>LinClaveFila</DataField>
+        </Field>
+        <Field Name="LinFrancoDetalle">
+          <DataField>LinFrancoDetalle</DataField>
         </Field>
       </Fields>
       <Query>

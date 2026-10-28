@@ -5,6 +5,7 @@ page 50156 "Detalle Variable Línea Sub"
     PageType = ListPart;
     Caption = 'Variables del Cálculo';
     SourceTable = "Detalle Variable Línea Liq.";
+    SourceTableTemporary = true;
     Editable = false;
 
     layout
@@ -17,6 +18,7 @@ page 50156 "Detalle Variable Línea Sub"
                 {
                     ApplicationArea = All;
                     Caption = 'Lín.';
+                    Visible = false;
                 }
                 field("Nombre Variable"; Rec."Nombre Variable")
                 {
@@ -42,6 +44,19 @@ page 50156 "Detalle Variable Línea Sub"
     trigger OnAfterGetRecord()
     begin
         ValorVisible := FormatValor();
+    end;
+
+    /// <summary>
+    /// Carga las variables de una línea, o de toda la liquidación con LineNo = 0. Las que el motor no repite por línea —su valor es
+    /// el del resumen de la liquidación— se reponen acá. Lo llaman la ficha y la lista de líneas al cambiar de registro.
+    /// </summary>
+    procedure Cargar(LiqNo: Code[20]; LineNo: Integer)
+    var
+        Guardadas: Codeunit "Variables Guardadas Liq.";
+    begin
+        Guardadas.CargarDetalle(LiqNo, LineNo, Rec);
+        if Rec.FindFirst() then;
+        CurrPage.Update(false);
     end;
 
     local procedure FormatValor(): Text

@@ -1,4 +1,4 @@
-namespace UAS.Payroll;
+﻿namespace UAS.Payroll;
 
 using Microsoft.HumanResources.Employee;
 using Microsoft.Projects.Project.Job;
@@ -147,6 +147,15 @@ table 60011 "Liquidación"
             // Permite consultar este valor por mes/empleado vía Fuente Datos Liquidación
             // (ej. MEJOR_REM_SEM para el cálculo del SAC, que debe excluir extraordinarios).
         }
+        field(31; "Traza Contexto"; Blob)
+        {
+            Caption = 'Traza del contexto';
+            DataClassification = CustomerContent;
+            // Lo que el contexto resolvió para toda la liquidación (fuentes de datos FDS:, deducciones familiares DED_FAM:, variables
+            // que leyeron las de sistema), una sola vez. Antes iba al principio de "Fuente Parámetros" de CADA línea: el mismo texto
+            // repetido línea por línea (295 MB) y cortado en 2048, así que las variables del propio concepto quedaban afuera.
+            // Se escribe al cerrar el cálculo; ver GuardarTrazaContexto / LeerTrazaContexto.
+        }
     }
 
     keys
@@ -199,6 +208,36 @@ table 60011 "Liquidación"
     /// entre las liquidaciones de un mismo período. Dos definiciones de "qué días cubre" que se
     /// separaran harían que una novedad entrara en una liquidación que el control da por no cubierta.
     /// </remarks>
+    /// <summary>Guarda la traza del contexto de la liquidación (no hace Modify: lo hace quien cierra el cálculo).</summary>
+    procedure GuardarTrazaContexto(Texto: Text)
+    var
+        Salida: OutStream;
+    begin
+        Clear("Traza Contexto");
+        if Texto = '' then
+            exit;
+        "Traza Contexto".CreateOutStream(Salida, TextEncoding::UTF8);
+        Salida.WriteText(Texto);
+    end;
+
+    /// <summary>La traza del contexto de la liquidación, o '' si se calculó antes de que existiera el campo.</summary>
+    procedure LeerTrazaContexto(): Text
+    var
+        Entrada: InStream;
+        Texto: Text;
+        Parte: Text;
+    begin
+        CalcFields("Traza Contexto");
+        if not "Traza Contexto".HasValue() then
+            exit('');
+        "Traza Contexto".CreateInStream(Entrada, TextEncoding::UTF8);
+        while not Entrada.EOS() do begin
+            Entrada.ReadText(Parte);
+            Texto += Parte;
+        end;
+        exit(Texto);
+    end;
+
     procedure CalcularCobertura()
     var
         Desde: Date;
@@ -223,15 +262,74 @@ table 60011 "Liquidación"
         Desde := Periodo."Fecha Desde";
         Hasta := Periodo."Fecha Hasta";
 
-        if not TipoLiqRec.EsArribo("Cód. Tipo Liq.") then
+        // Lo decide el tipo de PROYECTO, no el disparador: el Devengado corre sobre mareas igual que
+        // el Cierre aunque no se dispare al arribo, y con la condición anterior se quedaba con el mes
+        // entero. Ver CubreSoloElProyecto.
+        if not TipoLiqRec.CubreSoloElProyecto("Cód. Tipo Liq.") then
             exit;
         if ("No. Proyecto" = '') or not Job.Get("No. Proyecto") then
             exit;
-        // Recortado contra el período: una marea que arrancó el mes anterior se cubre desde el 1.
-        if (Job."Starting Date" <> 0D) and (Job."Starting Date" > Desde) then
-            Desde := Job."Starting Date";
-        if (Job."Ending Date" <> 0D) and (Job."Ending Date" < Hasta) then
-            Hasta := Job."Ending Date";
+
+        // Primero se intenta con los días que ESTE empleado estuvo en el proyecto. Las fechas del
+        // proyecto son las del barco, no las de la persona: el estado de Puerto de Salida ya
+        // pertenece a la marea aunque la marea zarpe al día siguiente, y ese día se paga en ese
+        // documento —Meta4 lo hace así: el recibo de la marea 7 del 03062 dice "25/01 al 31/01"
+        // cuando el proyecto arranca el 26—. Recortando contra el barco, ese día quedaba sin cubrir.
+        if not RecortarAlTramoDelEmpleado(Desde, Hasta) then begin
+            // Sin estados del empleado en ese proyecto no hay tramo propio que usar, y se recorta
+            // contra el proyecto como antes. Recortado contra el período: una marea que arrancó el
+            // mes anterior se cubre desde el 1.
+            if (Job."Starting Date" <> 0D) and (Job."Starting Date" > Desde) then
+                Desde := Job."Starting Date";
+            if (Job."Ending Date" <> 0D) and (Job."Ending Date" < Hasta) then
+                Hasta := Job."Ending Date";
+        end;
+    end;
+
+    /// <summary>Acota la ventana a los días que el empleado estuvo en el proyecto. False si no estuvo.</summary>
+    /// <remarks>
+    /// Se recorren todos los tramos y no sólo el primero: un tripulante puede entrar, salir y volver
+    /// al mismo proyecto dentro del mes, y la cobertura tiene que ir del primer día al último.
+    ///
+    /// Sólo ACOTA: si el empleado estuvo en el proyecto más allá del período, la ventana sigue siendo
+    /// la del período. Lo que se paga este mes son los días de este mes.
+    /// </remarks>
+    local procedure RecortarAlTramoDelEmpleado(var Desde: Date; var Hasta: Date): Boolean
+    var
+        EstadoEmp: Record "Estado Empleado";
+        PrimerDia: Date;
+        UltimoDia: Date;
+        Fin: Date;
+    begin
+        if "No. Empleado" = '' then
+            exit(false);
+
+        EstadoEmp.SetCurrentKey("Tipo Entidad", "No. Empleado", "Fecha Inicio");
+        EstadoEmp.SetRange("Tipo Entidad", EstadoEmp."Tipo Entidad"::Empleado);
+        EstadoEmp.SetRange("No. Empleado", "No. Empleado");
+        EstadoEmp.SetRange("No. Proyecto", "No. Proyecto");
+        EstadoEmp.SetFilter("Fecha Inicio", '<=%1', Hasta);
+        if not EstadoEmp.FindSet() then
+            exit(false);
+
+        repeat
+            Fin := EstadoEmp.FechaFinEfectiva();
+            if Fin >= Desde then begin
+                if (PrimerDia = 0D) or (EstadoEmp."Fecha Inicio" < PrimerDia) then
+                    PrimerDia := EstadoEmp."Fecha Inicio";
+                if Fin > UltimoDia then
+                    UltimoDia := Fin;
+            end;
+        until EstadoEmp.Next() = 0;
+
+        if PrimerDia = 0D then
+            exit(false);
+
+        if PrimerDia > Desde then
+            Desde := PrimerDia;
+        if (UltimoDia <> 0D) and (UltimoDia < Hasta) then
+            Hasta := UltimoDia;
+        exit(true);
     end;
 
     /// <summary>
@@ -290,7 +388,12 @@ table 60011 "Liquidación"
 
     trigger OnDelete()
     var
+        CuentaFrancos: Codeunit "Cuenta Corriente Francos";
         LinLiq: Record "Línea Liquidación";
+        Det: Record "Detalle Variable Línea Liq.";
+        DetGan: Record "Detalle Ganancias Liq.";
+        ResVar: Record "Resumen Variable Liq.";
+        Tramo: Record "Tramo Cobertura Liq.";
         CtxBuilder: Codeunit "Contexto Liquidación";
         OtraLiq: Record "Liquidación";
         ParamVig: Record "Parámetro Vigente";
@@ -298,8 +401,34 @@ table 60011 "Liquidación"
     begin
         if Estado <> Estado::Borrador then
             Error(ErrEstado);
+        CuentaFrancos.Revertir("No.");
+        // Los detalles de TODAS las líneas se borran de una vez y las líneas sin disparar su OnDelete.
+        // Ese trigger sólo borra los detalles de la línea; con DeleteAll(true) se pagaba un DeleteAll
+        // por línea (243 hits en el perfil de borrado) y SQL no podía borrar el lote en una sentencia.
+        // Si el OnDelete de "Línea Liquidación" llega a hacer algo más, esto vuelve a ser DeleteAll(true).
+        Det.SetRange("No. Liquidación", "No.");
+        Det.DeleteAll();
         LinLiq.SetRange("No. Liquidación", "No.");
-        LinLiq.DeleteAll(true);
+        LinLiq.DeleteAll(false);
+
+        // Los tramos de cobertura se van con ella. Si sobrevivieran, la próxima liquidación que
+        // pregunte "qué días quedan libres" los vería tomados por una liquidación que ya no existe,
+        // y se quedaría sin días sin que nada lo explique.
+        Tramo.SetRange("No. Liquidación", "No.");
+        Tramo.DeleteAll();
+
+        // El detalle de Ganancias y el resumen de variables se iban quedando. Al 7/10/2026 eran
+        // 27.650 filas huérfanas sobre 28.698 en el detalle —el 96%— y 3.383.317 sobre 3.464.978 en
+        // el resumen —el 98%—: casi todo lo que había en las dos tablas colgaba de liquidaciones
+        // que ya no existían.
+        //
+        // No daban un resultado mal: las dos se leen filtradas por "No. Liquidación", así que una
+        // fila huérfana no se cruza con nada. Lo que hacían era crecer sin techo y volver lento todo
+        // lo que las recorre, y ensuciar cualquier cuenta hecha sobre la tabla entera.
+        DetGan.SetRange("No. Liquidación", "No.");
+        DetGan.DeleteAll();
+        ResVar.SetRange("No. Liquidación", "No.");
+        ResVar.DeleteAll();
 
         // El registro de uso de parámetros se va con la liquidación: si sobreviviera, seguiría
         // diciendo que esta versión está en uso y nadie la liberaría nunca.

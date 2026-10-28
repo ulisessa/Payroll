@@ -172,6 +172,12 @@ codeunit 110030 "Control Cobertura Liq."
         Estado.SetRange("Tipo Entidad", Estado."Tipo Entidad"::Empleado);
         Estado.SetRange("No. Empleado", EmpNo);
         Estado.SetFilter("Fecha Inicio", '<=%1', FHasta);
+        // Un estado CERRADO antes del inicio de la consulta no aporta ningún día al rango, igual que
+        // en Construir. Sin este filtro se recorrían día por día estados de hace veinte años para
+        // descartarlos uno por uno adentro del for: el resultado era el mismo y el trabajo, enorme.
+        // El estado ABIERTO sí entra —Fecha Fin en blanco significa que sigue vigente— y por eso el
+        // filtro deja pasar la fecha vacía además del rango.
+        Estado.SetFilter("Fecha Fin", '%1|>=%2', 0D, FDesde);
         Estado.SetLoadFields("Fecha Inicio", "Fecha Fin", "Cód. Estado");
         if Estado.FindSet() then
             repeat

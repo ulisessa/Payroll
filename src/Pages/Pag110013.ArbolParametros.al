@@ -63,6 +63,7 @@ page 110013 "Árbol de Parámetros"
                     StyleExpr = EstiloFila;
                 }
                 field(Moneda; Rec.Moneda) { ApplicationArea = All; }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC") { ApplicationArea = All; }
                 field("En Uso"; Rec."En Uso")
                 {
                     ApplicationArea = All;
@@ -82,6 +83,22 @@ page 110013 "Árbol de Parámetros"
     {
         area(Processing)
         {
+            action(VerUsos)
+            {
+                ApplicationArea = All;
+                Caption = 'Dónde se usa';
+                Image = Navigate;
+                ToolTip = 'Muestra las liquidaciones que resolvieron el valor seleccionado, que es lo que lo mantiene "En Uso".';
+
+                trigger OnAction()
+                var
+                    Uso: Record "Uso Parámetro Liq.";
+                begin
+                    Uso.SetRange("Cód. Parámetro", Rec."Cód. Parámetro");
+                    Uso.SetRange("Vigencia Desde", Rec."Vigencia Desde");
+                    Page.Run(Page::"Usos Valor Parámetro", Uso);
+                end;
+            }
             action(RecalcularNiveles)
             {
                 ApplicationArea = All;
@@ -105,6 +122,14 @@ page 110013 "Árbol de Parámetros"
                 Image = CheckList;
                 ToolTip = 'Lista los valores cuya clave derivada no coincide con sus campos de alcance. Esas filas son inalcanzables para el motor: el cálculo cae al valor genérico sin ningún aviso.';
                 RunObject = Page "Claves de Parámetro a Revisar";
+            }
+            action(RevisarMoneda)
+            {
+                ApplicationArea = All;
+                Caption = 'Revisar moneda y tipo de cambio';
+                Image = Currency;
+                ToolTip = 'Lista los valores cuya declaración de moneda no cierra: los que declaran moneda sin variable de tipo de cambio, que cortan el cálculo, y los que no declaran moneda dentro de un parámetro cuyas demás filas sí la declaran, que entran como pesos sin ningún aviso.';
+                RunObject = Page "Moneda de Parámetro a Revisar";
             }
             action(NuevaEspecializacion)
             {
@@ -170,6 +195,9 @@ page 110013 "Árbol de Parámetros"
         Nueva."Vigencia Desde" := Rec."Vigencia Desde";
         Nueva.Valor := Rec.Valor;
         Nueva.Moneda := Rec.Moneda;
+        // Va junto con la moneda: una fila nueva que heredara la divisa y no su TC quedaria a medio
+        // configurar, y el motor no tiene como saber que le falta.
+        Nueva."Cód. Variable TC" := Rec."Cód. Variable TC";
         Nueva.RecalcularClave();
         Page.Run(Page::"Ficha Valor Parámetro", Nueva);
         CurrPage.Update(false);

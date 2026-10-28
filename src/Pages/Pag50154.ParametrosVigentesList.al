@@ -7,14 +7,48 @@ page 50154 "Parámetros Vigentes"
     PageType = List;
     SourceTable = "Parámetro Vigente";
     UsageCategory = Administration;
+    DelayedInsert = true;
 
     layout
     {
         area(Content)
         {
+            group(OrigenAtributo)
+            {
+                Caption = 'Parámetros del atributo';
+                Visible = ContextoAtributo;
+                field(ParametroDelAtributo; ParametroAtributo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Parámetro';
+                    ToolTip = 'Elegí el parámetro que usa este atributo como eje para consultar o cargar sus vigencias.';
+                    trigger OnLookup(var Text: Text): Boolean
+                    var
+                        Param: Record "Parámetro";
+                    begin
+                        FiltrarParametrosAtributo(Param);
+                        if Page.RunModal(Page::Parámetros, Param) <> Action::LookupOK then
+                            exit(false);
+                        ParametroAtributo := Param.Código;
+                        Text := ParametroAtributo;
+                        AplicarOrigen();
+                        CurrPage.Update(false);
+                        exit(true);
+                    end;
+                    trigger OnValidate()
+                    begin
+                        AplicarOrigen();
+                        CurrPage.Update(false);
+                    end;
+                }
+            }
             repeater(Lines)
             {
-                field("Cód. Parámetro Base"; Rec."Cód. Parámetro Base") { ApplicationArea = All; }
+                field("Cód. Parámetro Base"; Rec."Cód. Parámetro Base")
+                {
+                    ApplicationArea = All;
+                    Editable = not ContextoAtributo;
+                }
                 field("Cód. Parámetro"; Rec."Cód. Parámetro") { ApplicationArea = All; }
                 field(FNombreVar; FNombreVar)
                 {
@@ -44,6 +78,28 @@ page 50154 "Parámetros Vigentes"
                     Editable = not Rec."En Uso";
                     ToolTip = 'Categoría a la que aplica este valor. Se carga junto con el convenio.';
                 }
+                // Los ejes de atributo. Acá SÍ van visibles de entrada, al revés que en la subpágina
+                // de la ficha: esta lista cruza parámetros de todos los ejes y es donde se busca
+                // "quién tiene cargado CAL". En la ficha se ocultan porque ahí el parámetro es uno y
+                // la mayoría no usa ninguno.
+                field("Sufijo Atributo 1"; Rec."Sufijo Atributo 1")
+                {
+                    ApplicationArea = All;
+                    Editable = not Rec."En Uso";
+                    ToolTip = 'Valor del primer eje de atributo, como el sufijo que aporta a la clave. Qué atributo es lo declara la ficha del parámetro.';
+                }
+                field("Sufijo Atributo 2"; Rec."Sufijo Atributo 2")
+                {
+                    ApplicationArea = All;
+                    Editable = not Rec."En Uso";
+                    Visible = ContextoAtributo;
+                }
+                field("Sufijo Atributo 3"; Rec."Sufijo Atributo 3")
+                {
+                    ApplicationArea = All;
+                    Editable = not Rec."En Uso";
+                    Visible = ContextoAtributo;
+                }
                 field("Vigencia Desde"; Rec."Vigencia Desde") { ApplicationArea = All; }
                 field(Valor; Rec.Valor)
                 {
@@ -51,6 +107,7 @@ page 50154 "Parámetros Vigentes"
                     Editable = not Rec."En Uso";
                 }
                 field(Moneda; Rec.Moneda) { ApplicationArea = All; }
+                field("Cód. Variable TC"; Rec."Cód. Variable TC") { ApplicationArea = All; }
                 field("En Uso"; Rec."En Uso")
                 {
                     ApplicationArea = All;
@@ -151,6 +208,104 @@ page 50154 "Parámetros Vigentes"
                 FNombreVar := Param."Nombre Variable";
     end;
 
+    trigger OnOpenPage()
+    begin
+        if ContextoActivo then
+            AplicarOrigen();
+    end;
+
+    trigger OnNewRecord(BelowxRec: Boolean)
+    begin
+        if not ContextoActivo then
+            exit;
+        Rec."No. Empleado" := EmpleadoOrigen;
+        Rec."Cód. Convenio" := ConvenioOrigen;
+        Rec."Cód. Categoría" := CategoriaOrigen;
+        if ContextoAtributo then begin
+            Rec."Cód. Parámetro Base" := ParametroAtributo;
+            case EjeAtributo of
+                1: Rec."Sufijo Atributo 1" := SufijoOrigen;
+                2: Rec."Sufijo Atributo 2" := SufijoOrigen;
+                3: Rec."Sufijo Atributo 3" := SufijoOrigen;
+            end;
+        end;
+    end;
+
+    procedure SetOrigen(Empleado: Code[20]; Convenio: Code[20]; Categoria: Code[20])
+    begin
+        ContextoActivo := true;
+        EmpleadoOrigen := Empleado;
+        ConvenioOrigen := Convenio;
+        CategoriaOrigen := Categoria;
+    end;
+
+    procedure SetAtributo(TipoAtributo: Code[20]; Sufijo: Code[10])
+    var
+        Param: Record "Parámetro";
+    begin
+        ContextoActivo := true;
+        ContextoAtributo := true;
+        TipoAtributoOrigen := TipoAtributo;
+        SufijoOrigen := Sufijo;
+        FiltrarParametrosAtributo(Param);
+        if Param.FindFirst() then
+            ParametroAtributo := Param.Código
+        else
+            Error('No hay parámetros que usen el atributo %1 como eje. Configurá primero el eje en la ficha del parámetro.', TipoAtributo);
+    end;
+
+    local procedure FiltrarParametrosAtributo(var Param: Record "Parámetro")
+    begin
+        Param.FilterGroup(-1);
+        Param.SetRange("Cód. Tipo Atributo 1", TipoAtributoOrigen);
+        Param.SetRange("Cód. Tipo Atributo 2", TipoAtributoOrigen);
+        Param.SetRange("Cód. Tipo Atributo 3", TipoAtributoOrigen);
+        Param.FilterGroup(0);
+    end;
+
+    local procedure AplicarOrigen()
+    var
+        Param: Record "Parámetro";
+        GrupoAnterior: Integer;
+    begin
+        if ContextoAtributo then begin
+            Param.Get(ParametroAtributo);
+            EjeAtributo := 0;
+            if Param."Cód. Tipo Atributo 1" = TipoAtributoOrigen then EjeAtributo := 1;
+            if Param."Cód. Tipo Atributo 2" = TipoAtributoOrigen then EjeAtributo := 2;
+            if Param."Cód. Tipo Atributo 3" = TipoAtributoOrigen then EjeAtributo := 3;
+            if EjeAtributo = 0 then
+                Error('El parámetro %1 no usa el atributo %2 como eje.', ParametroAtributo, TipoAtributoOrigen);
+        end;
+        GrupoAnterior := Rec.FilterGroup();
+        Rec.FilterGroup(2);
+        if EmpleadoOrigen <> '' then Rec.SetRange("No. Empleado", EmpleadoOrigen);
+        if ConvenioOrigen <> '' then Rec.SetRange("Cód. Convenio", ConvenioOrigen);
+        if CategoriaOrigen <> '' then Rec.SetRange("Cód. Categoría", CategoriaOrigen);
+        if ContextoAtributo then begin
+            Rec.SetRange("Cód. Parámetro Base", ParametroAtributo);
+            Rec.SetRange("Sufijo Atributo 1");
+            Rec.SetRange("Sufijo Atributo 2");
+            Rec.SetRange("Sufijo Atributo 3");
+            if SufijoOrigen <> '' then
+                case EjeAtributo of
+                    1: Rec.SetRange("Sufijo Atributo 1", SufijoOrigen);
+                    2: Rec.SetRange("Sufijo Atributo 2", SufijoOrigen);
+                    3: Rec.SetRange("Sufijo Atributo 3", SufijoOrigen);
+                end;
+        end;
+        Rec.FilterGroup(GrupoAnterior);
+    end;
+
     var
         FNombreVar: Text[30];
+        ContextoActivo: Boolean;
+        ContextoAtributo: Boolean;
+        EmpleadoOrigen: Code[20];
+        ConvenioOrigen: Code[20];
+        CategoriaOrigen: Code[20];
+        TipoAtributoOrigen: Code[20];
+        SufijoOrigen: Code[10];
+        ParametroAtributo: Code[20];
+        EjeAtributo: Integer;
 }
