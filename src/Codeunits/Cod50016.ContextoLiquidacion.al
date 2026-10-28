@@ -48,7 +48,8 @@ codeunit 50016 "Contexto Liquidación"
         FParamBaseMap: Dictionary of [Text, Code[20]];  // NombreVar → CódParámetroBase
         FParamCodMap: Dictionary of [Text, Code[50]];   // NombreVar → CódParámetro real en DB
         FParamVigMap: Dictionary of [Text, Date];       // NombreVar → VigenciaDesde
-        FParamSinFila: Dictionary of [Text, Boolean];   // NombreVar sin ninguna fila para este empleado/par/fecha
+        FParamSinFila: Dictionary of [Text, Boolean];   // NombreVar: precio del convenio sin fila para este empleado/par/fecha
+        FBasesDelConvenio: Dictionary of [Code[20], Boolean]; // Bases con alguna fila clave del convenio de la liquidación
         FParametrosCCTHistoricos: Record "Parámetro Vigente" temporary;
         FMoneda: Code[10];
         // Qué variable convierte cada parámetro en divisa, por Nombre Variable. Se llena en
@@ -100,6 +101,9 @@ codeunit 50016 "Contexto Liquidación"
         FParValores1: Dictionary of [Text, Decimal];
         FParClave2: Text;
         FParValores2: Dictionary of [Text, Decimal];
+        // Los precios sin fila de cada par: dependen del par igual que los valores y vuelven con ellos.
+        FParSinFila1: Dictionary of [Text, Boolean];
+        FParSinFila2: Dictionary of [Text, Boolean];
         FCalCacheLoaded: Boolean;
         FCalCacheCode: Code[10];
         FCalCacheAnio: Integer;
@@ -222,6 +226,8 @@ codeunit 50016 "Contexto Liquidación"
         FParClave2 := '';
         Clear(FParValores1);
         Clear(FParValores2);
+        Clear(FParSinFila1);
+        Clear(FParSinFila2);
         Clear(FNombresParam);
         FCalCacheLoaded := false;
     end;
@@ -477,23 +483,39 @@ codeunit 50016 "Contexto Liquidación"
         if (FParClave1 = '') or (FParClave1 = Clave) then begin
             FParClave1 := Clave;
             CapturarValoresParam(Ctx, FParValores1);
+            CopiarSinFila(FParamSinFila, FParSinFila1);
             exit;
         end;
         FParClave2 := Clave;
         CapturarValoresParam(Ctx, FParValores2);
+        CopiarSinFila(FParamSinFila, FParSinFila2);
     end;
 
+    // Restaurar sólo los valores dejaba la lista de precios sin fila del OTRO par: un concepto del par del empleado avisaba
+    // PRECIO_PUERTO sin valor mientras lo liquidaba con 1.800.000 (175/75 OF02, enero de 2026).
     local procedure RestaurarValoresDelPar(Clave: Text; var Ctx: Dictionary of [Text, Decimal]): Boolean
     begin
         if (FParClave1 = Clave) and (FParValores1.Count() > 0) then begin
             AplicarValoresParam(Ctx, FParValores1);
+            CopiarSinFila(FParSinFila1, FParamSinFila);
             exit(true);
         end;
         if (FParClave2 = Clave) and (FParValores2.Count() > 0) then begin
             AplicarValoresParam(Ctx, FParValores2);
+            CopiarSinFila(FParSinFila2, FParamSinFila);
             exit(true);
         end;
         exit(false);
+    end;
+
+    // Copia elemento por elemento para que el Clear de la pasada siguiente no pueda alcanzar a la caché.
+    local procedure CopiarSinFila(var Origen: Dictionary of [Text, Boolean]; var Destino: Dictionary of [Text, Boolean])
+    var
+        Nombre: Text;
+    begin
+        Clear(Destino);
+        foreach Nombre in Origen.Keys() do
+            Destino.Add(Nombre, true);
     end;
 
     // El nombre de variable NO es único entre parámetros: LoadParametros ya lo contempla —usa
@@ -556,10 +578,35 @@ codeunit 50016 "Contexto Liquidación"
         exit(FMoneda);
     end;
 
-    /// <summary>¿El parámetro con ese nombre de variable quedó sin ninguna fila para este empleado, par y fecha?</summary>
+    /// <summary>
+    /// ¿El parámetro con ese nombre de variable es un precio que el convenio del empleado tiene cargado, pero sin ninguna fila para
+    /// su categoría y fecha?
+    /// </summary>
     procedure EsParametroSinFila(Nombre: Text): Boolean
     begin
         exit(FParamSinFila.ContainsKey(Nombre));
+    end;
+
+    // Las bases que tienen alguna fila con la clave exacta del empleado: terminada en _<convenio>_<categoría> o en _<convenio>
+    // (con o sin sufijo de eje adelante, como VALOR_FRANCO_CAL_729/15_MR08), en cualquier fecha. Si LoadParametros no encontró
+    // ninguna fila vigente, las que hay son todas posteriores. Una sola consulta por pasada, no una por parámetro sin fila.
+    local procedure CargarBasesDelConvenio()
+    var
+        ParamVig: Record "Parámetro Vigente";
+    begin
+        Clear(FBasesDelConvenio);
+        if FCodConvenio = '' then
+            exit;
+        ParamVig.SetLoadFields("Cód. Parámetro Base");
+        if FCodCategoria <> '' then
+            ParamVig.SetFilter("Cód. Parámetro", '%1|%2', '*_' + FCodConvenio + '_' + FCodCategoria, '*_' + FCodConvenio)
+        else
+            ParamVig.SetFilter("Cód. Parámetro", '%1', '*_' + FCodConvenio);
+        if ParamVig.FindSet() then
+            repeat
+                if not FBasesDelConvenio.ContainsKey(ParamVig."Cód. Parámetro Base") then
+                    FBasesDelConvenio.Add(ParamVig."Cód. Parámetro Base", true);
+            until ParamVig.Next() = 0;
     end;
 
     procedure GetParamLog(): Text
@@ -666,6 +713,7 @@ codeunit 50016 "Contexto Liquidación"
         // Los que esta pasada no pudo resolver a ninguna fila: valen cero. El evaluador los anota cuando una fórmula los lee
         // como valor (precio faltante). Se rehace en cada pasada, igual que FParamTC: otro par puede tenerlos.
         Clear(FParamSinFila);
+        CargarBasesDelConvenio();
 
         Param.SetFilter("Nombre Variable", '<>%1', '');
         if not Param.FindSet() then exit;
@@ -690,9 +738,16 @@ codeunit 50016 "Contexto Liquidación"
                 Ctx.Set(Param."Nombre Variable", Valor);
             SetTipo(Param."Nombre Variable", 'Parámetro');
             CheckVigenciaDesactualizada(Param, VigDate);
+            // Sin fila para este empleado no alcanza: en este motor un parámetro ausente que vale cero es la forma normal de decir
+            // "no aplica" (NETO_GU sólo para los garantizados, PCT_CONTRIB_SIND sólo para algunos sindicatos, PCT_PROD sólo para
+            // las categorías que cobran producción). Tampoco alcanza que el convenio lo tenga para OTRAS categorías: ese cero
+            // también puede ser correcto. Lo que delata un precio faltante sin dudas es que la clave EXACTA del empleado —su
+            // convenio y categoría, o su convenio— tenga filas, pero ninguna vigente a la fecha: cargado desde más adelante, o con
+            // un hueco de vigencia (primera versión del 25/10/2026: el informe de enero dio 3.285 avisos, casi todos "no aplica").
             if VigDate = 0D then begin
-                if not FParamSinFila.ContainsKey(Param."Nombre Variable") then
-                    FParamSinFila.Add(Param."Nombre Variable", true);
+                if FBasesDelConvenio.ContainsKey(Param.Código) then
+                    if not FParamSinFila.ContainsKey(Param."Nombre Variable") then
+                        FParamSinFila.Add(Param."Nombre Variable", true);
             end else
                 if FParamSinFila.ContainsKey(Param."Nombre Variable") then
                     FParamSinFila.Remove(Param."Nombre Variable");

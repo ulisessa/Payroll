@@ -581,12 +581,17 @@ codeunit 50014 "Motor Liquidación"
         Conceptos: Text;
     begin
         Evaluador.TomarPreciosFaltantes(Nombres);
+        // Lo leído antes del primer concepto (el neto garantizado, por ejemplo) no tiene concepto: no se anota un nombre vacío.
         foreach Nombre in Nombres do
             if not FPreciosFaltantes.Get(Nombre, Conceptos) then
                 FPreciosFaltantes.Add(Nombre, FConceptoEnCurso)
             else
-                if (FConceptoEnCurso <> '') and not ('|' + Conceptos + '|').Contains('|' + FConceptoEnCurso + '|') then
-                    FPreciosFaltantes.Set(Nombre, Conceptos + '|' + FConceptoEnCurso);
+                if FConceptoEnCurso <> '' then
+                    if Conceptos = '' then
+                        FPreciosFaltantes.Set(Nombre, FConceptoEnCurso)
+                    else
+                        if not ('|' + Conceptos + '|').Contains('|' + FConceptoEnCurso + '|') then
+                            FPreciosFaltantes.Set(Nombre, Conceptos + '|' + FConceptoEnCurso);
     end;
 
     // Un precio que una fórmula usó sin fila liquida en cero sin error. Queda en el registro del cálculo, una entrada por parámetro.
@@ -761,7 +766,9 @@ codeunit 50014 "Motor Liquidación"
                             Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
                     end else
                         if not Evaluador.TryEvalFormula(Concepto.Fórmula, Importe) then
-                            Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText());
+                            Error(ErrConceptoFalló, Concepto.Código, GetLastErrorText())
+                        else
+                            Evaluador.DescartarPreciosQueNoCambian(Concepto.Fórmula, Importe);
                     // El importe conserva el signo que da la fórmula. Ver la nota de cabecera de
                     // Línea Liquidación: el signo dejó de salir del Tipo Concepto.
                     CreateLine := true;
@@ -3606,7 +3613,7 @@ codeunit 50014 "Motor Liquidación"
         // Precio faltante → conceptos que lo leyeron ("1003|1043"). Ver RecogerPreciosFaltantes.
         FPreciosFaltantes: Dictionary of [Text, Text];
         FConceptoEnCurso: Code[20];
-        AvisoPrecioFaltanteTxt: Label 'Precio sin valor: %1 no tiene ninguna fila vigente para %2/%3 y la fórmula lo leyó como valor (vale cero). Conceptos: %4.', Comment = '%1=parámetro, %2=convenio, %3=categoría, %4=conceptos';
+        AvisoPrecioFaltanteTxt: Label 'Precio sin valor: %1 tiene filas para %2/%3, pero ninguna vigente a la fecha de la liquidación; la fórmula lo leyó como valor y vale cero. Conceptos: %4.', Comment = '%1=parámetro, %2=convenio, %3=categoría, %4=conceptos';
         FCCTAplicabilidad: Dictionary of [Text, Boolean];
         FParPuestoCargado: Boolean;
         FParPuestoExiste: Boolean;

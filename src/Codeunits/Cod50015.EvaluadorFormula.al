@@ -177,6 +177,62 @@ codeunit 50015 "Evaluador Fórmula"
         Clear(FPreciosFaltantes);
     end;
 
+    /// <summary>
+    /// Descarta los precios faltantes que no movieron el resultado de la fórmula. Se llama justo después de evaluarla.
+    /// </summary>
+    // Un precio que multiplica a algo que vale cero (PCT_PROD * PROD_KN_MAREA en una liquidación sin marea) no paga de menos: avisarlo
+    // es ruido, y en enero eran 400 avisos de los que importaban un cuarto. Se reevalúa con el precio en 1 y en un valor grande —el
+    // grande cubre un MAX que el 1 no alcanza a mover— y sólo queda el que cambia el resultado. Corre únicamente para conceptos que
+    // leyeron un precio faltante, y deja el log, las variables resueltas y las referencias @ como estaban.
+    procedure DescartarPreciosQueNoCambian(Formula: Text; Resultado: Decimal)
+    var
+        Quedan: List of [Text];
+        GuardaResueltas: Dictionary of [Text, Boolean];
+        GuardaRefs: Dictionary of [Text, Decimal];
+        GuardaLog: Text;
+        Nombre: Text;
+        Clave: Text;
+        ValorPrevio: Decimal;
+    begin
+        if FPreciosFaltantes.Count() = 0 then
+            exit;
+        GuardaLog := FParamLog;
+        foreach Clave in FResolvedVars.Keys() do
+            GuardaResueltas.Add(Clave, true);
+        foreach Clave in FLastConceptoRefValues.Keys() do
+            GuardaRefs.Add(Clave, FLastConceptoRefValues.Get(Clave));
+
+        foreach Nombre in FPreciosFaltantes do
+            if FContext.ContainsKey(Nombre) then begin
+                ValorPrevio := FContext.Get(Nombre);
+                if CambiaConValor(Formula, Nombre, 1, Resultado) or CambiaConValor(Formula, Nombre, 1000000, Resultado) then
+                    Quedan.Add(Nombre);
+                FContext.Set(Nombre, ValorPrevio);
+            end else
+                Quedan.Add(Nombre);
+
+        FPreciosFaltantes := Quedan;
+        FParamLog := GuardaLog;
+        Clear(FResolvedVars);
+        foreach Clave in GuardaResueltas.Keys() do
+            FResolvedVars.Add(Clave, true);
+        Clear(FLastConceptoRefValues);
+        foreach Clave in GuardaRefs.Keys() do
+            FLastConceptoRefValues.Add(Clave, GuardaRefs.Get(Clave));
+        FEnSelector := 0;
+    end;
+
+    // Si la reevaluación falla, se conserva el aviso: ante la duda, avisar.
+    local procedure CambiaConValor(Formula: Text; Nombre: Text; Valor: Decimal; Resultado: Decimal): Boolean
+    var
+        Otro: Decimal;
+    begin
+        FContext.Set(Nombre, Valor);
+        if not TryEvalFormula(Formula, Otro) then
+            exit(true);
+        exit(Otro <> Resultado);
+    end;
+
     // Un parámetro sin ninguna fila vale cero y la fórmula no lo nota: multiplica por cero y paga de menos sin error. Se anota acá
     // sólo cuando se lo lee como valor; en una condición o en el primer argumento de IFZERO la ausencia es parte de la fórmula.
     local procedure RegistrarPrecioFaltante(VarName: Text)
@@ -184,6 +240,9 @@ codeunit 50015 "Evaluador Fórmula"
         if (FEnSelector > 0) or FModoValidacion or FHistorico or not FContextoLiquidacionVinculado then
             exit;
         if not FContextoLiquidacion.EsParametroSinFila(VarName) then
+            exit;
+        // Un precio con valor no falta, diga lo que diga la lista.
+        if FContext.Get(VarName) <> 0 then
             exit;
         if not FPreciosFaltantes.Contains(VarName) then
             FPreciosFaltantes.Add(VarName);

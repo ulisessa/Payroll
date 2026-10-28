@@ -698,7 +698,7 @@ codeunit 110080 "Control Previo Liq."
                         Primero := Primero.Substring(1, Primero.IndexOf('|') - 1);
                     Emitir(Buffer, "Severidad Registro Liq."::Error, 'Precio', Parametro, '', CopyStr(Primero, 1, 20),
                         StrSubstNo('Precio sin valor: %1.', Parametro),
-                        StrSubstNo('Al simular el cálculo, la fórmula de %1 leyó %2 como valor y no tiene ninguna fila vigente para este empleado (%3/%4): liquida en cero sin dar error. Cargá la vigencia que corresponda o cubrí la ausencia en la fórmula (IFZERO) si es intencional.',
+                        StrSubstNo('Al simular el cálculo, la fórmula de %1 leyó %2 como valor: tiene filas para %3/%4, pero ninguna vigente a la fecha, así que liquida en cero sin dar error. Cargá la vigencia que corresponda.',
                             Conceptos.Replace('|', ', '), Parametro, FConvenio, FCategoria));
                     Buffer."Conceptos relacionados" := CopyStr(Conceptos.Replace('|', ', '), 1, MaxStrLen(Buffer."Conceptos relacionados"));
                     Buffer.Modify();

@@ -58,6 +58,12 @@ No se recalcularon recibos: su explicación histórica sigue usando `Fórmula Ap
 y los valores del detalle guardado. BC252 quedó en ejecución con un proceso iniciado
 después de aplicar el cambio, confirmando la renovación de caché.
 
+> [!note] PCT_PROD de marinería y OF03 empieza en mayo de 2026
+> `PCT_PROD_729/15_MR01/03/04/05/08/09` y `PCT_PROD_768/19_OF03` cobran desde el 01/05/2026; antes
+> no cobraban producción (confirmado el 28/10/2026). Tienen una fila explícita en **0** desde el
+> 01/01/2026 para que el aviso "Precio sin valor" no los marque en los cierres de enero a abril.
+> MR02 no tiene ninguna fila: para el motor es "no aplica".
+
 ## Acuerdo bruto con fijo mensual de oficiales poteros (2026-10-13)
 
 La generalización de febrero distingue tres valores: la garantía normativa de convenio
