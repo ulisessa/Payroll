@@ -772,6 +772,365 @@ codeunit 110061 "Test Cuenta Francos"
         Linea.TestField("Vigencias Distribución", 'TRAZA-VIGENCIAS');
     end;
 
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TotalOptimizadoEquivaleAlAnteriorEnFasesYCortes()
+    var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Concepto: Record "Concepto Liquidación";
+        Mov: Record "Movimiento Franco Liq.";
+        Fase: Record "Fase Alta Empleado";
+        Empleado: Code[20];
+        Excluido: Code[20];
+        Documento: Code[20];
+        Corte: Date;
+        RolFranco: Enum "Rol Franco Liq.";
+        Dia: Integer;
+        RolOrdinal: Integer;
+        Limite: Integer;
+        Exclusion: Integer;
+    begin
+        ExigirEmpresaTotalAislada();
+        Empleado := NuevoCodigo();
+        CrearConceptoTotalFranco(Concepto, NuevoCodigo(), DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, '');
+        Fase."No. Empleado" := Empleado;
+        Fase."No. Fase" := 1;
+        Fase."Fecha Alta" := DMY2Date(1, 1, 2026);
+        Fase.Insert(false);
+        Fase."No. Fase" := 2;
+        Fase."Fecha Alta" := DMY2Date(15, 1, 2026);
+        Fase.Insert(false);
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, DMY2Date(10, 1, 2026), 11.25, Mov.Tipo::Devengo, 0);
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, DMY2Date(16, 1, 2026), 6.5, Mov.Tipo::Devengo, 0);
+        CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", DMY2Date(10, 1, 2026), 1.5, "Estado Liq."::Calculada);
+        CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", DMY2Date(16, 1, 2026), 2.5, "Estado Liq."::Calculada);
+        Excluido := CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", DMY2Date(31, 1, 2026), 4.5, "Estado Liq."::Calculada);
+        CrearMovimientoTotalFranco(Mov, Empleado, Excluido, 2, DMY2Date(31, 1, 2026), 3.75, Mov.Tipo::Devengo, 0);
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, DMY2Date(16, 1, 2026), -2.25, Mov.Tipo::Consumo, 0);
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, DMY2Date(31, 1, 2026), -1.25, Mov.Tipo::Consumo, 0);
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, DMY2Date(1, 2, 2026), 99, Mov.Tipo::Devengo, 0);
+        CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", DMY2Date(1, 2, 2026), 99, "Estado Liq."::Calculada);
+        CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", DMY2Date(16, 1, 2026), 99, "Estado Liq."::Borrador);
+        CrearLineaTotalFranco(NuevoCodigo(), Concepto.Código, Concepto."Vigencia Desde", DMY2Date(16, 1, 2026), 99, "Estado Liq."::Calculada);
+
+        for Dia := 1 to 3 do begin
+            case Dia of
+                1: Corte := DMY2Date(10, 1, 2026);
+                2: Corte := DMY2Date(16, 1, 2026);
+                3: Corte := DMY2Date(31, 1, 2026);
+            end;
+            for RolOrdinal := 0 to 2 do begin
+                RolFranco := "Rol Franco Liq.".FromInteger(RolOrdinal);
+                for Limite := 0 to 1 do
+                    for Exclusion := 0 to 1 do begin
+                        Documento := '';
+                        if Exclusion = 1 then Documento := Excluido;
+                        Comprobar(Cuenta.Total(Empleado, RolFranco, Documento, Corte, Limite = 1) =
+                            TotalAnteriorFranco(Empleado, RolFranco, Documento, Corte, Limite = 1),
+                            'El total debe coincidir con el algoritmo anterior para rol, fase, corte y documento.');
+                    end;
+            end;
+        end;
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 17.25,
+            'La fase nueva debe excluir el devengo y la línea virtual de la fase anterior.');
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, Excluido, Corte, true) = 9,
+            'Excluir el documento debe quitar su movimiento y su línea virtual, sin quitar las otras líneas.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TotalOptimizadoRespetaReversionGlobalYOrigen()
+    var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Concepto: Record "Concepto Liquidación";
+        Mov: Record "Movimiento Franco Liq.";
+        Contra: Record "Movimiento Franco Liq.";
+        Empleado: Code[20];
+        Documento: Code[20];
+        DocumentoAjeno: Code[20];
+        Corte: Date;
+        NumeroRevertido: Integer;
+    begin
+        ExigirEmpresaTotalAislada();
+        Empleado := NuevoCodigo();
+        Corte := DMY2Date(31, 1, 2026);
+        CrearConceptoTotalFranco(Concepto, NuevoCodigo(), DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, '');
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, Corte, 10, Mov.Tipo::Devengo, 0);
+        NumeroRevertido := Mov."No. Movimiento";
+        // Revertido siempre fue una existencia global por número: ni Tipo ni fecha ni empleado filtran.
+        CrearMovimientoTotalFranco(Contra, NuevoCodigo(), NuevoCodigo(), 1, Corte + 5, 0, Contra.Tipo::Inicio, NumeroRevertido);
+        Documento := CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", Corte, 7, "Estado Liq."::Calculada);
+        // ExisteLinea no aplica el ámbito de la suma al origen que ya respalda la línea.
+        CrearMovimientoTotalFranco(Mov, NuevoCodigo(), Documento, 1, Corte + 10, 100, Mov.Tipo::Devengo, 0);
+        DocumentoAjeno := CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", Corte, 3, "Estado Liq."::Calculada);
+        // Un consumo de la misma línea no sustituye un devengo; otro documento tampoco la respalda.
+        CrearMovimientoTotalFranco(Mov, NuevoCodigo(), DocumentoAjeno, 1, Corte, -3, Mov.Tipo::Consumo, 0);
+        CrearMovimientoTotalFranco(Mov, NuevoCodigo(), NuevoCodigo(), 1, Corte, 3, Mov.Tipo::Devengo, 0);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 3,
+            'La reversión global debe anular el devengo y el origen fuera de ámbito debe impedir el duplicado virtual.');
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) =
+            TotalAnteriorFranco(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true),
+            'Los mapas no pueden estrechar los filtros históricos de Revertido ni ExisteLinea.');
+        Mov.Reset();
+        Mov.SetRange("No. Liquidación", Documento);
+        Mov.SetRange(Tipo, Mov.Tipo::Devengo);
+        Mov.FindFirst();
+        CrearMovimientoTotalFranco(Contra, NuevoCodigo(), NuevoCodigo(), 1, Corte + 30, 0, Contra.Tipo::Reversion, Mov."No. Movimiento");
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 10,
+            'Revertir el único origen activo debe devolver la línea al conjunto virtual en la llamada siguiente.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TotalOptimizadoRefrescaLineasAsientosRolesYFase()
+    var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Concepto: Record "Concepto Liquidación";
+        Linea: Record "Línea Liquidación";
+        Mov: Record "Movimiento Franco Liq.";
+        Contra: Record "Movimiento Franco Liq.";
+        Fase: Record "Fase Alta Empleado";
+        Empleado: Code[20];
+        Documento: Code[20];
+        Corte: Date;
+        Numero: Integer;
+    begin
+        ExigirEmpresaTotalAislada();
+        Empleado := NuevoCodigo();
+        Corte := DMY2Date(31, 1, 2026);
+        CrearConceptoTotalFranco(Concepto, NuevoCodigo(), DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, '');
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 0, 'La primera lectura debe estar vacía.');
+        Documento := CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", Corte - 1, 7.25, "Estado Liq."::Calculada);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 7.25, 'La llamada siguiente debe ver la nueva línea virtual.');
+        CrearMovimientoTotalFranco(Mov, Empleado, Documento, 1, Corte - 1, 7.25, Mov.Tipo::Devengo, 0);
+        Numero := Mov."No. Movimiento";
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 7.25, 'Asentar la línea no debe duplicarla.');
+        CrearMovimientoTotalFranco(Contra, Empleado, Documento, 1, Corte - 1, -7.25, Contra.Tipo::Reversion, Numero);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 7.25, 'La reversión deja la línea Calculada como virtual.');
+        Linea.Get(Documento, 1);
+        Linea.Cantidad := 8.125;
+        Linea.Modify(false);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 8.125, 'Una nueva cantidad no puede quedar congelada en la caché.');
+        Linea.Estado := Linea.Estado::Borrador;
+        Linea.Modify(false);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 0, 'La línea retirada del cálculo deja de ser virtual.');
+        Linea.Estado := Linea.Estado::Calculada;
+        Linea.Modify(false);
+        Concepto."Rol Franco" := Concepto."Rol Franco"::Consumo;
+        Concepto.Modify(false);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 0, 'El rol debe releerse en cada invocación.');
+        Concepto."Rol Franco" := Concepto."Rol Franco"::Devengo;
+        Concepto.Modify(false);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 8.125, 'Restaurar el rol debe recuperar el devengo virtual.');
+        Fase."No. Empleado" := Empleado;
+        Fase."No. Fase" := 1;
+        Fase."Fecha Alta" := Corte;
+        Fase.Insert(false);
+        Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 0, 'El alta nueva debe actualizar también el corte inicial de la consulta.');
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TotalOptimizadoSeparaRolExactoFallbackYFecha()
+    var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Concepto: Record "Concepto Liquidación";
+        Matriz: Record "Concepto Liquidación";
+        Empleado: Code[20];
+        Codigo: Code[20];
+        Corte: Date;
+        Pasada: Integer;
+    begin
+        ExigirEmpresaTotalAislada();
+        Empleado := NuevoCodigo();
+        Corte := DMY2Date(31, 1, 2026);
+        Codigo := CopyStr('R|@?' + NuevoCodigo(), 1, 20);
+        CrearConceptoTotalFranco(Concepto, Codigo, DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, '');
+        CrearConceptoTotalFranco(Concepto, Codigo, DMY2Date(15, 1, 2026), "Rol Franco Liq."::Consumo, '');
+        CrearLineaTotalFranco(Empleado, Codigo, 0D, DMY2Date(10, 1, 2026), 2, "Estado Liq."::Calculada);
+        CrearLineaTotalFranco(Empleado, Codigo, 0D, DMY2Date(20, 1, 2026), 100, "Estado Liq."::Calculada);
+        CrearLineaTotalFranco(Empleado, Codigo, DMY2Date(1, 1, 2026), DMY2Date(20, 1, 2026), 3, "Estado Liq."::Calculada);
+        CrearConceptoTotalFranco(Matriz, CopyStr('R|@?' + NuevoCodigo(), 1, 20), DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, 'FRANCOS_FIFO');
+        CrearLineaTotalFranco(Empleado, Matriz.Código, Matriz."Vigencia Desde", Corte, 100, "Estado Liq."::Calculada);
+        // Conservar la asimetría histórica: en el fallback se devuelve el rol, sin reinterpretar la matriz.
+        CrearLineaTotalFranco(Empleado, Matriz.Código, 0D, Corte, 5, "Estado Liq."::Calculada);
+        CrearLineaTotalFranco(Empleado, NuevoCodigo(), 0D, Corte, 100, "Estado Liq."::Calculada);
+        for Pasada := 1 to 2 do begin
+            Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 10,
+                'La clave del rol debe separar código, versión exacta y fecha del fallback, conservando el tratamiento de matriz.');
+            Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) =
+                TotalAnteriorFranco(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true),
+                'La precarga de roles no debe introducir filtros de código ni reglas nuevas.');
+        end;
+    end;
+
+    [Test]
+    [TransactionModel(TransactionModel::AutoRollback)]
+    procedure TotalOptimizadoConservaPrecisionYTrazabilidad()
+    var
+        Cuenta: Codeunit "Cuenta Corriente Francos";
+        Concepto: Record "Concepto Liquidación";
+        Linea: Record "Línea Liquidación";
+        Mov: Record "Movimiento Franco Liq.";
+        Empleado: Code[20];
+        Documento: Code[20];
+        Corte: Date;
+        Numero: Integer;
+        RevisionLinea: BigInteger;
+        RevisionMovimiento: BigInteger;
+        RevisionConcepto: BigInteger;
+        AntesLineas: Integer;
+        AntesMovimientos: Integer;
+        Seleccion: Guid;
+        Pasada: Integer;
+    begin
+        ExigirEmpresaTotalAislada();
+        Empleado := NuevoCodigo();
+        Corte := DMY2Date(31, 1, 2026);
+        CrearConceptoTotalFranco(Concepto, NuevoCodigo(), DMY2Date(1, 1, 2026), "Rol Franco Liq."::Devengo, '');
+        CrearMovimientoTotalFranco(Mov, Empleado, NuevoCodigo(), 1, Corte, 0.12345678, Mov.Tipo::Devengo, 0);
+        Numero := Mov."No. Movimiento";
+        Mov.Get(Numero);
+        RevisionMovimiento := Mov.SystemRowVersion;
+        Documento := CrearLineaTotalFranco(Empleado, Concepto.Código, Concepto."Vigencia Desde", Corte, 0.87654321, "Estado Liq."::Calculada);
+        Linea.Get(Documento, 1);
+        Seleccion := CreateGuid();
+        Linea."Fórmula Aplicada" := 'TRAZA-TOTAL-FRANCOS';
+        Linea."Fuente Parámetros" := 'PARAMETROS-TOTAL-FRANCOS';
+        Linea."Vigencias Distribución" := 'VIGENCIAS-TOTAL-FRANCOS';
+        Linea."No. Lote Franco" := Numero;
+        Linea."Id. Selección Francos" := Seleccion;
+        Linea.Modify(false);
+        Linea.Get(Documento, 1);
+        RevisionLinea := Linea.SystemRowVersion;
+        Concepto.Get(Concepto.Código, Concepto."Vigencia Desde");
+        RevisionConcepto := Concepto.SystemRowVersion;
+        Linea.SetRange("No. Empleado", Empleado);
+        Mov.SetRange("No. Empleado", Empleado);
+        AntesLineas := Linea.Count();
+        AntesMovimientos := Mov.Count();
+        for Pasada := 1 to 3 do
+            Comprobar(Cuenta.Total(Empleado, "Rol Franco Liq."::Devengo, '', Corte, true) = 0.99999999,
+                'Total debe conservar la precisión de los días y no redondearlos al leer.');
+        Comprobar(Linea.Count() = AntesLineas, 'Consultar no puede crear ni borrar líneas.');
+        Comprobar(Mov.Count() = AntesMovimientos, 'Consultar no puede asentar ni revertir movimientos.');
+        Linea.Get(Documento, 1);
+        Mov.Get(Numero);
+        Concepto.Get(Concepto.Código, Concepto."Vigencia Desde");
+        Comprobar((Linea.SystemRowVersion = RevisionLinea) and (Mov.SystemRowVersion = RevisionMovimiento) and
+            (Concepto.SystemRowVersion = RevisionConcepto), 'La optimización debe ser de lectura: no modifica líneas, movimientos ni conceptos.');
+        Linea.TestField("Fórmula Aplicada", 'TRAZA-TOTAL-FRANCOS');
+        Linea.TestField("Fuente Parámetros", 'PARAMETROS-TOTAL-FRANCOS');
+        Linea.TestField("Vigencias Distribución", 'VIGENCIAS-TOTAL-FRANCOS');
+        Linea.TestField("No. Lote Franco", Numero);
+        Linea.TestField("Id. Selección Francos", Seleccion);
+    end;
+
+    local procedure ExigirEmpresaTotalAislada()
+    var
+        Empresa: Text;
+    begin
+        Empresa := CompanyName();
+        if not Empresa.StartsWith('TEST_') then
+            Error('Las regresiones de Total sólo pueden ejecutarse en una empresa TEST_.');
+    end;
+
+    local procedure CrearConceptoTotalFranco(var Concepto: Record "Concepto Liquidación"; Codigo: Code[20]; Vigencia: Date; RolFranco: Enum "Rol Franco Liq."; FuenteMatriz: Code[20])
+    begin
+        Concepto.Init();
+        Concepto.Código := Codigo;
+        Concepto."Vigencia Desde" := Vigencia;
+        Concepto."Rol Franco" := RolFranco;
+        Concepto."Fuente Matriz" := FuenteMatriz;
+        Concepto.Insert(false);
+    end;
+
+    local procedure CrearMovimientoTotalFranco(var Mov: Record "Movimiento Franco Liq."; Empleado: Code[20]; Documento: Code[20]; Linea: Integer; Fecha: Date; Cantidad: Decimal; Tipo: Option; Revierte: Integer)
+    begin
+        Mov.Reset();
+        Mov.Init();
+        Mov."No. Movimiento" := 0;
+        Mov."No. Empleado" := Empleado;
+        Mov."No. Liquidación" := Documento;
+        Mov."No. Línea Origen" := Linea;
+        Mov."Fecha Devengamiento" := Fecha;
+        Mov.Cantidad := Cantidad;
+        Mov.Tipo := Tipo;
+        Mov."Revierte Movimiento" := Revierte;
+        Mov.Insert(false);
+    end;
+
+    // Oráculo congelado del algoritmo anterior: consultas por movimiento y línea, sin las precargas nuevas.
+    local procedure TotalAnteriorFranco(Empleado: Code[20]; RolFranco: Enum "Rol Franco Liq."; ExcluirDocumento: Code[20]; Fecha: Date; Inclusivo: Boolean): Decimal
+    var
+        Fase: Record "Fase Alta Empleado";
+        Mov: Record "Movimiento Franco Liq.";
+        Lin: Record "Línea Liquidación";
+        InicioFase: Date;
+        Resultado: Decimal;
+    begin
+        Fase.SetCurrentKey("No. Empleado", "Fecha Alta");
+        Fase.SetRange("No. Empleado", Empleado);
+        Fase.SetRange("Fecha Alta", 0D, Fecha);
+        if Fase.FindLast() then InicioFase := Fase."Fecha Alta";
+        Mov.SetRange("No. Empleado", Empleado);
+        if RolFranco = RolFranco::Devengo then Mov.SetRange(Tipo, Mov.Tipo::Devengo)
+        else Mov.SetRange(Tipo, Mov.Tipo::Consumo);
+        if ExcluirDocumento <> '' then Mov.SetFilter("No. Liquidación", '<>%1', ExcluirDocumento);
+        if Inclusivo then Mov.SetRange("Fecha Devengamiento", InicioFase, Fecha)
+        else Mov.SetRange("Fecha Devengamiento", InicioFase, Fecha - 1);
+        if Mov.FindSet() then repeat
+            if not MovimientoRevertidoAnterior(Mov."No. Movimiento") then Resultado += Mov.Cantidad;
+        until Mov.Next() = 0;
+        if RolFranco = RolFranco::Consumo then exit(-Resultado);
+        Lin.SetLoadFields(Cantidad, "Cód. Concepto", "Vigencia Concepto", "Fecha Liquidación");
+        Lin.SetRange("No. Empleado", Empleado);
+        Lin.SetRange(Estado, Lin.Estado::Calculada);
+        if ExcluirDocumento <> '' then Lin.SetFilter("No. Liquidación", '<>%1', ExcluirDocumento);
+        if Inclusivo then Lin.SetRange("Fecha Liquidación", InicioFase, Fecha)
+        else Lin.SetRange("Fecha Liquidación", InicioFase, Fecha - 1);
+        if Lin.FindSet() then repeat
+            if RolAnteriorFranco(Lin) = RolFranco::Devengo then
+                if not ExisteLineaAnteriorFranco(Lin) then Resultado += Lin.Cantidad;
+        until Lin.Next() = 0;
+        exit(Resultado);
+    end;
+
+    local procedure MovimientoRevertidoAnterior(Numero: Integer): Boolean
+    var
+        Mov: Record "Movimiento Franco Liq.";
+    begin
+        Mov.SetRange("Revierte Movimiento", Numero);
+        exit(not Mov.IsEmpty());
+    end;
+
+    local procedure ExisteLineaAnteriorFranco(Lin: Record "Línea Liquidación"): Boolean
+    var
+        Mov: Record "Movimiento Franco Liq.";
+    begin
+        Mov.SetRange("No. Liquidación", Lin."No. Liquidación");
+        Mov.SetRange("No. Línea Origen", Lin."No. Línea");
+        Mov.SetRange(Tipo, Mov.Tipo::Devengo);
+        if Mov.FindSet() then repeat
+            if not MovimientoRevertidoAnterior(Mov."No. Movimiento") then exit(true);
+        until Mov.Next() = 0;
+        exit(false);
+    end;
+
+    local procedure RolAnteriorFranco(Lin: Record "Línea Liquidación"): Enum "Rol Franco Liq."
+    var
+        Concepto: Record "Concepto Liquidación";
+    begin
+        if Concepto.Get(Lin."Cód. Concepto", Lin."Vigencia Concepto") then begin
+            if Concepto."Fuente Matriz" <> '' then exit("Rol Franco Liq."::Consumo);
+            exit(Concepto."Rol Franco");
+        end;
+        Concepto.SetRange(Código, Lin."Cód. Concepto");
+        Concepto.SetFilter("Vigencia Desde", '<=%1', Lin."Fecha Liquidación");
+        if Concepto.FindLast() then exit(Concepto."Rol Franco");
+        exit("Rol Franco Liq."::Ninguno);
+    end;
+
     local procedure CrearLineaTotalFranco(Empleado: Code[20]; Concepto: Code[20]; Vigencia: Date; Fecha: Date; Cantidad: Decimal; Estado: Enum "Estado Liq."): Code[20]
     var
         Linea: Record "Línea Liquidación";

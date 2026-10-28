@@ -18,14 +18,18 @@ pageextension 50351 "Proyecto Pesca Card Ext." extends "Job Card"
                 ApplicationArea = All;
                 ToolTip = 'Productivo (marea o planta) o de nómina (improductivo). Decide qué liquidaciones corresponden y el destino de nómina del personal.';
             }
+            // CaptionClass literal ('3,…'): el del campo toma el nombre de la dimensión global ("Cód. departamento", "Marea/Ciudad"),
+            // que en esta empresa no dice lo que es para un proyecto de pesca.
             field(BuqueProyecto; Rec."Global Dimension 1 Code")
             {
                 ApplicationArea = All;
+                CaptionClass = '3,Buque';
                 ToolTip = 'Buque del proyecto (dimensión global 1). De él salen los atributos del buque, como el proyecto de nómina y la veda.';
             }
             field(MareaProyecto; Rec."Global Dimension 2 Code")
             {
                 ApplicationArea = All;
+                CaptionClass = '3,Marea';
                 ToolTip = 'Marea (dimensión global 2).';
             }
         }

@@ -196,6 +196,15 @@ table 50578 "Tipo Liquidación"
             // SALDO_INICIAL es una importación de una sola vez, LIQ_FINAL es para bajas y AGUINALDO
             // es semestral: ninguno se dispara solo. Que el que quiera entrar lo diga.
         }
+        field(16; "Genera Asiento"; Boolean)
+        {
+            Caption = 'Genera asiento';
+            DataClassification = CustomerContent;
+            // TAMBIÉN ARRANCA EN FALSO, por la misma razón que el anterior. Hay dos tipos con
+            // liquidaciones Aprobadas que NO son sueldos del mes: HIST_REMUN (la historia de Meta4,
+            // 2024-2025, que ya se contabilizó en su momento) y SALDO_INICIAL. Si el asiento tomara
+            // todo lo aprobado, el primer mes llevaría dos años de sueldos al mayor.
+        }
     }
 
     keys

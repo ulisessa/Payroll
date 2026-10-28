@@ -1,16 +1,16 @@
 ---
 tipo: referencia
 tags: [referencia, generado]
-actualizado: 2026-10-23
+actualizado: 2026-10-27
 ---
 
 # Objetos AL
 
 > [!note] Generado por `scripts/GenerarIndiceVault.ps1` — no editar a mano. El **ID declarado** dentro del archivo manda sobre el número del nombre de archivo (hay tablas renumeradas, ver [[rangos-licencia-objetos]]).
 
-Total: **376** objetos.
+Total: **387** objetos.
 
-## Tablas (78)
+## Tablas (80)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -91,6 +91,8 @@ Total: **376** objetos.
 | 110064 | Uso Símbolo Liq. |  | `src/Tables/Tab110064.UsoSimboloLiq.al` |
 | 110065 | Movimiento Franco Liq. |  | `src/Tables/Tab110065.MovimientoFrancoLiq.al` |
 | 110066 | Árbol SIRADIG Buffer |  | `src/Tables/Tab110066.ArbolSiradigBuffer.al` |
+| 110067 | Regla Asiento Liq. |  | `src/Tables/Tab110067.ReglaAsientoLiq.al` |
+| 110068 | Línea Asiento Buffer Liq. |  | `src/Tables/Tab110068.LineaAsientoBufferLiq.al` |
 | 110080 | Control Previo Liq. Buffer |  | `src/Tables/Tab110080.ControlPrevioLiqBuffer.al` |
 
 ## Extensiones de tabla (7)
@@ -105,7 +107,7 @@ Total: **376** objetos.
 | 52005 | Clase en Dimension Value | Dimension Value | `src/TableExtensions/TabExt52005.ClaseEnDimensionValue.al` |
 | 110033 | Unidad Plural Liq. | Unit of Measure | `src/TableExtensions/TabExt110033.UnidadPluralExt.al` |
 
-## Codeunits (91)
+## Codeunits (96)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -198,10 +200,15 @@ Total: **376** objetos.
 | 110080 | Control Previo Liq. |  | `src/Codeunits/Cod110080.ControlPrevioLiq.al` |
 | 110081 | Test Control Previo Liq. |  | `test/Codeunits/Cod110081.TestControlPrevioLiq.al` |
 | 110082 | Prevuelo Fuentes Liq. |  | `src/Codeunits/Cod110082.PrevueloFuentesLiq.al` |
+| 110083 | Asiento Sueldos Liq. |  | `src/Codeunits/Cod110083.AsientoSueldosLiq.al` |
 | 110090 | Cotizaciones BNA |  | `src/Codeunits/Cod110090.CotizacionesBNA.al` |
 | 110091 | Test Cotizaciones BNA |  | `test/Codeunits/Cod110091.TestCotizacionesBNA.al` |
+| 110092 | Test Valor Franco Fórmula |  | `test/Codeunits/Cod110092.TestValorFrancoFormula.al` |
+| 110093 | Variables Guardadas Liq. |  | `src/Codeunits/Cod110093.VariablesGuardadasLiq.al` |
+| 110094 | Test Variables Guardadas |  | `test/Codeunits/Cod110094.TestVariablesGuardadas.al` |
+| 110095 | Simulación Liq. |  | `src/Codeunits/Cod110095.SimulacionLiq.al` |
 
-## Páginas (139)
+## Páginas (142)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -341,6 +348,9 @@ Total: **376** objetos.
 | 110063 | Reporte SICOSS |  | `src/Pages/Pag110063.ReporteSicoss.al` |
 | 110065 | Cuenta Corriente Francos |  | `src/Pages/Pag110065.CuentaCorrienteFrancos.al` |
 | 110066 | Usos Valor Parámetro |  | `src/Pages/Pag110066.UsosValorParametro.al` |
+| 110067 | Reglas Asiento Liq. |  | `src/Pages/Pag110067.ReglasAsientoLiq.al` |
+| 110068 | Asiento Sueldos Previa |  | `src/Pages/Pag110068.AsientoSueldosPrevia.al` |
+| 110069 | Origen Asiento Previa |  | `src/Pages/Pag110069.OrigenAsientoPrevia.al` |
 | 110074 | Corregir Orden Acum. Dialog |  | `src/Pages/Pag110074.CorregirOrdenAcumDialog.al` |
 | 110075 | Árbol de Importaciones SIRADIG |  | `src/Pages/Pag110075.ArbolImportacionesSiradig.al` |
 | 110080 | Control Previo Liquidación |  | `src/Pages/Pag110080.ControlPrevioLiquidacion.al` |
@@ -376,7 +386,7 @@ Total: **376** objetos.
 | 50047 | Avisos del Cálculo |  | `src/Reports/Rep50047.AvisosDelCalculo.al` |
 | 110080 | Preparación de Liquidaciones |  | `src/Reports/Rep110080.PreparacionLiquidaciones.al` |
 
-## Enums (33)
+## Enums (34)
 
 | ID | Nombre | Base | Archivo |
 |---|---|---|---|
@@ -413,6 +423,7 @@ Total: **376** objetos.
 | 50332 | Modo Estado Tipo Liq. |  | `src/Enums/Enum50332.ModoEstadoTipoLiq.al` |
 | 50333 | Ventana Estado Tipo Liq. |  | `src/Enums/Enum50333.VentanaEstadoTipoLiq.al` |
 | 50334 | Columna SICOSS Liq. |  | `src/Enums/Enum50334.ColumnaSicossLiq.al` |
+| 50335 | Lado Asiento Liq. |  | `src/Enums/Enum50335.LadoAsientoLiq.al` |
 
 ## Control add-ins (1)
 

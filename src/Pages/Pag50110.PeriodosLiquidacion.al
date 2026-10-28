@@ -87,17 +87,19 @@ page 50110 "Períodos Liquidación"
                     Caption = 'Crear Liquidaciones';
                     Image = CreateDocuments;
                     Enabled = Rec.Estado = Rec.Estado::Abierto;
-    
+                    ToolTip = 'Crea en borrador las liquidaciones de todos los tipos que entran en la corrida completa (cierres de marea, vacaciones, finales, devengados, regulares…), en su orden, sin calcularlas. Las que ya existen no se duplican.';
+
                     trigger OnAction()
                     var
                         ProcLiq: Codeunit "Proceso Liq. Por Lote";
-                        TipoLiquidacion: Code[20];
                         Creadas: Integer;
                     begin
                         if not Confirm(QstCrearLiqs, true, Rec.Código) then
                             exit;
-                        TipoLiquidacion := 'REGULAR';
-                        Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, TipoLiquidacion);
+                        // El tipo en blanco: todos los que entran en la corrida completa, en su Orden, igual que "Crear y Calcular"
+                        // pero sin calcular. Antes estaba fijo en REGULAR y el período quedaba sin cierres, vacaciones, finales ni
+                        // devengados. Lo que ya existe no se duplica: el creador lo saltea.
+                        Creadas := ProcLiq.CrearPorPeriodo(Rec.Código, '');
                         Message(MsgCreadas, Creadas, Rec.Código);
                         ProcLiq.AvisarOmitidos();
                         CurrPage.Update(false);
@@ -156,18 +158,19 @@ page 50110 "Períodos Liquidación"
                     Caption = 'Calcular Período';
                     Image = Calculate;
                     Enabled = Rec.Estado = Rec.Estado::Abierto;
-    
+                    ToolTip = 'Calcula las liquidaciones en borrador de todos los tipos que entran en la corrida completa, tipo por tipo en su orden (cierres de marea antes que regulares).';
+
                     trigger OnAction()
                     var
                         ProcLiq: Codeunit "Proceso Liq. Por Lote";
                         Progreso: Codeunit "Progreso Liq.";
-                        TipoLiquidacion: Code[20];
                         Calculadas: Integer;
                     begin
                         if not Confirm(QstCalcular, true, Rec.Código) then
                             exit;
-                        TipoLiquidacion := 'REGULAR';
-                        Calculadas := ProcLiq.CalcularPorPeriodo(Rec.Código, TipoLiquidacion);
+                        // El tipo en blanco: todos los de la corrida completa, en su Orden. Antes estaba fijo en REGULAR y los
+                        // cierres, vacaciones, finales y devengados del período quedaban sin calcular.
+                        Calculadas := ProcLiq.CalcularPorPeriodo(Rec.Código, '');
                         // El tiempo sale del progreso, que lo congeló al cerrar: acá la ventana ya no está.
                         Message(MsgCalculadas, Calculadas, Rec.Código, Progreso.TranscurridoTexto());
                         CurrPage.Update(false);
@@ -504,6 +507,20 @@ page 50110 "Períodos Liquidación"
                     Control.Run();
                 end;
             }
+            action(PreviaAsiento)
+            {
+                ApplicationArea = All;
+                Caption = 'Previa del asiento';
+                Image = PreviewChecks;
+                ToolTip = 'Arma el asiento de sueldos de este período por cuenta y proyecto, con los avisos de lo que no entró. No escribe el diario.';
+                trigger OnAction()
+                var
+                    Previa: Page "Asiento Sueldos Previa";
+                begin
+                    Previa.SetPeriodo(Rec."Código");
+                    Previa.Run();
+                end;
+            }
         }
         // La promoción se declara acá y no con Promoted/PromotedCategory en cada acción: así el
         // lugar donde vive la acción y el lugar donde aparece en la cinta son decisiones separadas,
@@ -608,7 +625,7 @@ page 50110 "Períodos Liquidación"
         ErrContabilizadas: Label 'Existen liquidaciones contabilizadas en el período %1. Revierta la contabilización antes de reabrir.';
         MsgPeriodoReabierto: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.';
         MsgPeriodoReabiertoBloqueadas: Label 'Período %1 reabierto. %2 liquidación(es) revertida(s) a Borrador.\\%3 quedaron con su estado original porque el empleado tiene liquidaciones posteriores: reabrirlas liberaría novedades y cuotas que la posterior volvería a tomar. Usá "Recalcular en cadena" sobre cada una.', Comment = '%1=período, %2=revertidas, %3=bloqueadas';
-        QstCrearLiqs: Label '¿Crear liquidaciones para todos los empleados activos del período %1?';
+        QstCrearLiqs: Label '¿Crear las liquidaciones de todos los tipos que corresponden en el período %1? Las que ya existen no se duplican.';
         QstCrearYCalcular: Label '¿Crear y calcular las liquidaciones de TODOS los tipos activos del período %1?\\Las que salgan sin ninguna línea con importe se descartan solas, y su número queda libre para la siguiente.', Comment = '%1 = código de período';
         QstCalcular: Label '¿Calcular todas las liquidaciones del período %1?';
         QstCerrarPeriodos: Label '¿Confirma el cierre de %1 período(s)? Sólo se cierran los que están Abiertos, y la acción no se puede deshacer.', Comment = '%1 = cuántos períodos abiertos hay en la selección';

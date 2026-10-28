@@ -34,6 +34,8 @@ La lección general: cuando dos consultas se mantienen sincronizadas *por conven
 
 Auditoría: `grep -n "ContainsKey" | grep -E "and|or"` y revisar cuáles llaman `.Get(` en la misma expresión. Sanos: los que hacen el `Get` dentro del `then`.
 
+**La misma trampa en un `while` (2026-10-27).** El ordenamiento por inserción del asiento de sueldos (`OrdenarTexto`, Cod110083) se escribió con la guarda natural, `while (j >= 1) and (Lista.Get(j) > Actual)`, y con `j = 0` evaluaba `Get(0)`: "An invalid argument was passed to a 'List' data type method" en la primera corrida real. `OrdenarClaves` de Cod50076 ya tenía la forma buena (el `while` sobre el índice y el `break` adentro) y su comentario lo explica. Compiló, y una revisión adversarial de 31 agentes no lo vio; lo vio la base. Auditoría: `grep -nE "while .*and .*\.Get\("`.
+
 ## Relacionado
 
 - [[conceptos-tres-vigencias]]

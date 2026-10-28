@@ -58,6 +58,12 @@ Unidireccional NAV -> BC, por **staging**, con dos transportes (SQL por linked s
 |---|---|
 | [[Firma digital de recibos - decisión]] | ADR-001 (propuesto, no implementado) y riesgos abiertos. |
 
+## 5. Asiento de sueldos (contabilidad)
+
+| Nota | Para qué |
+|---|---|
+| [[Asiento de sueldos]] | Qué contabilizaba la interfaz de Meta4, la matriz concepto → debe/haber, provisiones por saldo (SAC, vacaciones, francos), crédito IVA Dto. 814, previa y validación contra enero 2026. |
+
 ## Lecciones relacionadas (07 Lecciones)
 
 - **NAV**: [[nav-odata-ntlm]], [[transporte-ws-sincronizacion]], [[dim2-nav-actividad-bc-marea]], [[sincronizacion-valores-dimension]], [[job-confirm-dimension-inocuo]], [[codeunit-run-necesita-commit]], [[bucle-modifica-campo-filtrado]].

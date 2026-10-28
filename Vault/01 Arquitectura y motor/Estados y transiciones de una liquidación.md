@@ -40,7 +40,8 @@ Enum `Estado Liq.` (50304): `Borrador` (0), `Calculada` (1), `Aprobada` (2), `Co
 > [!note] Contabilizada es un estado sin camino de entrada visible
 > Está contemplado en las guardas (`LiquidarRecord`, `Parámetro Vigente`, `Liquidación.OnDelete`,
 > páginas y recibo), pero ningún proceso del repo la asigna: se pone por fuera (datos/SQL) o
-> es trabajo pendiente. Sin verificar contra la base.
+> es trabajo pendiente. Sin verificar contra la base. El asiento tiene previa desde el 25/10/2026
+> pero todavía no registra, así que tampoco la asigna: ver [[Asiento de sueldos]].
 
 ## Reabrir, en detalle
 

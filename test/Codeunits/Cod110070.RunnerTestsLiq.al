@@ -391,7 +391,7 @@ codeunit 110070 "Runner Tests Liq."
         if SoloLecturasParciales then begin
             ExigirCantidadMinima(Codeunit::"Test Correcciones Rend. Liq.", 'Lecturas SUM, selección y trazabilidad', 21);
             ExigirCantidadMinima(Codeunit::"Test Cache Liquidacion", 'Acumulados, indicadores y caché', 25);
-            ExigirCantidadMinima(Codeunit::"Test Cuenta Francos", 'Lectura de cuenta de francos', 10);
+            ExigirCantidadMinima(Codeunit::"Test Cuenta Francos", 'Lectura de cuenta de francos', 15);
         end;
         if SoloUsoParametros then
             ExigirCantidadMinima(Codeunit::"Test Uso Parametros", 'Uso de parámetros y precarga de versiones', 35);
@@ -544,7 +544,12 @@ codeunit 110070 "Runner Tests Liq."
                 'ReabrirPeriodoOrdenaDependenciasYRespetaExternos',
                 'TotalVirtualRespetaRolVigenciaFechaYDocumento',
                 'TotalNoDuplicaLineaAsentadaYReconoceReversion',
-                'MatrizVirtualConservaOrigenYTraza'
+                'MatrizVirtualConservaOrigenYTraza',
+                'TotalOptimizadoEquivaleAlAnteriorEnFasesYCortes',
+                'TotalOptimizadoRespetaReversionGlobalYOrigen',
+                'TotalOptimizadoRefrescaLineasAsientosRolesYFase',
+                'TotalOptimizadoSeparaRolExactoFallbackYFecha',
+                'TotalOptimizadoConservaPrecisionYTrazabilidad'
             ]);
         exit(CodeunitId in [Codeunit::"Test Correcciones Rend. Liq.", Codeunit::"Test Cache Liquidacion"]);
     end;

@@ -14,7 +14,8 @@ Crear y calcular **muchas** liquidaciones de una vez, y entender cuándo el sist
 | Puerta | Dónde | Alcance | Tipo |
 |---|---|---|---|
 | **Crear y Calcular Liquidaciones** | *Períodos* | Un período | **Todos** los tipos que entran en la corrida |
-| **Crear Liquidaciones** / **Calcular Período** | *Períodos* | Un período | Sólo `REGULAR` (fijo en el código) |
+| **Crear Liquidaciones** | *Períodos* | Un período | Todos los tipos de la corrida completa, en su Orden, sin calcular (desde la 1.0.0.700; antes fijo en `REGULAR`) |
+| **Calcular Período** | *Períodos* | Un período | Los borradores de todos los tipos de la corrida completa, tipo por tipo en su Orden (desde la 1.0.0.701; antes fijo en `REGULAR`) |
 | **Lanzador de Liquidaciones** | Role Center → Nómina | Un período | El tipo que se elija (o todos si se deja en blanco) |
 | Acciones del **Job** | Ficha de Proyecto → *Personal* | Una marea | `REGULAR`, `DEVENGADOS` o `CIERRE_MAREA` |
 

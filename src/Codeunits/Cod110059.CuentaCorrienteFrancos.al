@@ -241,10 +241,16 @@ codeunit 110059 "Cuenta Corriente Francos"
     var
         Mov: Record "Movimiento Franco Liq.";
         Lin: Record "Línea Liquidación";
+        RolesLeidos: Dictionary of [Text, Enum "Rol Franco Liq."];
+        VersionesAusentes: Dictionary of [Text, Boolean];
         Resultado: Decimal;
         InicioFase: Date;
     begin
         InicioFase := InicioDeFase(Empleado, Fecha);
+        // SQL descarta los movimientos revertidos en la misma lectura. Conserva la
+        // búsqueda global por ID: una reversión no se limita a la fecha ni al empleado.
+        Mov.SetLoadFields(Cantidad);
+        Mov.SetRange(Revertido, false);
         Mov.SetRange("No. Empleado", Empleado);
         if RolFranco = RolFranco::Devengo then Mov.SetRange(Tipo, Mov.Tipo::Devengo)
         else Mov.SetRange(Tipo, Mov.Tipo::Consumo);
@@ -253,12 +259,12 @@ codeunit 110059 "Cuenta Corriente Francos"
         else Mov.SetRange("Fecha Devengamiento", InicioFase, Fecha - 1);
         if Mov.FindSet() then
             repeat
-                if not Revertido(Mov."No. Movimiento") then Resultado += Mov.Cantidad;
+                Resultado += Mov.Cantidad;
             until Mov.Next() = 0;
         if RolFranco = RolFranco::Consumo then exit(-Resultado);
         // Devengos virtuales de la pasada actual y saldos iniciales todavía no asentados.
-        // Rol lee concepto, vigencia y fecha al recibir la línea por valor: cargarlos evita JIT
-        // en cada llamada. ExisteLinea sólo usa la clave primaria, que siempre se carga.
+        // Las memorias son locales a esta llamada: otro Total debe ver las líneas, asientos,
+        // reversiones y vigencias que hayan cambiado durante el cálculo.
         Lin.SetLoadFields(Cantidad, "Cód. Concepto", "Vigencia Concepto", "Fecha Liquidación");
         Lin.SetRange("No. Empleado", Empleado);
         Lin.SetRange(Estado, Lin.Estado::Calculada);
@@ -267,10 +273,52 @@ codeunit 110059 "Cuenta Corriente Francos"
         else Lin.SetRange("Fecha Liquidación", InicioFase, Fecha - 1);
         if Lin.FindSet() then
             repeat
-                if Rol(Lin) = RolFranco::Devengo then
-                    if not ExisteLinea(Lin, Mov.Tipo::Devengo) then Resultado += Lin.Cantidad;
+                if RolParaTotal(Lin, RolesLeidos, VersionesAusentes) = RolFranco::Devengo then
+                    if not LineaAsentadaParaTotal(Lin) then Resultado += Lin.Cantidad;
             until Lin.Next() = 0;
         exit(Resultado);
+    end;
+
+    local procedure RolParaTotal(Lin: Record "Línea Liquidación"; var RolesLeidos: Dictionary of [Text, Enum "Rol Franco Liq."]; var VersionesAusentes: Dictionary of [Text, Boolean]): Enum "Rol Franco Liq."
+    var
+        Concepto: Record "Concepto Liquidación";
+        Clave: Text;
+        RolLeido: Enum "Rol Franco Liq.";
+    begin
+        // Una versión exacta no depende de la fecha de la línea. La longitud evita
+        // que separadores dentro del código colisionen con la clave.
+        Clave := Format(StrLen(Lin."Cód. Concepto")) + ':' + Lin."Cód. Concepto" + '|' +
+            Format(Lin."Vigencia Concepto", 0, 9);
+        if RolesLeidos.Get(Clave, RolLeido) then exit(RolLeido);
+        if not VersionesAusentes.ContainsKey(Clave) then begin
+            Concepto.SetLoadFields("Rol Franco", "Fuente Matriz");
+            if Concepto.Get(Lin."Cód. Concepto", Lin."Vigencia Concepto") then begin
+                RolLeido := Concepto."Rol Franco";
+                if Concepto."Fuente Matriz" <> '' then RolLeido := "Rol Franco Liq."::Consumo;
+                RolesLeidos.Add(Clave, RolLeido);
+                exit(RolLeido);
+            end;
+            VersionesAusentes.Add(Clave, true);
+        end;
+        // Sólo el fallback depende de la fecha, y conserva el rol sin reinterpretar matriz.
+        Clave += '|' + Format(Lin."Fecha Liquidación", 0, 9);
+        if RolesLeidos.Get(Clave, RolLeido) then exit(RolLeido);
+        RolLeido := RolPorFecha(Lin."Cód. Concepto", Lin."Fecha Liquidación");
+        RolesLeidos.Add(Clave, RolLeido);
+        exit(RolLeido);
+    end;
+
+    local procedure LineaAsentadaParaTotal(Lin: Record "Línea Liquidación"): Boolean
+    var
+        Mov: Record "Movimiento Franco Liq.";
+    begin
+        // Conserva el ámbito de ExisteLinea, sin limitar empleado ni fecha. SQL comprueba
+        // origen y reversión juntos, sin recorrer movimientos ni leer campos de la línea.
+        Mov.SetRange("No. Liquidación", Lin."No. Liquidación");
+        Mov.SetRange("No. Línea Origen", Lin."No. Línea");
+        Mov.SetRange(Tipo, Mov.Tipo::Devengo);
+        Mov.SetRange(Revertido, false);
+        exit(not Mov.IsEmpty());
     end;
 
     procedure SaldoAlInicio(Numero: Integer; Fecha: Date): Decimal
@@ -309,6 +357,7 @@ codeunit 110059 "Cuenta Corriente Francos"
     var
         Fase: Record "Fase Alta Empleado";
     begin
+        Fase.SetLoadFields("Fecha Alta");
         Fase.SetCurrentKey("No. Empleado", "Fecha Alta");
         Fase.SetRange("No. Empleado", Empleado);
         Fase.SetRange("Fecha Alta", 0D, Fecha);
@@ -472,12 +521,21 @@ codeunit 110059 "Cuenta Corriente Francos"
     var
         Concepto: Record "Concepto Liquidación";
     begin
+        Concepto.SetLoadFields("Rol Franco", "Fuente Matriz");
         if Concepto.Get(Lin."Cód. Concepto", Lin."Vigencia Concepto") then begin
             if Concepto."Fuente Matriz" <> '' then exit("Rol Franco Liq."::Consumo);
             exit(Concepto."Rol Franco");
         end;
-        Concepto.SetRange(Código, Lin."Cód. Concepto");
-        Concepto.SetFilter("Vigencia Desde", '<=%1', Lin."Fecha Liquidación");
+        exit(RolPorFecha(Lin."Cód. Concepto", Lin."Fecha Liquidación"));
+    end;
+
+    local procedure RolPorFecha(Codigo: Code[20]; Fecha: Date): Enum "Rol Franco Liq."
+    var
+        Concepto: Record "Concepto Liquidación";
+    begin
+        Concepto.SetLoadFields("Rol Franco");
+        Concepto.SetRange(Código, Codigo);
+        Concepto.SetFilter("Vigencia Desde", '<=%1', Fecha);
         if Concepto.FindLast() then exit(Concepto."Rol Franco");
         exit("Rol Franco Liq."::Ninguno);
     end;

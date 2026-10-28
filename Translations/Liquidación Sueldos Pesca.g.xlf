@@ -3078,6 +3078,71 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Lote Franco Buffer Liq. - Field Valor Franco - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 2632604454 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Línea de la previa del asiento</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2673828796 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cantidad</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Cantidad - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2047707868 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Clase</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Clase - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2047707868 - Property 62802879" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta,Redondeo,Aviso</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Clase - Property OptionCaption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 1449953112 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Conceptos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Conceptos - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 1052421340 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Cuenta - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2161233106 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Debe</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Debe - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 4007806512 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Haber</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Haber - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2272012708 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Importe (Debe +)</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Importe - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 1699394573 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Mensaje</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Mensaje - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 1568343536 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No. Línea</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field No. Línea - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 2410433474 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proyecto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field No. Proyecto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 2632604454 - Field 976200163 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre de la cuenta</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Línea Asiento Buffer Liq. - Field Nombre Cuenta - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 2790921651 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Línea Liquidación</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -3322,6 +3387,11 @@
           <source>Reconstruido</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Movimiento Franco Liq. - Field Reconstruido - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 1291309144 - Field 2673164076 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Revertido</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Movimiento Franco Liq. - Field Revertido - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 1291309144 - Field 2570199937 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Revierte Movimiento</source>
@@ -4037,6 +4107,151 @@
           <source>Usuario</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Registro Proceso Liq. - Field Usuario - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Reglas del asiento de sueldos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 4211727563" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El atributo %1 es de %2. El asiento sólo lee atributos del empleado o de la marea.</source>
+          <note from="Developer" annotates="general" priority="2">%1=atributo, %2=tipo de entidad</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrAtributoNoSoportado</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 2765680469" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La cuenta según atributo necesita las dos cosas: el tipo de atributo y la dimensión que lo identifica en las cuentas.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrAtributoSinDimension</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 4000465920" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El concepto %1 no existe.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrConceptoInexistente</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 3171470229" size-unit="char" translate="yes" xml:space="preserve">
+          <source>%1 y %2 van juntos: el filtro necesita qué mirar y qué valores acepta.</source>
+          <note from="Developer" annotates="general" priority="2">%1 y %2=campos</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrFiltroIncompleto</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 3988734539" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El filtro "%1" no es válido. Se puede usar un código (PN-ADM-BAIRES), una lista (PN-ADM-BAIRES|PN-ADM-MARDEL) o un comodín (PN-ARB*).</source>
+          <note from="Developer" annotates="general" priority="2">%1=filtro</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrFiltroInvalido</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 2298086168" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Las filas del concepto %1 tienen que coincidir en Provisión y Conceptos que la liquidan: el saldo se calcula una vez por empleado.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrProvisionDistinta</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 3131019922" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La provisión del concepto %1 necesita los conceptos que la liquidan (los que pagan lo devengado).</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrProvisionSinConsumo</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - NamedType 1815860979" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Falta la %1 del concepto %2. Si el concepto no va al asiento, marcá No contabiliza.</source>
+          <note from="Developer" annotates="general" priority="2">%1=campo, %2=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - NamedType ErrSinCuenta</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 333809638 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Conceptos que liquidan la provisión</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Conceptos Consumo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3030758610 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta Debe</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cuenta Debe - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 4250693168 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta Haber</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cuenta Haber - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 1089867844 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta según atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cód. Atributo Cuenta - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 1574962662 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Atributo del filtro</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cód. Atributo Filtro - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 1716739287 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Concepto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cód. Concepto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3634091416 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Dimensión del filtro</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Cód. Dimensión Filtro - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 2615446671 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Descripción</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Descripción - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 1976016592 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Dimensión de la cuenta</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Dimensión Cuenta - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3284565477 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Filtro de proyecto</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Filtro Proyecto - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3090060894 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Filtro de tipo de liquidación</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Filtro Tipo Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 4069550954 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Filtro de valor de atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Filtro Valor Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 2239849316 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Filtro de valor de dimensión</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Filtro Valor Dimensión - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3524261136 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Lado de la cuenta según atributo</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Lado Atributo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 3093501061 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No contabiliza</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field No Contabiliza - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 4075652849 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre cuenta Debe</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Nombre Cuenta Debe - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 2363539815 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre cuenta Haber</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Nombre Cuenta Haber - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 821356031 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Provisión</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Provisión - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 821356031 - Property 62802879" size-unit="char" translate="yes" xml:space="preserve">
+          <source> ,Devengado hasta liquidar,Lotes de francos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Provisión - Property OptionCaption</note>
+        </trans-unit>
+        <trans-unit id="Table 519050104 - Field 1744877165 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vigencia Desde</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Regla Asiento Liq. - Field Vigencia Desde - Property Caption</note>
         </trans-unit>
         <trans-unit id="Table 3549548597 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Resumen Variable Liquidación</source>
@@ -5333,6 +5548,11 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Liquidación - Field Exige Estados - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Table 1721522620 - Field 314360083 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Genera asiento</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Table Tipo Liquidación - Field Genera Asiento - Property Caption</note>
+        </trans-unit>
         <trans-unit id="Table 1721522620 - Field 401818936 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Incluye Francos en Puerto</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -6117,6 +6337,96 @@
           <source>Se creó el empleado, pero NAV no trajo fecha de ingreso: no se abrió la fase de alta y la antigüedad no se puede calcular hasta cargarla a mano.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Codeunit Aplicar Fila Sinc NAV - NamedType TxtSinFechaIngreso</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 1486126899" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La cuenta %1 no existe en el plan de cuentas.</source>
+          <note from="Developer" annotates="general" priority="2">%1=cuenta</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvCuentaInexistente</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 215086246" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La cuenta %1 lleva proyecto y hay liquidaciones sin proyecto: quedaron sin imputar a ninguno.</source>
+          <note from="Developer" annotates="general" priority="2">%1=cuenta</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvCuentaSinProyecto</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 1567474600" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Hay más de una cuenta con la dimensión %1 = %2; se usó %3.</source>
+          <note from="Developer" annotates="general" priority="2">%1=dimensión, %2=valor, %3=cuenta</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvDimensionDuplicada</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 1615553622" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Provisión %1: hay empleados con saldo de francos y ninguna liquidación con VALOR_FRANCO_DIA; no se imputó.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvFrancoSinLiquidacion</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 328533206" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Provisión %1: %2 días de francos en lotes sin VALOR_FRANCO_DIA (ni en su liquidación ni en ninguna del empleado); no se provisionaron.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto, %2=días</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvFrancoSinValor</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 839038900" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La diferencia es de %1: más que un redondeo.</source>
+          <note from="Developer" annotates="general" priority="2">%1=importe</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvRedondeoGrande</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 491219242" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Concepto %1: dos reglas igual de específicas coinciden ("%2" y "%3"). Acotá los filtros; el importe no se imputó.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto, %2 y %3=filtros</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvReglaAmbigua</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 2020871550" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Provisión %1: saldo al inicio del período que no viene de un período asentado (saldo inicial). No entra en el asiento del mes: asentarlo una vez contra resultados de ejercicios anteriores.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvSaldoInicialProvision</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 906701525" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Concepto %1: a su regla le falta la cuenta de un lado; el importe no se imputó.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvSinCuenta</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 4238947979" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Concepto %1: el atributo %2 vale %3 y no hay cuenta con ese valor de dimensión; fue a la cuenta fija.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto, %2=tipo atributo, %3=valor</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvSinCuentaAtributo</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 3065681698" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Concepto %1 %2 liquidó importe y no tiene regla del asiento.</source>
+          <note from="Developer" annotates="general" priority="2">%1=concepto, %2=descripción</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType AvSinRegla</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 3726030467" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El período %1 no existe.</source>
+          <note from="Developer" annotates="general" priority="2">%1=período</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType ErrPeriodoInexistente</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 2420548821" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Elegí el período del asiento.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType ErrSinPeriodo</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 1016591025" size-unit="char" translate="yes" xml:space="preserve">
+          <source>No hay reglas del asiento cargadas. Cargalas en Reglas del asiento de sueldos.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType ErrSinReglas</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 3232922596" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Ningún tipo de liquidación tiene marcado Genera Asiento. Marcalo en Tipos de Liquidación para los que se contabilizan (no en la historia migrada ni en los saldos iniciales).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType ErrSinTipos</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 558305691" size-unit="char" translate="yes" xml:space="preserve">
+          <source>(provisión)</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType TxtProvision</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 2019877929" size-unit="char" translate="yes" xml:space="preserve">
+          <source>%1 liquidaciones · Debe %2 · Haber %3 · Diferencia llevada a redondeo %4 · %5 avisos</source>
+          <note from="Developer" annotates="general" priority="2">%1=liquidaciones, %2=debe, %3=haber, %4=diferencia, %5=avisos</note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType TxtResumen</note>
+        </trans-unit>
+        <trans-unit id="Codeunit 2601487258 - NamedType 2916978478" size-unit="char" translate="yes" xml:space="preserve">
+          <source>(sin valor)</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Codeunit Asiento Sueldos Liq. - NamedType TxtSinValor</note>
         </trans-unit>
         <trans-unit id="Codeunit 2339802878 - NamedType 1137742469" size-unit="char" translate="yes" xml:space="preserve">
           <source>"%1" no es una fecha.</source>
@@ -8072,6 +8382,131 @@
           <source>Historial de Estados</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Antigüedad de la Plantilla - Action VerHistorial - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Previa del asiento de sueldos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - NamedType 1646120878" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Elegí el período y tocá Actualizar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - NamedType TxtElegirPeriodo</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2673828796 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>En una cuenta, cuántas liquidaciones le aportaron. En un aviso, cuántas veces apareció.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Cantidad - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2047707868 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta es una línea del asiento; Redondeo, la diferencia que va a la cuenta de redondeo; Aviso, algo que revisar antes de contabilizar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Clase - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 1449953112 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Los conceptos que aportaron a la línea. PROV: marca la variación de una provisión.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Conceptos - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 1052421340 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta contable.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Cuenta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2161233106 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Importe al debe.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Debe - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 4007806512 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Importe al haber.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Haber - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2272012708 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>En un aviso, el importe en juego: lo que no se imputó, o la diferencia entre debe y haber.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Importe - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 1699394573 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué revisar.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Mensaje - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 654503331 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre de la cuenta.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control NombreCuenta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 3380811772 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Proyecto de la línea. Lo decide el Registro por proyectos de la cuenta: las de pasivo van sin proyecto y en una sola línea; las de gasto, con el proyecto de cada liquidación.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control NoProyecto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 3439919425 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué contabilizar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control Seleccion - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 18157296 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Mes del asiento. Entran las liquidaciones Calculadas y Aprobadas del período cuyo tipo tenga marcado Genera Asiento.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FCodPeriodo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 18157296 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Período</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FCodPeriodo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2551811037 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Activado, suma también las liquidaciones en Borrador, para ver cómo va a quedar el mes antes de aprobarlo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FIncluirBorradores - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2551811037 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Incluir borradores</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FIncluirBorradores - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2953472691 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Totales del asiento y cantidad de avisos. Los avisos van al final de la grilla.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FResumen - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Control 2953472691 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Resumen</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Control FResumen - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3728195421 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>A qué cuentas va cada concepto, según el tipo de liquidación, el proyecto, una dimensión o un atributo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action Cuentas - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3728195421 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Reglas del asiento</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action Cuentas - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3582133191 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué tipos de liquidación generan asiento.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action TiposLiq - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3582133191 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Tipos de liquidación</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action TiposLiq - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3030349210 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Vuelve a armar la previa con las liquidaciones y las reglas de ahora.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action Actualizar - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3885126519 - Action 3030349210 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Actualizar</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Asiento Sueldos Previa - Action Actualizar - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 904537498 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Asistente de Fórmulas</source>
@@ -16154,7 +16589,7 @@
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - NamedType QstCerrarPeriodos</note>
         </trans-unit>
         <trans-unit id="Page 349371785 - NamedType 681850618" size-unit="char" translate="yes" xml:space="preserve">
-          <source>¿Crear liquidaciones para todos los empleados activos del período %1?</source>
+          <source>¿Crear las liquidaciones de todos los tipos que corresponden en el período %1? Las que ya existen no se duplican.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - NamedType QstCrearLiqs</note>
         </trans-unit>
@@ -16197,6 +16632,16 @@
           <source>Control de liquidación</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action ControlPeriodo - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3778140038 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Arma el asiento de sueldos de este período por cuenta y proyecto, con los avisos de lo que no entró. No escribe el diario.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action PreviaAsiento - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3778140038 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Previa del asiento</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action PreviaAsiento - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 349371785 - Action 3184836403 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Abre las liquidaciones de este período.</source>
@@ -16303,6 +16748,11 @@
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CrearLiqEmpleado - Property Caption</note>
         </trans-unit>
+        <trans-unit id="Page 349371785 - Action 3655470209 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Crea en borrador las liquidaciones de todos los tipos que entran en la corrida completa (cierres de marea, vacaciones, finales, devengados, regulares…), en su orden, sin calcularlas. Las que ya existen no se duplican.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CrearLiquidaciones - Property ToolTip</note>
+        </trans-unit>
         <trans-unit id="Page 349371785 - Action 3655470209 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Crear Liquidaciones</source>
           <note from="Developer" annotates="general" priority="2"></note>
@@ -16337,6 +16787,11 @@
           <source>Procesar</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action GrpProcesar - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 349371785 - Action 89209095 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Calcula las liquidaciones en borrador de todos los tipos que entran en la corrida completa, tipo por tipo en su orden (cierres de marea antes que regulares).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Períodos Liquidación - Action CalcularPeriodo - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="Page 349371785 - Action 89209095 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Calcular Período</source>
@@ -16422,6 +16877,126 @@
           <source>Depurar registros antiguos</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Registros Proceso Liq. - Action Depurar - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Reglas del asiento de sueldos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 814828942 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuando la cuenta depende de la persona, como la cuota sindical: el valor del empleado en este atributo se busca como valor de la Dimensión de la cuenta entre las dimensiones por defecto de las cuentas. Si no aparece, va a la cuenta fija del lado.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CodAtributoCuenta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 2010410828 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Un atributo del empleado o de la marea que acota la fila (CONVENIO, SINDICATO), vigente a la fecha de la liquidación.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CodAtributoFiltro - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 1219185209 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El concepto de liquidación. Su importe va al debe de una cuenta y al haber de otra; un importe negativo invierte el par.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CodConcepto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 4077574750 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Una dimensión que acota la fila. El valor sale de las dimensiones por defecto del proyecto de la liquidación o, si el proyecto no la tiene, de las del empleado.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CodDimensionFiltro - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 645072382 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Los conceptos que liquidan lo devengado (3553|3573|3973|3975 para vacaciones). En el período en que alguno paga, el devengado acumulado se revierte entero. No se usa en los lotes de francos, que se revierten por los días que consume cada liquidación.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control ConceptosConsumo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 722469802 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta que se debita con el importe del concepto.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CuentaDebe - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 3247662424 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Cuenta que se acredita con el importe del concepto.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control CuentaHaber - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 1475260075 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Para qué es la fila.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control Descripcion - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 190345956 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>La dimensión que identifica la cuenta por el valor del atributo. Para sindicatos es SINDICATOS.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control DimensionCuenta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 1325298589 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>A qué proyectos aplica la fila (PN-ADM-BAIRES, PN-ARB*). En blanco, a todos. Entre las filas que coinciden gana la que tiene más filtros cargados.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control FiltroProyecto - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 3617803816 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>A qué tipos de liquidación aplica la fila (AGUINALDO, LIQ_FINAL|RELIQUIDACION). En blanco, a todos.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control FiltroTipoLiq - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 403864810 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué valores del atributo acepta la fila (FA|CE).</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control FiltroValorAtributo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 513725880 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué valores de la dimensión acepta la fila.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control FiltroValorDimension - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 3454565496 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Qué lado del par sale del atributo.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control LadoAtributo - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 2469433477 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>El concepto está mapeado y no va al asiento. Un concepto con importe y sin ninguna fila aparece en los avisos de la previa.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control NoContabiliza - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 550063153 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre de la cuenta del debe.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control NombreCuentaDebe - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 2710262567 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Nombre de la cuenta del haber.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control NombreCuentaHaber - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 309920379 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>En blanco, contabiliza el importe de cada línea. Con provisión, contabiliza cuánto se movió el saldo del empleado en el período: se registra el devengado hasta que se liquida, y ahí se revierte y queda lo liquidado. Debita la Cuenta Debe (el gasto) y acredita la Cuenta Haber (la provisión) cuando sube, y al revés cuando baja.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control Provision - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Control 2180773637 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Desde qué fecha de liquidación vale la fila. Un cambio de cuenta es una vigencia nueva: los meses anteriores se siguen armando con la cuenta de entonces.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Control VigenciaDesde - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Action 1449953112 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Abre los conceptos de liquidación.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Action Conceptos - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Action 1449953112 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Conceptos</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Action Conceptos - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Action 3719261011 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Arma el asiento de un período con estas reglas, sin escribir el diario.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Action Previa - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 3176208553 - Action 3719261011 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Previa del asiento</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Reglas Asiento Liq. - Action Previa - Property Caption</note>
         </trans-unit>
         <trans-unit id="Page 122805279 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Reporte SICOSS</source>
@@ -17392,6 +17967,11 @@
           <source>Marcalo si este tipo tiene que correr todos los meses cuando se crean o calculan liquidaciones sin elegir tipo. Activo sólo dice que el tipo existe y se puede usar a mano; esto dice que se dispara solo. Los de una sola vez (saldos iniciales) y los que no los dispara ningún hecho del empleado (reliquidación) van sin marcar.</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Page Tipos Liquidación - Control EntraEnCorridaCompleta - Property ToolTip</note>
+        </trans-unit>
+        <trans-unit id="Page 2807101069 - Control 3382158699 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Marcado, las liquidaciones de este tipo entran en el asiento de sueldos. La historia migrada de Meta4 y los saldos iniciales van sin marcar: están aprobados, pero ya se contabilizaron en su momento.</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page Tipos Liquidación - Control GeneraAsiento - Property ToolTip</note>
         </trans-unit>
         <trans-unit id="Page 2807101069 - Control 401818936 - Property 1295455071" size-unit="char" translate="yes" xml:space="preserve">
           <source>Al crear por período, genera también liquidaciones para empleados en francos en puerto (comportamiento Regular).</source>
@@ -20482,6 +21062,16 @@
           <source>Sindical</source>
           <note from="Developer" annotates="general" priority="2"></note>
           <note from="Xliff Generator" annotates="general" priority="3">Enum Grupo Costo Laboral Liq. - EnumValue Sindical - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 3178589633 - EnumValue 2161233106 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Debe</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Lado Asiento Liq. - EnumValue Debe - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Enum 3178589633 - EnumValue 4007806512 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Haber</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Enum Lado Asiento Liq. - EnumValue Haber - Property Caption</note>
         </trans-unit>
         <trans-unit id="Enum 3226718651 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
           <source>Modo</source>

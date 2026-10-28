@@ -51,6 +51,8 @@ Se ejecutan en el **orden** del mapa. `_1` = Oracle, `_2` = SQL Server.
 | `MigrarPersonalProyecto_4.sql` | Deriva `Personal Proyecto` de los estados (no lee Meta4) | SQL Server | Después de `MigrarEstados_2` | Sí, comentado (3, 3.b, 3.c, 5.c) |
 | `MigrarAtributosCCT_1_Meta4_Oracle.sql` | `M4T_HIST_CONVENIOS` + `M4T_HIST_CATEGORIAS` (~21.000 filas) | **Oracle** | Para convenio/categoría con vigencia | No |
 | `MigrarAtributosCCT_2_BC_SqlServer.sql` | Puente `MIG_AtributosM4` -> `Atributo Entidad Liq.` (traduce convenio, parte categoría, normaliza vigencias) | SQL Server | Tras `_1`; bloque 3.g primero (carga de arranque) | Sí, comentado (bloque 4) |
+| `MigrarZonaTripulantes_1_Meta4_Oracle.sql` | Zona DGI (`ID_ZONA_DGI`) de cada liquidación de tripulantes (MR/OF/FE) de 2026, para el crédito IVA Dto. 814 | **Oracle** | Una vez (aplicado el 26/10/2026, 3.623 filas) | No |
+| `MigrarZonaTripulantes_2_BC_SqlServer.sql` | Puente `MIG_ZonaTripulantesM4` -> tramos de `ZONA_DESFAVORABLE` (cambio el día de la primera liquidación con zona nueva, primero en el 1/1 o el alta). Controla que sean `TRIPUL`, que ninguno tenga convenio con `PCT_ZONA_DESF`, la cobertura de sus liquidaciones de 2026 y que no toque a nadie más. Ver [[Asiento de sueldos]] | SQL Server | Tras `_1` (aplicado: 360 tramos, 336 tripulantes) | **SÍ**: `@Aplicar = 0` por defecto; reemplaza las filas de 2026 que no coinciden (DELETE: publicar o reiniciar después) |
 
 ## 3. Puestos (eje de la producción)
 
@@ -84,6 +86,7 @@ Detalle: [[Migración Meta4 - correcciones y auditorías]].
 | Script | Propósito | Motor | Cuándo | Destructivo |
 |---|---|---|---|---|
 | `CargarFraccionesMeta4.sql` | **Reemplaza toda** `Fracción Acumulador` por 1.208 filas de la especificación de Meta4 (el ConfigPackage no puede vaciar) | SQL Server | Tras restore / recarga de configuración | **SÍ (vivo)**: `BEGIN TRAN ... COMMIT`; **pierde `Invertir Signo`** (queda en 0) |
+| `SembrarAsientoSueldos.sql` | Parametrización inicial del asiento: conceptos `CRED_IVA_814` y `CNT_SAC_DEV`, ~1.500 reglas de `Regla Asiento Liq.` (246 conceptos × sede, más las contribuciones del aguinaldo), provisiones y `Genera Asiento`. Con `@Simular = 1` arma el asiento de `@Periodo` en SQL y lo muestra por cuenta. Ver [[Asiento de sueldos]] | SQL Server (BC) | Una vez, después de publicar la tabla 110067; re-ejecutable | No pisa: sólo inserta lo que falta. `@Aplicar = 0` por defecto (vuelve atrás). Reiniciar el servicio después |
 | `CompletarFraccionesFaltantes.sql` | Agrega bases de aportes de 1054, 1055 y 2493 | SQL Server | Puntual | **SÍ (vivo)** (inserta) |
 | `CorregirBaseIG4Duplicada.sql` | Quita 3553/3573/4243/4743 de `BASE_IG4` (doble contabilización con `BASE_EXT_IG4`) | SQL Server | Tras `CargarFraccionesMeta4` | **SÍ (vivo)** |
 | `RestaurarFiltrosFuenteDatos.sql` | Restaura los 76 filtros de `Filtro Fuente Datos Liq.` (sin ellos, 75% del tiempo de cálculo) | SQL Server | Tras perderlos | **SÍ (vivo)**; usa `IDENTITY_INSERT` |

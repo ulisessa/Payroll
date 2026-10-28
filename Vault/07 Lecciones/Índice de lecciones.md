@@ -1,12 +1,12 @@
 ---
 tipo: referencia
 tags: [referencia, generado, leccion]
-actualizado: 2026-10-23
+actualizado: 2026-10-27
 ---
 
 # Índice de lecciones
 
-> [!note] Generado por `scripts/GenerarIndiceVault.ps1`. 220 lecciones agrupadas por tema. Cada una es una trampa o decisión que ya costó tiempo: **leer las del tema antes de tocar esa zona**.
+> [!note] Generado por `scripts/GenerarIndiceVault.ps1`. 221 lecciones agrupadas por tema. Cada una es una trampa o decisión que ya costó tiempo: **leer las del tema antes de tocar esa zona**.
 
 ## comparacion-meta4 (1)
 
@@ -168,11 +168,12 @@ actualizado: 2026-10-23
 - [[sincronizacion-valores-dimension]] — Sincronización de valores de dimensión
 - [[transporte-ws-sincronizacion]] — Transporte WS de la sincronización
 
-## migracion-meta4 (18)
+## migracion-meta4 (19)
 
 - [[anticipos-cta-cte-meta4]] — Anticipos: cuenta corriente de Meta4
 - [[equivalencia-id-puesto-meta4]] — Equivalencia ID_PUESTO de Meta4
 - [[export-csv-decimal-con-coma]] — Export-Csv escribe decimales con coma
+- [[fecha-de-imputacion-no-es-el-alta]] — La fecha de imputación de Meta4 no es el alta", "Vigencias desde la secuencia de liquidaciones de Meta4
 - [[historia-remuneraciones-migrada]] — Historia de remuneraciones migrada
 - [[horas-extras-tierra-no-migraron]] — Horas extras de tierra no migraron
 - [[marzo-2026-cargas-aplicadas-meta4]] — Marzo 2026 - cargas aplicadas y conservación de enero y febrero

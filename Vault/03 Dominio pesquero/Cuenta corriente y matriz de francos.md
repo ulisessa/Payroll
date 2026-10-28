@@ -2,10 +2,42 @@
 tipo: proceso
 tags: [francos, fifo, matriz, reversión]
 fuente: [src/Tables/Tab110065.MovimientoFrancoLiq.al, src/Codeunits/Cod110059.CuentaCorrienteFrancos.al, src/Codeunits/Cod50014.MotorLiquidacion.al, src/Pages/Pag110065.CuentaCorrienteFrancos.al]
-actualizado: 2026-10-15
+actualizado: 2026-10-25
 ---
 
 # Cuenta corriente y matriz de francos
+
+## Lecturas de Total optimizadas (25/10/2026, pendientes de publicar)
+
+`Total` filtra `Movimiento Franco Liq.Revertido = false`. Es un FlowField de existencia
+por `Revierte Movimiento`, calculado por SQL y apoyado en la clave Reversion existente;
+no es un saldo ni una marca persistida. Reemplaza la consulta de reversión por cada fila.
+La comprobación de una línea ya asentada reúne documento, línea, tipo Devengo y ausencia
+de reversión en una sola existencia. Los escritores y validadores de asiento conservan
+sus métodos anteriores; no se modifican movimientos, trazas ni llamadas a `Commit`.
+
+El alcance de la reversión sigue siendo global por número, sin recortar empleado, fecha,
+documento ni tipo. La existencia de un origen tampoco se restringe al ámbito temporal de
+la suma. Se mantienen corte de fase, exclusión de documento, inclusividad, precisión y
+orden por clave primaria, incluido el comportamiento previo del rol Ninguno.
+
+Los roles se recuerdan únicamente dentro de cada invocación: por código/versión exacta,
+y por fecha de línea cuando hace falta la búsqueda de respaldo. Se conserva la asimetría
+anterior: Fuente Matriz convierte la coincidencia exacta en Consumo; el respaldo devuelve
+Rol Franco. La siguiente llamada vuelve a leer líneas, fases, versiones y movimientos.
+Las proyecciones parciales cargan sólo los campos utilizados.
+
+La reproducción independiente en memoria del estado estable de 468 recibos comparó
+5.616 combinaciones de rol, fecha inclusiva/exclusiva y documento excluido/vacío:
+cero diferencias frente al algoritmo anterior. No equivale a ejecutar AL ni a validar
+todos los importes del motor. Cinco regresiones nuevas cubren mutaciones entre llamadas,
+reversiones fuera del ámbito, versiones y matriz, precisión y conservación de trazas.
+Están compiladas; su ejecución en BC queda pendiente de instalar el paquete en la empresa
+aislada, mediante `Runner Tests Liq.EjecutarLecturasParciales` (61 casos, 15 de francos).
+No usar el runner histórico sobre ArbuTest para esta validación.
+
+Evidencia agregada: `artifacts/optimizacion-total-francos-20261025/`. Ver
+[[Rendimiento y caché del cálculo]] y [[Tests automatizados]].
 
 Publicada y aplicada en BC252 / ArbuTest (versión 1.0.0.629). El concepto 1063 usa la matriz desde 04/01/2026; las versiones previas conservan su fórmula de días. Las seis pruebas de integración pasaron con rollback y se recalcularon los documentos de enero alcanzados por la conversión.
 

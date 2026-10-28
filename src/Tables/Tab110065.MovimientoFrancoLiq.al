@@ -24,6 +24,12 @@ table 110065 "Movimiento Franco Liq."
         field(16; "Id. Selección"; Guid) { }
         field(17; Tipo; Option) { OptionMembers = Devengo,Consumo,Reversion,Inicio; OptionCaption = 'Devengo,Consumo,Reversión,Inicio de cuenta'; }
         field(18; Reconstruido; Boolean) { }
+        field(19; Revertido; Boolean)
+        {
+            FieldClass = FlowField;
+            CalcFormula = exist("Movimiento Franco Liq." where("Revierte Movimiento" = field("No. Movimiento")));
+            Editable = false;
+        }
     }
     keys
     {

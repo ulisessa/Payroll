@@ -2,10 +2,32 @@
 tipo: guia
 tags: [desarrollo, tests, calidad]
 fuente: [test/Codeunits/Cod50021.TestEvaluadorFormula.al, test/Codeunits/Cod110034.TestFormateadorFormula.al, test/Codeunits/Cod110045.TestFinEfectivoLiq.al, test/Codeunits/Cod110046.TestCorreccionesRendLiq.al, test/Codeunits/Cod110047.TestCacheLiquidacion.al, test/Codeunits/Cod110048.TestEscrituraAuditoria.al, test/Codeunits/Cod110056.TestDetalleCalculo.al, test/Codeunits/Cod110070.RunnerTestsLiq.al, test/Codeunits/Cod110073.TestUsoParametros.al, test/Codeunits/Cod110081.TestControlPrevioLiq.al, test/editorFormula.atributos.test.cjs, .altestrunner/config.json]
-actualizado: 2026-10-21
+actualizado: 2026-10-25
 ---
 
 # Tests automatizados
+
+## Total de cuenta corriente de francos (25/10/2026, preparado)
+
+Cinco regresiones nuevas en CU110061 y selección explícita en CU110070. La suite
+`EjecutarLecturasParciales` exige ahora 61 casos: 21 de correcciones, 25 de caché y 15
+de francos. Las cinco nuevas requieren empresa `TEST_` antes de crear fixtures y usan
+`AutoRollback`. No se publicaron ni ejecutaron todavía; compilar no acredita su resultado.
+
+Cubren 36 combinaciones frente al algoritmo anterior con resultados esperados explícitos,
+corte por fase, límites de fecha, exclusión, tres roles, reversión global fuera del ámbito,
+origen asentado ajeno al rango de suma, cambios de línea/asiento/reversión/rol/fase entre
+llamadas en la misma instancia, exacto/respaldo/matriz, códigos con separadores, precisión,
+conteo de filas, rowversion y conservación de campos de trazabilidad.
+
+Como validación independiente de datos, 5.616 variantes sobre 468 recibos estables dieron
+idéntico Total en una reproducción decimal en memoria. No sustituye estas regresiones AL,
+el SQL generado tras publicar ni una comparación de importes del cálculo completo.
+
+Compilación sin errores de las fuentes del ajuste y pruebas en copia aislada. Tres archivos
+nuevos de contabilización concurrentes quedaron excluidos sólo de esa copia, porque aún
+referían una página faltante; no se tocaron los originales. Evidencia y hashes en
+`artifacts/optimizacion-total-francos-20261025/compile-summary.json`.
 
 ## Preparación: destino de nómina sin duplicar atributos (21/10/2026)
 

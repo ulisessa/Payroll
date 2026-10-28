@@ -58,6 +58,11 @@ page 50195 "Tipos Liquidación"
                     ApplicationArea = All;
                     ToolTip = 'Marcalo si este tipo tiene que correr todos los meses cuando se crean o calculan liquidaciones sin elegir tipo. Activo sólo dice que el tipo existe y se puede usar a mano; esto dice que se dispara solo. Los de una sola vez (saldos iniciales) y los que no los dispara ningún hecho del empleado (reliquidación) van sin marcar.';
                 }
+                field(GeneraAsiento; Rec."Genera Asiento")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Marcado, las liquidaciones de este tipo entran en el asiento de sueldos. La historia migrada de Meta4 y los saldos iniciales van sin marcar: están aprobados, pero ya se contabilizaron en su momento.';
+                }
             }
             part(Estados; "Estados Tipo Liq. Sub")
             {

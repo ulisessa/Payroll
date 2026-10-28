@@ -2,7 +2,7 @@
 tipo: referencia
 tags: [motor, rendimiento, cache]
 fuente: [src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/Codeunits/Cod50015.EvaluadorFormula.al, src/Codeunits/Cod50069.EjecutorLiquidacion.al, REVISION_RENDIMIENTO_2026-09-18.md]
-actualizado: 2026-10-20
+actualizado: 2026-10-25
 ---
 
 # Rendimiento y caché del cálculo
@@ -931,6 +931,56 @@ esquema, configuración, instrumentación ni datos operativos durante este anál
 Evidencia: `artifacts/perfil-post-testigos-utiles-20261019/`, con ambos perfiles y hashes,
 `summary.json`, `analysis/`, `scope-comparison.json`, consultas agregadas de sólo lectura,
 scripts reproducibles y revisión independiente `review-profile.json`.
+
+## Cuenta corriente de francos: consultas reunidas (25/10/2026)
+
+Preparado en `Cod110059` y FlowField 19 de `Tab110065`, sin índices nuevos ni modificación
+de saldos/trazas: filtrar existencia de reversión en la consulta, comprobar origen activo
+con una existencia y recordar roles por versión exacta o fecha de respaldo durante un
+único `Total`. El orden de suma permanece por PK. No se conserva caché entre invocaciones.
+Ver [[Cuenta corriente y matriz de francos]].
+
+Las estadísticas SQL almacenadas muestran búsquedas de reversión por índice y lecturas
+completas de movimientos con `FAST 50` que pueden elegir un scan por PK. Son acumulados
+de varias sesiones, no contadores exclusivos de Session204. Se reprodujeron 24 ámbitos
+representativos en consultas de sólo lectura, conservando filtros y orden:
+
+| Variante | Consultas ejecutadas | Filas recibidas | Lecturas lógicas, primera compilación de mayor volumen |
+|---|---:|---:|---:|
+| Lectura anterior + existencia por movimiento | 766 | 742 | 32.328 |
+| Parcial, con filtro de reversión en SQL | 24 | 38 | 3.976 |
+
+Coinciden los 38 movimientos activos y las sumas de los 24 ámbitos. En otra compilación,
+iniciada por un ámbito vacío, SQL ya elegía seeks para el patrón anterior: las lecturas
+fueron 2.324 frente a 3.811. Por tanto no generalizar la reducción del 87,7 % de la primera
+tabla. La reducción estructural es de consultas separadas y filas transferidas; el trabajo
+interno y el plan dependen del ámbito inicial. Proyectar la reversión sin filtrarla conservaba
+el scan en la prueba de mayor volumen: se eligió el filtro, manteniendo el orden PK.
+
+En 24 orígenes de línea, la comprobación activa directa pasa de 38 consultas a 24, con
+178 lecturas lógicas en ambas variantes y las mismas 14 respuestas positivas. La precarga
+por documento se descartó: no ahorraba consultas en estos datos. En la reproducción
+completa, recordar el rol exacto por código/versión reduce las resoluciones de concepto
+de 2.432.682 a 819.988 (66,3 %); son operaciones del modelo, no RPC medidos en BC.
+
+La equivalencia completa usa 468 recibos × 3 roles × 2 límites temporales × 2 exclusiones:
+5.616 casos, cero diferencias. Se mantuvieron estables conteos y máximo rowversion de las
+tablas de entrada antes/después de la captura y de la comparación. Sólo se exportaron
+agregados; las filas se compararon en memoria. Los datos reales no ejercitan el respaldo
+de versión: las regresiones AL lo cubren junto con cambios entre llamadas y trazabilidad.
+
+Estos ensayos usan conexiones de lectura sin `UPDLOCK`, sin vaciar cachés ni reproducir
+la caché y paginación de BC. Los tiempos cliente incluyen latencia remota y no predicen
+el ahorro del motor, que comparte máquina con SQL. Quedan por verificar el SQL generado,
+las 61 pruebas aisladas y una corrida completa después de publicar. Compilación local
+sin errores sobre copia aislada: se excluyeron sólo tres fuentes de contabilización
+concurrentes todavía incompletas, conservadas intactas en el proyecto. Versión 1.0.0.701
+sin cambiar; ninguna publicación ni recálculo operativo durante esta preparación.
+
+Evidencia: `artifacts/optimizacion-total-francos-20261025/`, incluidos scripts de lectura,
+planes, dos pruebas SQL de movimientos, prueba de origen activo, `total-equivalence.json`
+y `compile-summary.json`. Referencia de implementación:
+[FlowFields y filtros en consultas](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/administration/optimize-sql-al-database-methods-and-performance-on-server).
 
 ## Relacionado
 
