@@ -2,7 +2,7 @@
 tipo: referencia
 tags: [scripts, sql, powershell, oracle, migracion-meta4, integracion-nav, sql-bc-infra]
 fuente: [scripts/]
-actualizado: 2026-10-04
+actualizado: 2026-10-28
 ---
 
 # Catálogo de scripts SQL y PowerShell
@@ -87,6 +87,7 @@ Detalle: [[Migración Meta4 - correcciones y auditorías]].
 |---|---|---|---|---|
 | `CargarFraccionesMeta4.sql` | **Reemplaza toda** `Fracción Acumulador` por 1.208 filas de la especificación de Meta4 (el ConfigPackage no puede vaciar) | SQL Server | Tras restore / recarga de configuración | **SÍ (vivo)**: `BEGIN TRAN ... COMMIT`; **pierde `Invertir Signo`** (queda en 0) |
 | `SembrarAsientoSueldos.sql` | Parametrización inicial del asiento: conceptos `CRED_IVA_814` y `CNT_SAC_DEV`, ~1.500 reglas de `Regla Asiento Liq.` (246 conceptos × sede, más las contribuciones del aguinaldo), provisiones y `Genera Asiento`. Con `@Simular = 1` arma el asiento de `@Periodo` en SQL y lo muestra por cuenta. Ver [[Asiento de sueldos]] | SQL Server (BC) | Una vez, después de publicar la tabla 110067; re-ejecutable | No pisa: sólo inserta lo que falta. `@Aplicar = 0` por defecto (vuelve atrás). Reiniciar el servicio después |
+| `ProvisionFrancosLoQueSePaga.sql` | Provisión de francos a lo que se paga, con sus cargas. En la regla del 1062: `Fórmula Valor Franco = IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO)`, `Precio por Puesto` y `Sin Coef Pesquería`. Crea el concepto ancla `CNT_FRANCO_DEV` (inactivo) y sus reglas por sede (cargas sociales de la sede / 2113029, tasa `CNT_SAC_DEV`/`4750`). Ver [[Asiento de sueldos]] | SQL Server (BC) | Una vez, con la 1.0.0.710 publicada; re-ejecutable | Aplicado el 28/10/2026. `@Aplicar = 0` por defecto; corta si faltan sedes del 1062 o hay dos conceptos con la misma provisión. Reiniciar el servicio después |
 | `CompletarFraccionesFaltantes.sql` | Agrega bases de aportes de 1054, 1055 y 2493 | SQL Server | Puntual | **SÍ (vivo)** (inserta) |
 | `CorregirBaseIG4Duplicada.sql` | Quita 3553/3573/4243/4743 de `BASE_IG4` (doble contabilización con `BASE_EXT_IG4`) | SQL Server | Tras `CargarFraccionesMeta4` | **SÍ (vivo)** |
 | `RestaurarFiltrosFuenteDatos.sql` | Restaura los 76 filtros de `Filtro Fuente Datos Liq.` (sin ellos, 75% del tiempo de cálculo) | SQL Server | Tras perderlos | **SÍ (vivo)**; usa `IDENTITY_INSERT` |

@@ -107,6 +107,31 @@ page 110067 "Reglas Asiento Liq."
                     ApplicationArea = All;
                     ToolTip = 'Los conceptos que liquidan lo devengado (3553|3573|3973|3975 para vacaciones). En el período en que alguno paga, el devengado acumulado se revierte entero. No se usa en los lotes de francos, que se revierten por los días que consume cada liquidación.';
                 }
+                field(FormulaValorFranco; Rec."Fórmula Valor Franco")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Lotes de francos: la fórmula con que se valúa cada lote, en vez del Parámetro del valor del concepto que paga el franco (el 1063). Para provisionar lo que se paga, IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO): el acuerdo de empresa donde existe y el convenio donde no. En blanco, la del 1063. No tiene vigencia: cambiarla (o el puesto, o el coeficiente) revalúa todos los lotes abiertos y esa diferencia no entra en el asiento del mes.';
+                }
+                field(PrecioPorPuesto; Rec."Precio por Puesto")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Lotes de francos: valúa también con el puesto embarcado como categoría y se queda con el mayor de los dos precios, como paga el 1603 cuando el puesto paga más que la categoría.';
+                }
+                field(SinCoefPesqueria; Rec."Sin Coef Pesquería")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Lotes de francos: no multiplica por el COEF_PESQUERIA de la liquidación de origen. El 1063 paga el 30 % en tangoneros y el 3554 completa el resto, así que el franco cuesta el 100 %.';
+                }
+                field(ConceptoTasaCargas; Rec."Concepto Tasa Cargas")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Cargas sobre lotes de francos: el concepto cuyo importe, dividido por el de la base, da la tasa de cargas de cada liquidación. CNT_SAC_DEV sobre 4750 es la tasa patronal neta del crédito IVA, con la zona del empleado.';
+                }
+                field(ConceptoBaseTasa; Rec."Concepto Base Tasa")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Cargas sobre lotes de francos: el concepto que divide al de las cargas para dar la tasa (4750 para CNT_SAC_DEV).';
+                }
                 field(Descripcion; Rec.Descripción)
                 {
                     ApplicationArea = All;

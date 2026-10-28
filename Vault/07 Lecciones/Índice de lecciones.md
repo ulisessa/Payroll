@@ -1,12 +1,12 @@
 ---
 tipo: referencia
 tags: [referencia, generado, leccion]
-actualizado: 2026-10-27
+actualizado: 2026-10-28
 ---
 
 # Índice de lecciones
 
-> [!note] Generado por `scripts/GenerarIndiceVault.ps1`. 221 lecciones agrupadas por tema. Cada una es una trampa o decisión que ya costó tiempo: **leer las del tema antes de tocar esa zona**.
+> [!note] Generado por `scripts/GenerarIndiceVault.ps1`. 222 lecciones agrupadas por tema. Cada una es una trampa o decisión que ya costó tiempo: **leer las del tema antes de tocar esa zona**.
 
 ## comparacion-meta4 (1)
 
@@ -139,7 +139,7 @@ actualizado: 2026-10-27
 - [[variable-sistema-hay-que-sembrarla]] — Una variable de sistema hay que sembrarla
 - [[variables-rotas-valen-cero]] — Variables rotas que valen cero
 
-## francos (8)
+## francos (9)
 
 - [[a-cuenta-futuros-aumentos-francos]] — A cuenta de futuros aumentos: francos (2083)
 - [[coeficiente-franco-no-cambia-dias-fifo]] — El coeficiente del franco no cambia los días FIFO
@@ -148,6 +148,7 @@ actualizado: 2026-10-27
 - [[franco-porcentaje-por-pesqueria]] — El % del franco sale de la pesquería
 - [[franco-tres-niveles-de-precio]] — El precio del franco tiene tres niveles
 - [[francos-fifo-ledger]] — Francos: libro FIFO
+- [[planilla-francos-no-es-meta4]] — La planilla de francos devengados no es Meta4
 - [[valor-franco-por-terna]] — Valor del franco por terna
 
 ## ganancias (2)

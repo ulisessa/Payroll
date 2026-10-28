@@ -3,7 +3,7 @@ aliases: ["A cuenta de futuros aumentos: francos (2083)"]
 tipo: leccion
 tema: francos
 tags: [leccion, francos, project]
-actualizado: 2026-10-04
+actualizado: 2026-10-28
 ---
 
 # A cuenta de futuros aumentos: francos (2083)
@@ -11,6 +11,9 @@ actualizado: 2026-10-04
 Franco empresa menos TODO lo pagado por convenio; implementado con VALOR_FRANCO_ACDO y guarda por categoría, 9/9 al peso
 
 > [!warning] La guarda debe ir sobre el producto precio x días, no sobre el precio solo: con precio cargado y cero días la fórmula paga un importe negativo.
+
+> [!note] Actualización 28/10/2026: `VALOR_FRANCO_ACDO` ya no existe
+> El parámetro de empresa hoy es `VALOR_FRANCO_EMP` (`EMP_LAN_175/75_OF02` 3.500, `EMP_CAL_175/75_OF02` 3.500 desde el 5/1, `EMP_175/75_OF04` 2.975). El 2083 ramifica por `TIPOACTIVIDAD` (`'TA'` / `'PO'`). Desde el 1/3/2026 resta sólo la parte del 1053 que corresponde a los días de franco, y desde el 1/4/2026 lleva `MAX(0, …)`. Las fórmulas de abajo son las del 28/9.
 
 Concepto **2083** (`A_CT_FUT_AUM_FR` en Meta4). Aplica sólo a **jefe de máquinas y primer oficial de máquinas de tangoneros**, que tienen un valor de francos de empresa superior al de convenio.
 

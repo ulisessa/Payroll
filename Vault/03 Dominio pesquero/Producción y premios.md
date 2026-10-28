@@ -2,7 +2,7 @@
 tipo: concepto
 tags: [dominio, produccion, premios, garantizado, poteros, tangoneros]
 fuente: [CARGA_VALORES_TANGONEROS_2026.md, scripts/RestaurarFiltrosFuenteDatos.sql, src/Tables/Tab60015.FuenteDatosLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, "Conceptos Liquidación.xlsx (snapshot 17/8/2026)"]
-actualizado: 2026-10-04
+actualizado: 2026-10-28
 ---
 
 # Producción y premios
@@ -187,7 +187,7 @@ El nombre del concepto es el mismo patrón: **garantizado prorrateado − lo ya 
 | Concepto | Contexto | Fórmula | Fuente |
 |---|---|---|---|
 | **2013** (puerto) | guardia en puerto, marinería y oficiales | `SALARIO_ASEG_* /30 × DIAS_GP_PERIODO × COEF_GUARDIA_PUERTO(1,4) × TC_COMPRADOR − (#1083 + #1023 + #1053)`; 27 vigencias al 1/1/2026 | [[a-cuenta-futuros-aumentos-puerto]] |
-| **2083** (francos) | jefe y primer oficial de máquinas de tangoneros | `VALOR_FRANCO_ACDO/30 × DIAS_FRANCOS_PERIODO × TC_COMPRADOR − (#1063 + #1053)`; empresa 3.500/2.975 USD vs convenio 3.000/2.550 | [[a-cuenta-futuros-aumentos-francos]] |
+| **2083** (francos) | jefe y primer oficial de máquinas de tangoneros | `VALOR_FRANCO_EMP/30 × DIAS_FRANCOS_PERIODO × TC_COMPRADOR − (#1063 + #1053)`; empresa 3.500/2.975 USD vs convenio 3.000/2.550 | [[a-cuenta-futuros-aumentos-francos]] |
 | **2003** (marea) | oficiales: el tapón del neto pactado | ver arriba | [[produccion-oficiales-poteros]] |
 
 ## Trampas conocidas

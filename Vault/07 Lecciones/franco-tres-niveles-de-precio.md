@@ -3,7 +3,7 @@ aliases: ["El precio del franco tiene tres niveles"]
 tipo: leccion
 tema: francos
 tags: [leccion, francos, project]
-actualizado: 2026-10-08
+actualizado: 2026-10-28
 ---
 
 # El precio del franco tiene tres niveles
@@ -45,6 +45,11 @@ Medido en enero de 2026, contra la corrida TI=13 de Meta4:
 
 > [!note] OF02 queda a propósito con `EMP_CAL` en 3.600
 > Meta4 le paga el equivalente a 3.500, el valor de langostino. El 2083 del 04921 queda 4.716,67 arriba por eso: es una diferencia **conocida**, no un error.
+
+> [!warning] Actualización 28/10/2026: el estado de los parámetros cambió
+> - `VALOR_FRANCO_EMP_CAL_175/75_OF02` vale 3.600 sólo del 1/1 al 4/1/2026; **desde el 5/1 vale 3.500**, igual que langostino. La nota de arriba quedó para la historia.
+> - **Ya no hay filas `VALOR_FRANCO_CAL_*` ni `VALOR_FRANCO_LAN_*`**: el convenio se lee de `VALOR_FRANCO_<conv>_<cat>`, sin sufijo de pesquería. La pesquería sólo pesa a través del `COEF_PESQUERIA`. La tabla de los cuatro parámetros describe el diseño de octubre, no lo cargado hoy.
+> - La provisión de francos del asiento valoriza al convenio, sin el 2083: ver [[planilla-francos-no-es-meta4]].
 
 ## La estacionalidad explica por qué la mayoría va al valor de langostino
 

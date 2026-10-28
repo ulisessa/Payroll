@@ -2,7 +2,7 @@
 tipo: concepto
 tags: [dominio, francos, valuacion, parametros, pesqueria]
 fuente: [src/Codeunits/Cod50053.GestionFrancos.al, src/Tables/Tab60007.ConceptoLiquidacion.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-28
 ---
 
 # Valor del franco
@@ -68,7 +68,7 @@ Si el valor está en moneda extranjera, la unidad correcta es dólares y no peso
 
 **El ledger no pasa por el contexto, así que la conversión hay que prestársela.** `Cod50053.ValorParametro` lee `Parámetro Vigente` directo —tiene que buscar el precio con el convenio y la categoría **sellados en cada lote**, no con el par de la liquidación, que es lo que hace al franco no fungible—, y por eso se saltea `ConvertirParametrosEnDivisa`. `BuildContext` le pasa las cotizaciones con `PublicarTiposCambio` después de `LoadDynamicSources`, que es donde nacen las `TC_*`, y el ledger convierte leyendo `Moneda` y `Cód. Variable TC` de la misma fila. Los tres casos que no pueden convertir cortan, igual que en `Cod50016`. **Una Fuente de Datos no sirve acá**: resuelve un valor por liquidación y lo que hace falta es uno por lote.
 
-Para oficiales existe además `VALOR_FRANCO_ACDO_*` (USD/mes), que alimenta el 2083 *A cuenta de futuros aumentos francos*: ver [[Producción y premios]]. **Hoy tiene exactamente los mismos valores que `VALOR_FRANCO`** (3.450 y 2.700 para `768/19 OF01/OF03`), con lo cual el 2083 calcula `mismo precio − (#1063 + #1053)` y colapsa a `−#1053`. O el acuerdo absorbe la antigüedad y el signo es correcto, o el concepto sobra: sin definir.
+Para oficiales existe además el acuerdo de empresa, que alimenta el 2083 *A cuenta de futuros aumentos francos* ([[a-cuenta-futuros-aumentos-francos]], [[Producción y premios]]). Al 28/10/2026 el parámetro se llama `VALOR_FRANCO_EMP` (no queda ningún `VALOR_FRANCO_ACDO`) y sólo existe para 175/75, en USD por mes: `EMP_LAN_175/75_OF02` 3.500, `EMP_CAL_175/75_OF02` 3.600 del 1/1 al 4/1/2026 y 3.500 desde el 5/1, y `EMP_175/75_OF04` 2.975. Para 768/19 no hay acuerdo y el 2083 paga cero por la guarda. **La provisión de francos del asiento no lo incluye**: valoriza al convenio. Ver [[planilla-francos-no-es-meta4]].
 
 ## Auditoría
 

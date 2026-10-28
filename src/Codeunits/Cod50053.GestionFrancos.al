@@ -26,6 +26,7 @@ codeunit 50053 "Gestión Francos"
         FTipoAtrPrecio: Code[20];
         FDivisorValor: Integer;
         FConceptoConsumo: Code[20];
+        FFormulaForzada: Code[250];
         FCtxTC: Dictionary of [Text, Decimal];
         ErrSinParametroValor: Label 'El concepto %1 paga francos pero no tiene cargado "Parámetro del valor", así que el motor no sabe de dónde sacar el precio del franco.\\El precio de un franco NO sale de la fórmula del concepto —que devuelve días—: lo pone el motor, con el convenio y la categoría de cada lote.\\En la ficha del concepto, cargá "Parámetro del valor" (por ejemplo VALOR_FRANCO). Si además el precio depende de dónde se devengó el franco, cargá "Atributo que afina el precio" y "Divisor del valor".', Comment = '%1 = código del concepto de consumo de francos';
         ErrSinConceptoConsumo: Label 'No hay ningún concepto con Rol Franco = Consumo, así que no se puede valuar un pago de francos.';
@@ -646,12 +647,33 @@ codeunit 50053 "Gestión Francos"
             if Concepto."Cód. Parámetro Valor" <> '' then begin
                 FConceptoConsumo := Concepto.Código;
                 FParamValor := Concepto."Cód. Parámetro Valor";
+                if FFormulaForzada <> '' then
+                    FParamValor := FFormulaForzada;
                 IdentificadoresDeValor(FParamValor, FIdentificadores);
                 FTipoAtrPrecio := Concepto."Cód. Tipo Atributo Precio";
                 FDivisorValor := Concepto."Divisor Valor";
                 exit;
             end;
         until Concepto.Next() = 0;
+    end;
+
+    /// <summary>
+    /// Valúa con esta fórmula en vez del "Parámetro del valor" del concepto que paga. En blanco,
+    /// vuelve a la del concepto. Vale para esta instancia y sobrevive a los cambios de fecha.
+    /// </summary>
+    /// <remarks>
+    /// ES PARA LA PROVISIÓN DEL ASIENTO, que no valúa lo que paga el 1063 sino lo que cuesta el
+    /// franco (el 1063 más lo que completan el 2083 y el 1603). El divisor, el atributo del precio y
+    /// la búsqueda por pesquería, convenio y categoría siguen siendo los del concepto: cambia sólo la
+    /// fórmula. Nunca se usa dentro de un cálculo: el motor tiene su propia instancia.
+    /// </remarks>
+    procedure UsarFormulaValor(Formula: Text)
+    begin
+        if FFormulaForzada = CopyStr(Formula.ToUpper(), 1, MaxStrLen(FFormulaForzada)) then
+            exit;
+        FFormulaForzada := CopyStr(Formula.ToUpper(), 1, MaxStrLen(FFormulaForzada));
+        FCfgCargada := false;
+        Clear(FCacheValor);
     end;
 
     /// <summary>El sufijo que el lote le agrega al código del parámetro. Vacío si no corresponde.</summary>

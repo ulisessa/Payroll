@@ -1,7 +1,7 @@
 ---
 tipo: referencia
 tags: [referencia, generado]
-actualizado: 2026-10-27
+actualizado: 2026-10-28
 ---
 
 # Objetos AL

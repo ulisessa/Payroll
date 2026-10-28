@@ -26,7 +26,8 @@ using Microsoft.Projects.Project.Job;
 /// con el usuario el 26/10/2026): se registra el devengado hasta que se liquida; ahí se revierte
 /// el devengado y queda lo liquidado. En el SAC y las vacaciones, cualquier pago de un concepto de
 /// consumo revierte todo lo devengado desde el pago anterior. En los francos se revierte por lote:
-/// los días que se liquidan, al valor del día en que se devengaron. El asiento lleva la diferencia
+/// los días que se liquidan, al valor por día del lote; desde el 28/10/2026, lo que se paga (acuerdo,
+/// puesto, 100 %), con sus cargas en una regla aparte (Cargas sobre lotes de francos). El asiento lleva la diferencia
 /// contra el saldo al cierre del período anterior, así que correrlo dos veces da lo mismo, y un
 /// período recalculado se corrige solo en el siguiente.
 /// </remarks>
@@ -192,14 +193,15 @@ table 110067 "Regla Asiento Liq."
         {
             Caption = 'Provisión';
             DataClassification = CustomerContent;
-            OptionMembers = " ",Conceptos,Francos;
-            OptionCaption = ' ,Devengado hasta liquidar,Lotes de francos';
+            OptionMembers = " ",Conceptos,Francos,"Cargas Francos";
+            OptionCaption = ' ,Devengado hasta liquidar,Lotes de francos,Cargas sobre lotes de francos';
             // En blanco la fila contabiliza el importe de cada línea. Con provisión, contabiliza la
             // variación del saldo del empleado entre el cierre del período anterior y el de este.
             // Devengado hasta liquidar: lo que el concepto devengó desde el último período en que
             // un Concepto de Consumo pagó algo; ese período lo revierte entero. Lotes de francos:
-            // los días que le quedan a cada lote de la cuenta corriente, al valor del día en que se
-            // devengó (VALOR_FRANCO_DIA × COEF_PESQUERIA de la liquidación que lo originó).
+            // los días que le quedan a cada lote de la cuenta corriente, a su valor por día (ver
+            // Fórmula Valor Franco). Cargas sobre lotes de francos: la variación de cada lote por la
+            // tasa de cargas de su liquidación de origen (ver Concepto Tasa Cargas).
 
             trigger OnValidate()
             begin
@@ -217,6 +219,82 @@ table 110067 "Regla Asiento Liq."
             trigger OnValidate()
             begin
                 ValidarListaConceptos("Conceptos Consumo");
+                PropagarProvision();
+            end;
+        }
+        field(21; "Fórmula Valor Franco"; Text[250])
+        {
+            Caption = 'Valor del franco a provisionar';
+            DataClassification = CustomerContent;
+            // LOTES DE FRANCOS. La fórmula con que Gestión Francos valúa el lote, en vez del
+            // "Parámetro del valor" del concepto que paga (el 1063). En blanco, la del 1063. Lo que
+            // se paga por un franco de OF02/OF04 es el acuerdo de empresa (el 2083 completa el
+            // convenio): IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO). Sus nombres se resuelven igual que
+            // los del 1063: por pesquería, convenio y categoría del lote, y en la divisa de la fila.
+            //
+            // ESTE CAMPO Y LOS DOS SIGUIENTES NO TIENEN VIGENCIA: valen para todo el stock abierto.
+            // Cambiarlos revalúa los lotes que ya estaban provisionados y esa diferencia no entra en
+            // la variación del mes: tocarlos sólo antes del primer asiento contabilizado, o asentar
+            // la revaluación a mano. Un acuerdo personal (VALOR_FRANCO_<legajo>) no gana dentro del
+            // IFZERO si no se carga también como VALOR_FRANCO_EMP_<legajo>. Con Precio por Puesto el
+            // puesto se valúa sin tipo de liquidación: la fórmula no debe usar TIPO_LIQ.
+
+            trigger OnValidate()
+            begin
+                PropagarProvision();
+            end;
+        }
+        field(22; "Precio por Puesto"; Boolean)
+        {
+            Caption = 'Al mayor entre categoría y puesto';
+            DataClassification = CustomerContent;
+            // LOTES DE FRANCOS. El franco se valúa también con el puesto del lote como categoría y
+            // queda el mayor de los dos precios: lo que el 1603 le agrega al 1063 cuando el puesto
+            // embarcado paga más que la categoría.
+
+            trigger OnValidate()
+            begin
+                PropagarProvision();
+            end;
+        }
+        field(23; "Sin Coef Pesquería"; Boolean)
+        {
+            Caption = 'Sin coeficiente de pesquería';
+            DataClassification = CustomerContent;
+            // LOTES DE FRANCOS. No multiplica por el COEF_PESQUERIA de la liquidación de origen. El
+            // 1063 paga el 30 % en tangoneros, pero el 3554 completa el 70 %: el franco cuesta el 100 %.
+
+            trigger OnValidate()
+            begin
+                PropagarProvision();
+            end;
+        }
+        field(24; "Concepto Tasa Cargas"; Code[20])
+        {
+            Caption = 'Concepto de las cargas';
+            DataClassification = CustomerContent;
+            TableRelation = "Concepto Liquidación".Código;
+            ValidateTableRelation = false;
+            // CARGAS SOBRE LOTES DE FRANCOS. La tasa de cada liquidación es el importe de este
+            // concepto sobre el del Concepto Base Tasa: CNT_SAC_DEV / 4750 es la tasa patronal neta del
+            // crédito IVA, con la zona y la condición de jubilado del empleado en esa liquidación.
+
+            trigger OnValidate()
+            begin
+                ExigirConcepto("Concepto Tasa Cargas");
+                PropagarProvision();
+            end;
+        }
+        field(25; "Concepto Base Tasa"; Code[20])
+        {
+            Caption = 'Base de la tasa de cargas';
+            DataClassification = CustomerContent;
+            TableRelation = "Concepto Liquidación".Código;
+            ValidateTableRelation = false;
+
+            trigger OnValidate()
+            begin
+                ExigirConcepto("Concepto Base Tasa");
                 PropagarProvision();
             end;
         }
@@ -307,7 +385,12 @@ table 110067 "Regla Asiento Liq."
                                 Motivo := StrSubstNo(ErrSinCuenta, FieldCaption("Cuenta Haber"), "Cód. Concepto")
                             else
                                 if (Provisión = Provisión::Conceptos) and ("Conceptos Consumo" = '') then
-                                    Motivo := StrSubstNo(ErrProvisionSinConsumo, "Cód. Concepto");
+                                    Motivo := StrSubstNo(ErrProvisionSinConsumo, "Cód. Concepto")
+                                else
+                                    if (Provisión = Provisión::"Cargas Francos") and
+                                       (("Concepto Tasa Cargas" = '') or ("Concepto Base Tasa" = ''))
+                                    then
+                                        Motivo := StrSubstNo(ErrCargasSinTasa, "Cód. Concepto");
                     end;
         exit(Motivo <> '');
     end;
@@ -332,11 +415,33 @@ table 110067 "Regla Asiento Liq."
         Otra.SetFilter("Conceptos Consumo", '<>%1', "Conceptos Consumo");
         if not Otra.IsEmpty() then
             Error(ErrProvisionDistinta, "Cód. Concepto");
+        // Los campos de la definición de francos y de sus cargas, uno por vez: un filtro por campo
+        // dentro del mismo SetFilter exigiría que difieran todos juntos.
+        Otra.SetRange("Conceptos Consumo");
+        Otra.SetFilter("Fórmula Valor Franco", '<>%1', "Fórmula Valor Franco");
+        if not Otra.IsEmpty() then
+            Error(ErrProvisionDistinta, "Cód. Concepto");
+        Otra.SetRange("Fórmula Valor Franco");
+        Otra.SetFilter("Precio por Puesto", '<>%1', "Precio por Puesto");
+        if not Otra.IsEmpty() then
+            Error(ErrProvisionDistinta, "Cód. Concepto");
+        Otra.SetRange("Precio por Puesto");
+        Otra.SetFilter("Sin Coef Pesquería", '<>%1', "Sin Coef Pesquería");
+        if not Otra.IsEmpty() then
+            Error(ErrProvisionDistinta, "Cód. Concepto");
+        Otra.SetRange("Sin Coef Pesquería");
+        Otra.SetFilter("Concepto Tasa Cargas", '<>%1', "Concepto Tasa Cargas");
+        if not Otra.IsEmpty() then
+            Error(ErrProvisionDistinta, "Cód. Concepto");
+        Otra.SetRange("Concepto Tasa Cargas");
+        Otra.SetFilter("Concepto Base Tasa", '<>%1', "Concepto Base Tasa");
+        if not Otra.IsEmpty() then
+            Error(ErrProvisionDistinta, "Cód. Concepto");
 
-        if Provisión = Provisión::Francos then begin
+        if Provisión in [Provisión::Francos, Provisión::"Cargas Francos"] then begin
             Otra.Reset();
             Otra.SetFilter("Cód. Concepto", '<>%1', "Cód. Concepto");
-            Otra.SetRange(Provisión, Provisión::Francos);
+            Otra.SetRange(Provisión, Provisión);
             if Otra.FindFirst() then
                 Error(ErrFrancosEnDosConceptos, Otra."Cód. Concepto", "Cód. Concepto");
         end;
@@ -356,21 +461,39 @@ table 110067 "Regla Asiento Liq."
             exit;
         Otra.ModifyAll(Provisión, Provisión);
         Otra.ModifyAll("Conceptos Consumo", "Conceptos Consumo");
+        Otra.ModifyAll("Fórmula Valor Franco", "Fórmula Valor Franco");
+        Otra.ModifyAll("Precio por Puesto", "Precio por Puesto");
+        Otra.ModifyAll("Sin Coef Pesquería", "Sin Coef Pesquería");
+        Otra.ModifyAll("Concepto Tasa Cargas", "Concepto Tasa Cargas");
+        Otra.ModifyAll("Concepto Base Tasa", "Concepto Base Tasa");
     end;
 
     // Una vigencia o una variante nueva de un concepto que ya es provisión nace como sus hermanas:
-    // si no, la fila en blanco no se podría guardar.
+    // si no, la fila en blanco no se podría guardar. Se completa campo por campo lo que la fila
+    // nueva trae vacío, también si ya eligió la misma provisión: ValidarProvision exige igualdad,
+    // así que un valor distinto del de las hermanas nunca se podría guardar.
     local procedure HeredarProvision()
     var
         Otra: Record "Regla Asiento Liq.";
     begin
-        if (Provisión <> Provisión::" ") or ("Conceptos Consumo" <> '') then
-            exit;
         Otra.SetRange("Cód. Concepto", "Cód. Concepto");
-        if Otra.FindFirst() then begin
-            Provisión := Otra.Provisión;
+        if not Otra.FindFirst() then
+            exit;
+        if (Provisión <> Provisión::" ") and (Provisión <> Otra.Provisión) then
+            exit;
+        Provisión := Otra.Provisión;
+        if "Conceptos Consumo" = '' then
             "Conceptos Consumo" := Otra."Conceptos Consumo";
-        end;
+        if "Fórmula Valor Franco" = '' then
+            "Fórmula Valor Franco" := Otra."Fórmula Valor Franco";
+        if not "Precio por Puesto" then
+            "Precio por Puesto" := Otra."Precio por Puesto";
+        if not "Sin Coef Pesquería" then
+            "Sin Coef Pesquería" := Otra."Sin Coef Pesquería";
+        if "Concepto Tasa Cargas" = '' then
+            "Concepto Tasa Cargas" := Otra."Concepto Tasa Cargas";
+        if "Concepto Base Tasa" = '' then
+            "Concepto Base Tasa" := Otra."Concepto Base Tasa";
     end;
 
     local procedure AtributoDelLado(LadoBuscado: Enum "Lado Asiento Liq."): Boolean
@@ -440,8 +563,9 @@ table 110067 "Regla Asiento Liq."
         ErrAtributoSinDimension: Label 'La cuenta según atributo necesita las dos cosas: el tipo de atributo y la dimensión que lo identifica en las cuentas.';
         ErrAtributoNoSoportado: Label 'El atributo %1 es de %2. El asiento sólo lee atributos del empleado o de la marea.', Comment = '%1=atributo, %2=tipo de entidad';
         ErrProvisionSinConsumo: Label 'La provisión del concepto %1 necesita los conceptos que la liquidan (los que pagan lo devengado).', Comment = '%1=concepto';
-        ErrProvisionDistinta: Label 'Las filas del concepto %1 tienen que coincidir en Provisión y Conceptos que la liquidan: el saldo se calcula una vez por empleado.', Comment = '%1=concepto';
-        ErrFrancosEnDosConceptos: Label 'La provisión de lotes de francos ya está en el concepto %1: es una sola cuenta corriente y %2 la asentaría dos veces.', Comment = '%1=concepto existente, %2=concepto nuevo';
+        ErrProvisionDistinta: Label 'Las filas del concepto %1 tienen que coincidir en Provisión, Conceptos que la liquidan, valor del franco y tasa de cargas: el saldo se calcula una vez por empleado.', Comment = '%1=concepto';
+        ErrFrancosEnDosConceptos: Label 'La provisión de lotes de francos (o de sus cargas) ya está en el concepto %1: es una sola cuenta corriente y %2 la asentaría dos veces.', Comment = '%1=concepto existente, %2=concepto nuevo';
+        ErrCargasSinTasa: Label 'Las cargas sobre lotes de francos del concepto %1 necesitan de qué concepto sale la tasa y sobre qué base (por ejemplo CNT_SAC_DEV sobre 4750).', Comment = '%1=concepto';
         ErrAtributoNoEsLista: Label 'El atributo %1 es de tipo %2. El asiento compara por el código del valor, que sólo tienen los atributos de lista.', Comment = '%1=atributo, %2=tipo de dato';
         MotivoIncompleta: Text;
 }

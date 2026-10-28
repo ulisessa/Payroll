@@ -1,7 +1,7 @@
 ---
 tipo: guia
 tags: [inicio, hallazgos, pendientes]
-actualizado: 2026-10-21
+actualizado: 2026-10-28
 ---
 
 # Hallazgos abiertos
@@ -271,6 +271,17 @@ La suite de tests AL (70 `[Test]`) no se ejecutó; sí corrió y pasa `test/edit
 - **`Contabilizada`** existe en el enum de estado de la liquidación pero ningún código la asigna. El asiento ya tiene parametrización y **previa** (25/10/2026, [[Asiento de sueldos]]), pero todavía no escribe el diario; tampoco hay Libro de Sueldos Digital. Ver [[Estados y transiciones de una liquidación]].
 - **Asiento** (publicado y cargado el 27/10/2026; desde la 1.0.0.709 los lotes de francos se valorizan por la terna, como el 1063, y enero no tiene días sin precio): falta la cuenta de pasivo de la **provisión de francos** (sembrada en 2112005, a confirmar), asentar una vez el saldo inicial de francos al 31/12/2025 (313,3 M) y completar el proyecto de dos liquidaciones de enero que no lo tienen. Enero ya está recalculado (crédito IVA 71,2 M contra 70,4 M de Meta4); `CRED_IVA_814` y `CNT_SAC_DEV` no tienen líneas en febrero y marzo hasta recalcularlos. Ver [[Asiento de sueldos]].
 - **Dos lotes del saldo inicial de francos con un par convenio/categoría que no existe**: 175/75 con OF01 (111 días) y 768/19 con OF02 (21 días), cuando OF01/OF03 son 768/19 y OF02/OF04 175/75 ([[convenio-of-depende-de-la-categoria]]). La matriz no les encuentra precio; la provisión los valoriza con el par de la primera liquidación posterior del empleado. Corregir el par en la cuenta corriente (Movimiento Franco Liq.).
+- **Provisión de francos a lo que se paga, con cargas** (1.0.0.710, 28/10/2026). Lo decidió el usuario y quedó aplicado. En enero da 72,52 M de francos y 22,39 M de cargas, igual al centavo que una predicción independiente. Pendientes:
+  - confirmar los pasivos (2112005 y 2113029);
+  - asentar una vez los saldos iniciales (394,7 M de francos y 107,9 M de cargas);
+  - un lote del saldo inicial sin tasa (su única liquidación de 2026 tiene el 4750 en cero);
+  - la planilla de abril deja de valorizar el puesto superior: ¿criterio nuevo?;
+  - las opciones de valuación no tienen vigencia.
+
+  Ver [[planilla-francos-no-es-meta4]].
+- **El 1062 de marea no devenga el día de puerto personal anterior a la zarpada**: usa `DIAS_MAREA`, que desde el commit 850d663 (8/10/2026) lo descuenta para el grossing-up. En enero, un cierre del HF802 devenga 11 días contra 12 de Meta4 (0,52 × 23), y Meta4 tiene razón. El puerto posterior al arribo, que se descuenta desde el 21/10, podría hacer lo mismo (en abril hay 40 tripulantes con ese día): no verificado. La corrección iría en la rama de marea del 1062, sin tocar `DIAS_MAREA`.
+- **El coeficiente de pesquería de los lotes del saldo inicial salía de la primera liquidación de enero, no del buque del lote**: 3 lotes de marinería de tangoneros (108 días) con coeficiente 1 y 1 lote de potero (21 días) con 0,3. Con la 1.0.0.710 la provisión ya no usa el coeficiente (`Sin Coef Pesquería`); el 1063 lo sigue tomando de la liquidación que paga.
+- **Zona DGI de 7 tripulantes en enero y febrero**: la planilla de contaduría toma la zona del buque y BC y la nómina de Meta4, la del empleado. Difieren en 19 filas en enero y 12 en febrero, por cambios de buque con la zona del empleado atrasada hasta abril. Si la correcta es la del buque, `ZONA_DESFAVORABLE` está mal en esos tramos y eso mueve `CRED_IVA_814` y `CNT_SAC_DEV`. A confirmar.
 - **`FRANCO_DEVENG` da unas treinta veces de más**: multiplica los días por `VALOR_FRANCO`, que es mensual (el 1063 lo divide por 30 con `Divisor Valor`). 2.466 M en los cierres de marea de enero. Es informativo y nadie lo lee; la provisión de francos del asiento no lo usa. Corregirlo es una vigencia nueva con `VALOR_FRANCO_DIA`.
 - **CUIL del recibo** sale de `Social Security No.`, que según [[cuil-vive-en-cif-nif]] está vacío: probablemente sale en blanco (sin verificar). Ver [[Recibo de sueldo (reporte)]].
 - El diseño predeterminado *Decreto* del recibo no imprime las variables «Mostrar en Recibo»; «Solo aprobadas» viene destildada (imprime Borradores); la antigüedad impresa es años ÷ 365, no la suma de fases del cálculo.

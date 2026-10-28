@@ -49,7 +49,7 @@ existen: datos muertos, como las de `BASICO`.
 ## Jefe de Máquinas es OF02
 
 Lo dice el recibo del 00794: "Convenio: Oficiales Embarcados, Categoría: Jefe de Máquinas" con par
-`175/75 / OF02`. Eso **valida por qué `VALOR_FRANCO_ACDO` se cargó sólo para OF02 y OF04**: el
+`175/75 / OF02`. Eso **valida por qué `VALOR_FRANCO_ACDO` (hoy `VALOR_FRANCO_EMP`) se cargó sólo para OF02 y OF04**: el
 acuerdo de empresa es de jefe y primer oficial de máquinas, y OF01/OF03 no son de máquinas. La
 guarda de 2083 no es defensiva, es correcta — ver [[a-cuenta-futuros-aumentos-francos]].
 

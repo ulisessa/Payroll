@@ -2,7 +2,7 @@
 tipo: concepto
 tags: [motor, grossing-up, tipo-de-cambio, ganancias]
 fuente: [src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50016.ContextoLiquidacion.al, src/TableExtensions/TabExt52001.HRSetupLiqExt.al, GROSSING_UP_Y_TC_CONFIGURABLES.md]
-actualizado: 2026-10-08
+actualizado: 2026-10-28
 ---
 
 # Grossing-up y tipo de cambio
@@ -206,7 +206,7 @@ fórmula.
 
 **A qué precio se valúan los francos: al de convenio, y está verificado.** Se llegó a suponer que a
 estos oficiales la empresa les pagaba el franco por encima, por analogía con
-[[a-cuenta-futuros-aumentos-francos]]. **Es falso para ellos.** El `2083` lee `VALOR_FRANCO_ACDO`,
+[[a-cuenta-futuros-aumentos-francos]]. **Es falso para ellos.** El `2083` lee `VALOR_FRANCO_EMP`,
 cargado **sólo** para `175/75 OF02` y `OF04`, y en enero disparó únicamente para esas dos
 categorías (32 líneas). La columna `PR_FRANCO` de Meta4 lo cierra: para el 04724 en enero vale
 exactamente **127.350**, el mismo número que el parámetro de BC.

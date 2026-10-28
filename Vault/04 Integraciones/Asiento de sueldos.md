@@ -1,8 +1,8 @@
 ---
 tipo: proceso
 tags: [asiento, contabilidad, meta4, provisiones, integracion-nav]
-fuente: [src/Tables/Tab110067.ReglaAsientoLiq.al, src/Tables/Tab110068.LineaAsientoBufferLiq.al, src/Codeunits/Cod110083.AsientoSueldosLiq.al, src/Pages/Pag110067.ReglasAsientoLiq.al, src/Pages/Pag110068.AsientoSueldosPrevia.al, src/Pages/Pag110069.OrigenAsientoPrevia.al, src/Enums/Enum50335.LadoAsientoLiq.al, src/Tables/Tab50578.TipoLiquidacion.al, scripts/SembrarAsientoSueldos.sql, scripts/MigrarZonaTripulantes_1_Meta4_Oracle.sql, scripts/MigrarZonaTripulantes_2_BC_SqlServer.sql]
-actualizado: 2026-10-27
+fuente: [src/Tables/Tab110067.ReglaAsientoLiq.al, src/Tables/Tab110068.LineaAsientoBufferLiq.al, src/Codeunits/Cod110083.AsientoSueldosLiq.al, src/Pages/Pag110067.ReglasAsientoLiq.al, src/Pages/Pag110068.AsientoSueldosPrevia.al, src/Pages/Pag110069.OrigenAsientoPrevia.al, src/Enums/Enum50335.LadoAsientoLiq.al, src/Tables/Tab50578.TipoLiquidacion.al, scripts/SembrarAsientoSueldos.sql, scripts/ProvisionFrancosLoQueSePaga.sql, src/Codeunits/Cod50053.GestionFrancos.al, scripts/MigrarZonaTripulantes_1_Meta4_Oracle.sql, scripts/MigrarZonaTripulantes_2_BC_SqlServer.sql]
+actualizado: 2026-10-28
 ---
 
 # Asiento de sueldos
@@ -64,15 +64,25 @@ Una regla con `Provisión` no contabiliza el importe de la línea sino **cuánto
 | SAC (`4750`) | devengado desde el último período en que se pagó 3613/3623/3813/3823/3814; ese período lo revierte entero | gasto SAC de la sede / 2112010 | el gasto de SAC queda por **lo liquidado**, como hacía Meta4 con `PROV_SAC` |
 | Cargas del SAC (`CNT_SAC_DEV`) | ídem | cargas s/ SAC de la sede / 2113029 | las contribuciones del **aguinaldo** van a la misma cuenta (regla con `Filtro Tipo Liq. = AGUINALDO`) |
 | Vacaciones (`VAC_DEVENG`) | devengado desde el último período en que se pagó 3553/3573/3973/3975; ese período lo revierte entero | gasto vacaciones / 2112013 | lo pagado va al mismo gasto de vacaciones, que queda por lo liquidado |
-| Francos (`1062`, `Lotes de francos`) | días que le quedan a cada lote de la **cuenta corriente** de la fase vigente, **al valor por día del 1063 para la terna del lote** (ver abajo) | sueldos de la sede / **2112005 A CONFIRMAR** | cada consumo revierte los días del lote a su valor de devengo; lo que pagó el 1063 queda. La baja deja el saldo en cero desde el día de la baja (la paga el 2803, que no consume lotes) |
+| Francos (`1062`, `Lotes de francos`) | días que le quedan a cada lote de la **cuenta corriente** de la fase vigente, **a lo que se paga por ese franco** (ver abajo) | sueldos de la sede / **2112005 A CONFIRMAR** | cada consumo revierte los días del lote a su valor; lo que pagaron el 1063 y sus complementos queda. La baja deja el saldo en cero desde el día de la baja (la paga el 2803, que no consume lotes) |
+| Cargas de francos (`CNT_FRANCO_DEV`, `Cargas sobre lotes de francos`) | la misma variación de cada lote por la tasa de cargas de su liquidación de origen (`CNT_SAC_DEV` / `4750`: patronal neta del crédito IVA, con la zona del empleado) | cargas sociales de la sede / **2113029 A CONFIRMAR** | `CNT_FRANCO_DEV` es un concepto ancla, inactivo y sin fórmula: sólo da nombre a las reglas |
 
 - Con **borradores** en la previa, los francos no cuentan su consumo (reabrir revirtió los movimientos de la cuenta corriente): sale un aviso.
 
 - Vacaciones parciales: si se liquida una parte de los días, el devengado se revierte entero igual (es la regla). Con vacaciones anuales completas, como liquida hoy la tripulación, es lo mismo.
-- **Valor de un lote (desde la 1.0.0.709): como el 1063, por la terna** ([[valor-franco-por-terna]]). `Gestión Francos.ValuarMatriz` con una fila del lote: pesquería del buque del lote (`PESQ_FRANCO`), convenio y categoría del lote, el par de la liquidación de origen como documento, a la fecha del lote y con las cotizaciones de esa fecha (`TiposCambioFrancosAFecha` + `PublicarTiposCambio`, como la matriz). Se multiplica por el `COEF_PESQUERIA` de la liquidación de origen, igual que `ROUND(FILA_CANTIDAD * FILA_VALOR_FRANCO * #COEF_PESQUERIA)` del 1063. Antes se leía `VALOR_FRANCO_DIA` de `Resumen Variable`, que sólo se guarda donde algo la usa: después del recálculo de enero la tenían 19 de 90 cierres y 56 días quedaban sin valor.
+- **Valor de un lote, por la terna** ([[valor-franco-por-terna]]). `Gestión Francos.ValuarMatriz` con una fila del lote: pesquería del buque del lote (`PESQ_FRANCO`), convenio y categoría del lote, el par de la liquidación de origen como documento, a la fecha del lote y con las cotizaciones de esa fecha (`TiposCambioFrancosAFecha` + `PublicarTiposCambio`, como la matriz). En la 1.0.0.709 era el del 1063: por el `COEF_PESQUERIA` de la liquidación de origen. Antes se leía `VALOR_FRANCO_DIA` de `Resumen Variable`, que sólo se guarda donde algo la usa: después del recálculo de enero la tenían 19 de 90 cierres y 56 días quedaban sin valor.
+- **Desde la 1.0.0.710 (28/10/2026), lo que se paga**, como la planilla de francos devengados de contaduría (decisión del usuario, [[planilla-francos-no-es-meta4]]). Son tres campos de la regla del 1062, que el AL aplica sobre la misma valuación:
+  - `Fórmula Valor Franco` = `IFZERO(VALOR_FRANCO_EMP, VALOR_FRANCO)`. Reemplaza al `Parámetro del valor` del 1063 con `Gestión Francos.UsarFormulaValor`: OF02/OF04 van al acuerdo de empresa (el 2083 completa el convenio).
+  - `Precio por Puesto`: el mayor entre la categoría y el `Cód. Puesto` del lote valuado como categoría, que es lo que agrega el 1603.
+  - `Sin Coef Pesquería`: 100 % también en tangoneros, porque el 3554 completa el 70 %.
+  En enero los valores por día de los 282 lotes que cruzan con la planilla dan iguales a su precio (±0,03 de redondeo de la planilla). **Estos campos no tienen vigencia**: cambiarlos revalúa todo el stock abierto y esa diferencia no entra en la variación. Un acuerdo personal (`VALOR_FRANCO_<legajo>`) no gana dentro del `IFZERO` si no se carga también como `VALOR_FRANCO_EMP_<legajo>`.
+- **Cargas por lote**: cada término lleva la tasa resuelta a su cierre: `(Ahora × tasa al cierre − Antes × tasa al cierre anterior) × valor`. La tasa es la de la liquidación de origen; si no la tiene (saldo inicial), la de la última del empleado hasta la fecha del lote o, si no, la primera con tasa **hasta el cierre** (`TasaCargasDelLote`). Ese tope hace que lo que un mes resta como "antes" sea lo que el anterior asentó. Un lote sin tasa sale en el aviso `CNTSINTASA`, uno por lote y con drilldown. En enero hay uno: un saldo inicial cuya única liquidación de 2026 tiene el 4750 en cero.
 - **Respaldo**: si la terna no tiene precio a la fecha del lote (el saldo inicial del 31/12/2025 es anterior a los precios, o el par del lote es inválido), se valoriza con la fecha y el par de la **primera liquidación posterior** del empleado. Si tampoco hay, aviso `FRSINVALOR` con el último error de la matriz. Los lotes de liquidaciones borradas suman cero en la cuenta corriente (devengo y reversión) y no pesan.
 - `FRANCO_DEVENG` **no** sirve como base: multiplica por `VALOR_FRANCO`, que es mensual, y da unas treinta veces de más (ver [[Hallazgos abiertos]]).
-- **Saldo inicial**: si el período anterior no tuvo liquidaciones que contabilizan, el saldo con que arranca no es gasto del mes; sale como aviso, para asentarlo una vez contra resultados de ejercicios anteriores. En enero de 2026 son los francos del saldo inicial: **4.279 días, 313,3 M**. SAC y vacaciones arrancan en cero.
+
+> [!note] Por qué cambió el valor (28/10/2026)
+> Contra la planilla de francos devengados de contaduría (que era lo que se asentaba a mano en 6110001/6110002), el devengo de enero valorizado como el 1063 daba **110,93 M contra 120,97 M**, y la planilla sumaba **36,0 M de contribuciones netas del crédito IVA** que BC no provisionaba. Los días coinciden con Meta4 en 286 de 289 lotes; la diferencia era de criterio de valor: 30 % de tangoneros (−7,69 M), puesto superior (−2,78 M) y acuerdo de OF02/OF04 (−2,64 M). El usuario eligió **lo que se paga**, con cargas **netas del crédito y con la zona del empleado** (como BC y la nómina de Meta4; la planilla usa la del buque y difiere en 7 tripulantes en enero y febrero). Detalle en [[planilla-francos-no-es-meta4]].
+- **Saldo inicial**: si el período anterior no tuvo liquidaciones que contabilizan, el saldo con que arranca no es gasto del mes; sale como aviso, para asentarlo una vez contra resultados de ejercicios anteriores. En enero de 2026 son los francos del saldo inicial: **4.279 días, 394,7 M a lo que se paga (313,3 M como el 1063), más 107,9 M de cargas**. SAC y vacaciones arrancan en cero.
 - En la **liquidación final** las contribuciones sobre el SAC proporcional no se separan del resto (el motor las calcula juntas): van a cargas sociales, y la cancelación de la provisión de cargas del SAC acredita la 6110027.
 
 ## Conceptos nuevos del motor (vigencia 2026-01-01, informativos)
@@ -116,17 +126,18 @@ Seis sedes: genérica (buques, cuentas 6110), Buenos Aires (`BAIRES|MARDEL`, 631
 | 2112010 provisión SAC | 160.392.927 | 160.362.141 | ✓ |
 | 2113029 cargas s/ SAC | 45.202.065 | 45,3 M | ✓ |
 | 2112013 provisión vacaciones | 81.486.328 | — | Meta4 no la tenía |
-| 2112005 provisión francos (variación) | 74.182.564 | — | 5.395 días al 31/1; el saldo inicial (4.279 días, 313,3 M) va aparte. **Aproximación**: el SQL no valoriza por terna; la referencia es la previa (72.994.128) |
+| 2112005 provisión francos (variación) | 74.182.564 | — | 5.395 días al 31/1; el saldo inicial (4.279 días, 313,3 M) va aparte. **Aproximación**: el SQL no valoriza por terna; la referencia es la previa (72.994.128 en la 709; 72.519.317 desde la 710) |
 
 ## Pendiente y a confirmar
 
 > [!warning] Antes de registrar
-> 1. **Cuenta de pasivo de la provisión de francos**: no hay una 2112 de francos en el plan; quedó 2112005 (`SDOS.EMB.A REGULAR`) a confirmar.
-> 2. **Saldo inicial de francos** al 31/12/2025 (313,3 M): un asiento único contra resultados anteriores. Vacaciones y SAC arrancan en cero.
+> 1. **Cuentas de pasivo de la provisión de francos y de sus cargas**: no hay una 2112 de francos en el plan; quedó 2112005 (`SDOS.EMB.A REGULAR`) a confirmar. Las cargas quedaron en 2113029 (`Cs.Soc.a Pagar/SAC`), la misma de las cargas del SAC devengado: a confirmar.
+> 2. **Saldo inicial de francos** al 31/12/2025: **394,7 M** desde la 1.0.0.710 (313,3 M valorizado como el 1063), más **107,9 M de cargas**. Un asiento único contra resultados anteriores. Vacaciones y SAC arrancan en cero.
 > 3. **Recalcular febrero y marzo** para que tengan líneas de `CRED_IVA_814` y `CNT_SAC_DEV` (enero se recalculó el 27/10).
 > 4. **Dos lotes del saldo inicial con un par convenio/categoría que no existe** (175/75 con OF01, 111 días; 768/19 con OF02, 21 días: [[convenio-of-depende-de-la-categoria]]): la terna no tiene precio y se valorizan por el respaldo, con el par de la primera liquidación posterior. Corregir el par en la cuenta corriente para que no dependan del respaldo. (Los lotes sin valor por día se resolvieron en la 1.0.0.709 valorizando por terna.)
 > 5. **Dos liquidaciones de enero sin proyecto** (una LIQ_FINAL y una REGULAR, ~2,7 M de haberes): sus gastos van a cuentas que exigen proyecto y la previa lo avisa ("lleva proyecto y hay liquidaciones sin proyecto"). Completarles el proyecto.
-> 6. Cargas sociales sobre la provisión de vacaciones (2112014, 6110045…) y contribuciones sindicales sobre el SAC devengado (4755-4757): no se provisionan.
+> 6. Cargas sociales sobre la provisión de vacaciones (2112014, 6110045…) y contribuciones sindicales sobre el SAC devengado (4755-4757): no se provisionan. Las de francos sí, desde la 1.0.0.710. Su tasa no suma la parte porcentual del 7090 de 768/19, y el 70 % no remunerativo de tangoneros, que no lleva cargas, entra igual a la tasa entera.
+> 9. **La planilla de abril deja de valorizar el puesto superior** en la marinería. BC sigue valorizándolo. Confirmar con contaduría si es un criterio nuevo; los campos de la regla no tienen vigencia.
 > 7. Planta: en 2026 no hay liquidaciones con proyecto `ARB/PCR/PPM`; las reglas quedaron cargadas por si vuelve.
 > 8. FEC sale por la dimensión a **2113026**, no a la 2113024 que tenía cableada Meta4. SBA y UOM no tienen cuenta en la dimensión.
 
@@ -147,7 +158,16 @@ En la previa, el drilldown de **Debe**, **Haber**, **Importe** o **Mensaje** (o 
 
 ## Puesta en marcha (hecha el 27/10/2026)
 
-1. Publicada la extensión (**1.0.0.704**; la 702 trajo la tabla 110067 y el campo 16 de Tipo Liquidación; la 706, el drilldown; la **709**, los francos por terna).
+1. Publicada la extensión (**1.0.0.704**; la 702 trajo la tabla 110067 y el campo 16 de Tipo Liquidación; la 706, el drilldown; la **709**, los francos por terna; la **710**, los francos a lo que se paga y sus cargas, con `scripts/ProvisionFrancosLoQueSePaga.sql` aplicado el 28/10/2026).
+
+**Enero con la 1.0.0.710** (previa del 28/10/2026, igual al centavo a una predicción hecha aparte desde la regla de negocio):
+- Provisión de francos (2112005): **72.519.317,13** en 316 lotes.
+- 2113029: **67.596.516,23**, que son las cargas del SAC devengado (45.202.065,15) más las de francos (**22.394.451,08**).
+- Saldos iniciales en avisos: francos 394.728.186,37 y cargas 107.925.225,54.
+- Un lote sin tasa (`CNTSINTASA`, 2.126.346,67).
+- Debe = haber.
+
+La variación casi no se mueve contra la 709 (72,99 M): el acuerdo y el puesto la suben 2,07 M, y los lotes del saldo inicial que se consumen en enero, ahora al 100 %, revierten 2,55 M más.
 2. `scripts/SembrarAsientoSueldos.sql` aplicado: 2 conceptos, **1.511 reglas** (246 conceptos), `Genera Asiento` en 8 tipos. Servicio reiniciado.
 3. Previa de 202601 corrida en BC con `Asiento Sueldos Liq.DiagnosticarPreviaJson('202601')` por `Invoke-NAVCodeunit` (el resultado vuelve en un error identificado `PREVIA_ASIENTO_JSON:…:FIN_PREVIA_ASIENTO_JSON`, como `DiagnosticarOrdenesJson`: el cmdlet descarta los valores de retorno). El cliente web no se abre desde el navegador integrado de Claude: da 401 (no hace autenticación integrada de Windows).
 

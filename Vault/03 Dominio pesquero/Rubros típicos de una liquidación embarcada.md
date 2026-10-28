@@ -2,7 +2,7 @@
 tipo: referencia
 tags: [dominio, conceptos, recibo, rubros]
 fuente: ["Conceptos Liquidación.xlsx (snapshot 17/8/2026, raíz del repo)", src/Codeunits/Cod50014.MotorLiquidacion.al, src/Codeunits/Cod50053.GestionFrancos.al]
-actualizado: 2026-10-04
+actualizado: 2026-10-28
 ---
 
 # Rubros típicos de una liquidación embarcada
@@ -35,7 +35,7 @@ Tipo de liquidación en que corre (campo `Tipos Liq. Aplicables`; **vacío = com
 | 1062 | Francos devengados y liquidados | R (Es Devengo) | `REDONDEAR(COEF_FRANCOS × DIAS_ENROLAMIENTO + 1, 0)`; `Rol Franco = Devengo`; sólo CM. **Cantidad = días, Importe = 0** | snap |
 | 1063 | Sueldo de franco | R | `DIAS_FRANCOS_PERIODO`; `Rol Franco = Consumo`; el motor expande a **una línea por categoría de lote**, valuado por [[Valor del franco]]; sólo REG | snap |
 | 2803 / 2804 | Indemnización francos no gozados / SAC s/ | R | carga a mano | snap |
-| 2083 | A cuenta futuros aumentos francos | R | `VALOR_FRANCO_ACDO/30 × DIAS_FRANCOS_PERIODO × TC_COMPRADOR − (#1063+#1053)`; sólo OF02/OF04 de tangoneros; guarda sobre `ACDO × DIAS = 0` | lec |
+| 2083 | A cuenta futuros aumentos francos | R | `VALOR_FRANCO_EMP/30 × DIAS_FRANCOS_PERIODO × TC_COMPRADOR − (#1063+#1053)`; sólo OF02/OF04 de tangoneros; guarda sobre `ACDO × DIAS = 0` | lec |
 
 ## Adicionales por artículo y de tareas
 

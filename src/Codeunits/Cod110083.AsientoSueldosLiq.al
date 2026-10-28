@@ -200,7 +200,6 @@ codeunit 110083 "Asiento Sueldos Liq."
     var
         Regla: Record "Regla Asiento Liq.";
         Concepto: Record "Concepto Liquidación";
-        ConceptoFrancos: Code[20];
         Motivo: Text;
     begin
         Clear(FEsAcumulador);
@@ -218,6 +217,14 @@ codeunit 110083 "Asiento Sueldos Liq."
         Clear(FAltaVigente);
         Clear(FValorLote);
         Clear(FCoefLiq);
+        Clear(FTasaLiq);
+        FConceptoFrancos := '';
+        FFrancosFormula := '';
+        FFrancosPorPuesto := false;
+        FFrancosSinCoef := false;
+        FConceptoCargas := '';
+        FConceptoTasa := '';
+        FConceptoBaseTasa := '';
         FFechaCotizacion := 0D;
         FUltimoErrorPrecio := '';
         Clear(FTipoContabiliza);
@@ -249,10 +256,24 @@ codeunit 110083 "Asiento Sueldos Liq."
                     if Regla.Provisión <> Regla.Provisión::" " then
                         if not FProvision.ContainsKey(Regla."Cód. Concepto") then begin
                             // Las reglas también entran por SQL, sin el OnInsert que lo impide.
-                            if Regla.Provisión = Regla.Provisión::Francos then begin
-                                if ConceptoFrancos <> '' then
-                                    Error(ErrFrancosEnDosConceptos, ConceptoFrancos, Regla."Cód. Concepto");
-                                ConceptoFrancos := Regla."Cód. Concepto";
+                            case Regla.Provisión of
+                                Regla.Provisión::Francos:
+                                    begin
+                                        if FConceptoFrancos <> '' then
+                                            Error(ErrFrancosEnDosConceptos, FConceptoFrancos, Regla."Cód. Concepto");
+                                        FConceptoFrancos := Regla."Cód. Concepto";
+                                        FFrancosFormula := Regla."Fórmula Valor Franco";
+                                        FFrancosPorPuesto := Regla."Precio por Puesto";
+                                        FFrancosSinCoef := Regla."Sin Coef Pesquería";
+                                    end;
+                                Regla.Provisión::"Cargas Francos":
+                                    begin
+                                        if FConceptoCargas <> '' then
+                                            Error(ErrFrancosEnDosConceptos, FConceptoCargas, Regla."Cód. Concepto");
+                                        FConceptoCargas := Regla."Cód. Concepto";
+                                        FConceptoTasa := Regla."Concepto Tasa Cargas";
+                                        FConceptoBaseTasa := Regla."Concepto Base Tasa";
+                                    end;
                             end;
                             FProvision.Add(Regla."Cód. Concepto", Regla.Provisión);
                         end;
@@ -260,6 +281,8 @@ codeunit 110083 "Asiento Sueldos Liq."
             until Regla.Next() = 0;
         if FReglas.IsEmpty() then
             Error(ErrSinReglas);
+        // En blanco vuelve a la fórmula del 1063: la instancia sobrevive entre previas.
+        FFrancos.UsarFormulaValor(FFrancosFormula);
 
         // Las líneas que el motor escribe para los acumuladores no son importes del recibo: si se
         // contaran, un acumulador que suma haberes duplicaría el gasto.
@@ -648,6 +671,10 @@ codeunit 110083 "Asiento Sueldos Liq."
                     ProvisionPorConceptos(CodConcepto);
                 Regla.Provisión::Francos:
                     ProvisionDeFrancos(CodConcepto);
+                // Las cargas salen lote por lote dentro de ProvisionDeFrancos: sin lotes no hay nada.
+                Regla.Provisión::"Cargas Francos":
+                    if FConceptoFrancos = '' then
+                        Avisar('CARGASSINFRANCOS|' + CodConcepto, StrSubstNo(AvCargasSinFrancos, CodConcepto), 0);
             end;
     end;
 
@@ -838,6 +865,7 @@ codeunit 110083 "Asiento Sueldos Liq."
         LoteProyecto: Dictionary of [Integer, Code[20]];
         LoteConvenio: Dictionary of [Integer, Code[20]];
         LoteCategoria: Dictionary of [Integer, Code[20]];
+        LotePuesto: Dictionary of [Integer, Code[20]];
         DiasAhora: Dictionary of [Integer, Decimal];
         DiasAntes: Dictionary of [Integer, Decimal];
         LotesPorFecha: Dictionary of [Text, Text];
@@ -855,14 +883,19 @@ codeunit 110083 "Asiento Sueldos Liq."
         Antes: Decimal;
         Valor: Decimal;
         Importe: Decimal;
+        ImporteCargas: Decimal;
+        TasaAhora: Decimal;
+        TasaAntes: Decimal;
+        DetalleCargas: Text;
         SaldoInicial: Decimal;
+        SaldoInicialCargas: Decimal;
         DiasSinValor: Decimal;
     begin
         FechaAnterior := FPeriodo."Fecha Desde" - 1;
         Mov.SetCurrentKey("No. Empleado", Tipo, "Fecha Devengamiento", "No. Movimiento");
         Mov.SetRange("Fecha Devengamiento", 0D, FPeriodo."Fecha Hasta");
         Mov.SetLoadFields("No. Empleado", "No. Lote", Tipo, Cantidad, "Fecha Devengamiento", "No. Liquidación", "No. Línea Origen",
-            "No. Proyecto", "Cód. Convenio", "Cód. Categoría");
+            "No. Proyecto", "Cód. Convenio", "Cód. Categoría", "Cód. Puesto");
         if Mov.FindSet() then
             repeat
                 // El lote es el movimiento de devengo; consumos y reversiones lo nombran en No. Lote.
@@ -875,6 +908,7 @@ codeunit 110083 "Asiento Sueldos Liq."
                         LoteProyecto.Add(Mov."No. Movimiento", Mov."No. Proyecto");
                         LoteConvenio.Add(Mov."No. Movimiento", Mov."Cód. Convenio");
                         LoteCategoria.Add(Mov."No. Movimiento", Mov."Cód. Categoría");
+                        LotePuesto.Add(Mov."No. Movimiento", Mov."Cód. Puesto");
                     end;
                 if Mov."No. Lote" <> 0 then begin
                     SumarEnLote(DiasAhora, Mov."No. Lote", Mov.Cantidad);
@@ -903,33 +937,71 @@ codeunit 110083 "Asiento Sueldos Liq."
                 Empleado := LoteEmpleado.Get(Lote);
                 Ahora := DiasVigentes(DiasAhora, Lote, Empleado, FechaLote, FPeriodo."Fecha Hasta");
                 Antes := DiasVigentes(DiasAntes, Lote, Empleado, FechaLote, FechaAnterior);
-                Valor := ValorDelLote(Empleado, LoteLiq.Get(Lote), FechaLote, LoteProyecto.Get(Lote), LoteConvenio.Get(Lote), LoteCategoria.Get(Lote));
+                Valor := ValorDelLote(Empleado, LoteLiq.Get(Lote), FechaLote, LoteProyecto.Get(Lote), LoteConvenio.Get(Lote),
+                    LoteCategoria.Get(Lote), LotePuesto.Get(Lote));
                 if Valor = 0 then
                     DiasSinValor += Ahora
                 else begin
-                    if not FHayPeriodoAnterior then
+                    // LAS CARGAS SIGUEN AL LOTE: los días por el valor por la tasa de su liquidación de
+                    // origen, que lleva la zona y la condición de jubilado del empleado en ese momento.
+                    // Cada término lleva la tasa resuelta a SU cierre (ver TasaCargasDelLote): así lo que
+                    // este período resta como "antes" es exactamente lo que el anterior asentó como
+                    // "ahora", aunque la tasa del lote recién aparezca después.
+                    TasaAhora := 0;
+                    TasaAntes := 0;
+                    if FConceptoCargas <> '' then begin
+                        TasaAhora := TasaCargasDelLote(Empleado, LoteLiq.Get(Lote), FechaLote, FPeriodo."Fecha Hasta");
+                        if FHayPeriodoAnterior then
+                            TasaAntes := TasaCargasDelLote(Empleado, LoteLiq.Get(Lote), FechaLote, FechaAnterior)
+                        else
+                            // El primer asiento: el saldo inicial de cargas y la variación con la misma tasa.
+                            TasaAntes := TasaAhora;
+                    end;
+                    if not FHayPeriodoAnterior then begin
                         SaldoInicial += Antes * Valor;
+                        SaldoInicialCargas += Antes * Valor * TasaAntes;
+                    end;
                     Importe := (Ahora - Antes) * Valor;
-                    if Importe <> 0 then begin
+                    ImporteCargas := (Ahora * TasaAhora - Antes * TasaAntes) * Valor;
+                    Detalle := StrSubstNo(TxtDetalleLote, Lote, Antes, Ahora, Round(Valor, 0.01));
+                    if (FConceptoCargas <> '') and (TasaAhora = 0) and ((Ahora <> 0) or (not FHayPeriodoAnterior and (Antes <> 0))) then begin
+                        // Uno por lote, con su detalle: el drilldown del aviso dice cuáles son.
+                        LimpiarOrigen();
+                        FCtxDetalle := CopyStr(Detalle, 1, MaxStrLen(FCtxDetalle));
+                        Avisar('CNTSINTASA|' + FConceptoCargas,
+                            StrSubstNo(AvCargasSinTasa, FConceptoCargas, FConceptoTasa, FConceptoBaseTasa), Ahora * Valor);
+                    end;
+                    if (Importe <> 0) or (ImporteCargas <> 0) then begin
                         NoLiq := LoteLiq.Get(Lote);
                         LineaOrigen := LoteLinea.Get(Lote);
                         if not LiquidacionQueContabiliza(NoLiq) then begin
                             NoLiq := UltimaLiquidacion(Empleado, FPeriodo."Fecha Hasta");
                             LineaOrigen := 0;
                         end;
-                        Detalle := StrSubstNo(TxtDetalleLote, Lote, Antes, Ahora, Round(Valor, 0.01));
+                        DetalleCargas := StrSubstNo(TxtDetalleCargasLote, Detalle, FormatoTasa(TasaAhora), FormatoTasa(TasaAntes));
                         if NoLiq = '' then begin
                             LimpiarOrigen();
                             FCtxDetalle := CopyStr(Detalle, 1, MaxStrLen(FCtxDetalle));
-                            Avisar('FRSINLIQ|' + CodConcepto, StrSubstNo(AvFrancoSinLiquidacion, CodConcepto), Importe);
-                        end else
-                            ImputarProvision(CodConcepto, NoLiq, Importe, LineaOrigen, TxtOrigenLote, Detalle);
+                            if Importe <> 0 then
+                                Avisar('FRSINLIQ|' + CodConcepto, StrSubstNo(AvFrancoSinLiquidacion, CodConcepto), Importe);
+                            if ImporteCargas <> 0 then
+                                Avisar('FRSINLIQ|' + FConceptoCargas, StrSubstNo(AvFrancoSinLiquidacion, FConceptoCargas), ImporteCargas);
+                        end else begin
+                            if Importe <> 0 then
+                                ImputarProvision(CodConcepto, NoLiq, Importe, LineaOrigen, TxtOrigenLote, Detalle);
+                            if ImporteCargas <> 0 then
+                                ImputarProvision(FConceptoCargas, NoLiq, ImporteCargas, LineaOrigen, TxtOrigenCargasLote, DetalleCargas);
+                        end;
                     end;
                 end;
             end;
         end;
+        // Los avisos de resumen no son de un lote: sin esto se llevarían el origen del último.
+        LimpiarOrigen();
         if SaldoInicial <> 0 then
             Avisar('PROVINI|' + CodConcepto, StrSubstNo(AvSaldoInicialProvision, CodConcepto), SaldoInicial);
+        if SaldoInicialCargas <> 0 then
+            Avisar('PROVINI|' + FConceptoCargas, StrSubstNo(AvSaldoInicialProvision, FConceptoCargas), SaldoInicialCargas);
         if DiasSinValor <> 0 then
             Avisar('FRSINVALOR|' + CodConcepto, StrSubstNo(AvFrancoSinValor, CodConcepto, DiasSinValor, FUltimoErrorPrecio), 0);
         // Reabrir una liquidación revierte sus movimientos de la cuenta corriente, así que en
@@ -1000,27 +1072,36 @@ codeunit 110083 "Asiento Sueldos Liq."
     end;
 
     /// <summary>
-    /// El valor por día con que se devengó el lote: VALOR_FRANCO por la terna del lote (lo que
-    /// resuelve Gestión Francos.ValuarMatriz, con el par de la liquidación que lo originó) por el
-    /// COEF_PESQUERIA de esa liquidación. Cero si no hay precio para la terna.
+    /// El valor por día del lote. Lo resuelve Gestión Francos.ValuarMatriz por la terna del lote,
+    /// con el par de la liquidación que lo originó, a la fecha del lote. Las opciones de la regla de
+    /// francos dicen qué se valúa: la fórmula (en blanco, la del 1063), el mayor entre la categoría y
+    /// el puesto, y si se multiplica por el COEF_PESQUERIA de esa liquidación. Cero si no hay precio.
     /// </summary>
     /// <remarks>
+    /// LO QUE SE PAGA, NO EL 1063 (decidido con el usuario el 28/10/2026). La provisión sigue a la
+    /// planilla de francos devengados de contaduría. OF02/OF04 van al acuerdo de empresa, que el 2083
+    /// completa sobre el convenio. La marinería va al puesto embarcado cuando paga más que la
+    /// categoría, que es lo que el 1603 agrega. Y va al 100 % también en tangoneros, porque el 3554
+    /// completa el 70 % que el 1063 no paga. Ver la lección planilla-francos-no-es-meta4.
+    ///
     /// SI LA TERNA NO TIENE PRECIO A LA FECHA DEL LOTE, la de la primera liquidación del empleado
     /// después del lote. Es el caso del saldo inicial: los lotes son del 31/12/2025 y los precios de
     /// BC arrancan el 1/1/2026, así que a su fecha ninguno vale nada; el primer momento en que BC
     /// valuó esos francos es su primera liquidación. La fecha no depende del período que se mira,
     /// así que el lote vale lo mismo al cierre anterior y a este, y la variación es sólo de días.
     /// </remarks>
-    local procedure ValorDelLote(Empleado: Code[20]; NoLiqOrigen: Code[20]; FechaLote: Date; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20]): Decimal
+    local procedure ValorDelLote(Empleado: Code[20]; NoLiqOrigen: Code[20]; FechaLote: Date; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20]; Puesto: Code[20]): Decimal
     var
         Liq: Record "Liquidación";
         Clave: Text;
         Documento: Code[20];
+        DocumentoPrecio: Code[20];
         DocumentoPosterior: Code[20];
+        FechaPrecio: Date;
         FechaPosterior: Date;
         Valor: Decimal;
     begin
-        Clave := StrSubstNo('%1|%2|%3|%4|%5|%6', Empleado, NoLiqOrigen, Format(FechaLote, 0, 9), NoProyecto, Convenio, Categoria);
+        Clave := StrSubstNo('%1|%2|%3|%4|%5|%6|%7', Empleado, NoLiqOrigen, Format(FechaLote, 0, 9), NoProyecto, Convenio, Categoria, Puesto);
         if FValorLote.Get(Clave, Valor) then
             exit(Valor);
 
@@ -1029,6 +1110,8 @@ codeunit 110083 "Asiento Sueldos Liq."
         Liq.SetLoadFields("No.");
         if (NoLiqOrigen <> '') and Liq.Get(NoLiqOrigen) then
             Documento := NoLiqOrigen;
+        DocumentoPrecio := Documento;
+        FechaPrecio := FechaLote;
         if not PrecioDelLote(Empleado, NoLiqOrigen, Documento, FechaLote, FechaLote, NoProyecto, Convenio, Categoria, Valor) then begin
             // Con la fecha, también el par de esa liquidación, como el 1063 toma el de la que paga:
             // dos lotes del saldo inicial traen un par que no existe (175/75 OF01, 768/19 OF02; la
@@ -1038,12 +1121,60 @@ codeunit 110083 "Asiento Sueldos Liq."
                not PrecioDelLote(Empleado, NoLiqOrigen, DocumentoPosterior, FechaLote, FechaPosterior, NoProyecto, Convenio, Categoria, Valor)
             then
                 // Un lote sin precio no corta la previa (el cálculo sí corta: ahí el cero se paga).
-                Valor := 0;
+                Valor := 0
+            else begin
+                DocumentoPrecio := DocumentoPosterior;
+                FechaPrecio := FechaPosterior;
+            end;
         end;
-        if Valor <> 0 then
+        if (Valor <> 0) and FFrancosPorPuesto then
+            Valor := MayorConElPuesto(Empleado, NoLiqOrigen, DocumentoPrecio, FechaLote, FechaPrecio, NoProyecto, Convenio, Categoria, Puesto, Valor);
+        if (Valor <> 0) and not FFrancosSinCoef then
             Valor := Valor * CoefPesqueriaDelLote(Empleado, Documento, FechaLote);
         FValorLote.Add(Clave, Valor);
         exit(Valor);
+    end;
+
+    /// <summary>
+    /// El mayor entre el valor de la categoría y el del puesto del lote. El puesto se valúa como si
+    /// fuera la categoría, con el convenio del mismo par que valuó la categoría, a la misma fecha.
+    /// </summary>
+    /// <remarks>
+    /// El Cód. Puesto del lote es el código de categoría del puesto embarcado (MR05, OF02), así que
+    /// se busca como VALOR_FRANCO_&lt;convenio&gt;_&lt;puesto&gt;. Un puesto de otro convenio (FE02 en un
+    /// 175/75) no tiene precio y queda la categoría. Ese intento fallido no es un lote sin precio:
+    /// no pisa el último error que muestra el aviso.
+    /// </remarks>
+    local procedure MayorConElPuesto(Empleado: Code[20]; NoLiqOrigen: Code[20]; Documento: Code[20]; FechaLote: Date; FechaPrecio: Date; NoProyecto: Code[20]; Convenio: Code[20]; Categoria: Code[20]; Puesto: Code[20]; ValorCategoria: Decimal): Decimal
+    var
+        Liq: Record "Liquidación";
+        ConvenioPar: Code[20];
+        CategoriaPar: Code[20];
+        UltimoError: Text[250];
+        ValorPuesto: Decimal;
+    begin
+        // El mismo par que ParQuePagaElFranco: el del documento si lo tiene completo, si no el del lote.
+        ConvenioPar := Convenio;
+        CategoriaPar := Categoria;
+        Liq.SetLoadFields("Cód. Convenio", "Cód. Categoría");
+        if Documento <> '' then
+            if Liq.Get(Documento) then
+                if (Liq."Cód. Convenio" <> '') and (Liq."Cód. Categoría" <> '') then begin
+                    ConvenioPar := Liq."Cód. Convenio";
+                    CategoriaPar := Liq."Cód. Categoría";
+                end;
+        if (Puesto = '') or (Puesto = CategoriaPar) then
+            exit(ValorCategoria);
+
+        // Sin documento, ValuarMatriz respeta el par de la fila: el convenio que paga y el puesto.
+        UltimoError := FUltimoErrorPrecio;
+        if not PrecioDelLote(Empleado, NoLiqOrigen, '', FechaLote, FechaPrecio, NoProyecto, ConvenioPar, Puesto, ValorPuesto) then begin
+            FUltimoErrorPrecio := UltimoError;
+            exit(ValorCategoria);
+        end;
+        if ValorPuesto > ValorCategoria then
+            exit(ValorPuesto);
+        exit(ValorCategoria);
     end;
 
     // El precio por día de un franco del lote a FechaPrecio, con las cotizaciones de esa fecha.
@@ -1152,6 +1283,99 @@ codeunit 110083 "Asiento Sueldos Liq."
             Coeficiente := Lin.Importe;
         FCoefLiq.Add(NoLiq, Coeficiente);
         exit(Coeficiente <> 0);
+    end;
+
+    /// <summary>
+    /// La tasa de cargas de un lote al cierre FechaCierre: la de su liquidación de origen y, si no
+    /// la tiene (un saldo inicial, una liquidación borrada), la de la última del empleado hasta la
+    /// fecha del lote o, si no hay, la primera con tasa entre la fecha del lote y el cierre, entre
+    /// las que contabilizan. Cero si ninguna la tiene a ese cierre.
+    /// </summary>
+    /// <remarks>
+    /// EL TOPE EN EL CIERRE ES LO QUE HACE QUE SUME EN CASCADA. Sin él, la tasa de un lote del saldo
+    /// inicial cuya liquidación de enero no tiene base (4750 en cero) aparecía recién con la final de
+    /// febrero, y el cierre de febrero revertía cargas que enero nunca había provisionado. Con el
+    /// tope, la tasa al cierre de enero se resuelve igual al armar enero y al armar febrero, y una vez
+    /// que aparece no cambia.
+    /// </remarks>
+    local procedure TasaCargasDelLote(Empleado: Code[20]; NoLiqOrigen: Code[20]; FechaLote: Date; FechaCierre: Date): Decimal
+    var
+        Liq: Record "Liquidación";
+        Tasa: Decimal;
+    begin
+        if TasaDeLiquidacion(NoLiqOrigen, Tasa) then
+            exit(Tasa);
+        Liq.SetCurrentKey("Cód. Período", "No. Empleado");
+        Liq.SetRange("No. Empleado", Empleado);
+        Liq.SetFilter("Cód. Tipo Liq.", FTiposLiq);
+        Liq.SetFilter(Estado, '%1|%2|%3', Liq.Estado::Calculada, Liq.Estado::Aprobada, Liq.Estado::Contabilizada);
+        Liq.SetLoadFields("No.");
+        Liq.SetRange("Fecha Liquidación", 0D, FechaLote);
+        Liq.Ascending(false);
+        if Liq.FindSet() then
+            repeat
+                if TasaDeLiquidacion(Liq."No.", Tasa) then
+                    exit(Tasa);
+            until Liq.Next() = 0;
+        if FechaCierre <= FechaLote then
+            exit(0);
+        Liq.SetRange("Fecha Liquidación", FechaLote + 1, FechaCierre);
+        Liq.Ascending(true);
+        if Liq.FindSet() then
+            repeat
+                if TasaDeLiquidacion(Liq."No.", Tasa) then
+                    exit(Tasa);
+            until Liq.Next() = 0;
+        exit(0);
+    end;
+
+    local procedure FormatoTasa(Tasa: Decimal): Text
+    begin
+        exit(Format(Round(Tasa * 100, 0.0001)) + '%');
+    end;
+
+    /// <remarks>
+    /// LA TASA ES UN COCIENTE, NO UN CONCEPTO NUEVO. CNT_SAC_DEV es el 4750 por las alícuotas
+    /// patronales menos la del crédito IVA de la zona, así que CNT_SAC_DEV / 4750 es la tasa neta
+    /// de esa liquidación. Con un concepto propio habría que recalcular cada período para tenerla;
+    /// con el cociente sale de lo que ya está calculado. Sin el concepto de las cargas o con base
+    /// cero no hay tasa.
+    /// </remarks>
+    local procedure TasaDeLiquidacion(NoLiq: Code[20]; var Tasa: Decimal): Boolean
+    var
+        Cargas: Decimal;
+        Base: Decimal;
+        HayCargas: Boolean;
+        HayBase: Boolean;
+    begin
+        Tasa := 0;
+        if NoLiq = '' then
+            exit(false);
+        if FTasaLiq.Get(NoLiq, Tasa) then
+            exit(Tasa <> 0);
+        Cargas := ImporteDelConcepto(NoLiq, FConceptoTasa, HayCargas);
+        Base := ImporteDelConcepto(NoLiq, FConceptoBaseTasa, HayBase);
+        if HayCargas and (Base <> 0) then
+            Tasa := Cargas / Base;
+        FTasaLiq.Add(NoLiq, Tasa);
+        exit(Tasa <> 0);
+    end;
+
+    local procedure ImporteDelConcepto(NoLiq: Code[20]; CodConcepto: Code[20]; var Hay: Boolean): Decimal
+    var
+        Lin: Record "Línea Liquidación";
+        Total: Decimal;
+    begin
+        Hay := false;
+        Lin.SetRange("No. Liquidación", NoLiq);
+        Lin.SetRange("Cód. Concepto", CodConcepto);
+        Lin.SetLoadFields(Importe);
+        if Lin.FindSet() then
+            repeat
+                Hay := true;
+                Total += Lin.Importe;
+            until Lin.Next() = 0;
+        exit(Total);
     end;
 
     local procedure LiquidacionQueContabiliza(NoLiq: Code[20]): Boolean
@@ -1471,6 +1695,14 @@ codeunit 110083 "Asiento Sueldos Liq."
         FAltaVigente: Dictionary of [Text, Date];
         FValorLote: Dictionary of [Text, Decimal];
         FCoefLiq: Dictionary of [Code[20], Decimal];
+        FTasaLiq: Dictionary of [Code[20], Decimal];
+        FConceptoFrancos: Code[20];
+        FFrancosFormula: Text[250];
+        FFrancosPorPuesto: Boolean;
+        FFrancosSinCoef: Boolean;
+        FConceptoCargas: Code[20];
+        FConceptoTasa: Code[20];
+        FConceptoBaseTasa: Code[20];
         FFrancos: Codeunit "Gestión Francos";
         FFechaCotizacion: Date;
         FUltimoErrorPrecio: Text[250];
@@ -1509,6 +1741,10 @@ codeunit 110083 "Asiento Sueldos Liq."
         TxtOrigenLote: Label 'Lote de francos';
         TxtDetalleReversion: Label 'Revierte el devengado de %1', Comment = '%1=período del devengado';
         TxtDetalleLote: Label 'Lote %1: de %2 a %3 días, a %4 por día', Comment = '%1=lote, %2=días al cierre anterior, %3=días al cierre, %4=valor por día';
+        TxtOrigenCargasLote: Label 'Cargas de lote de francos';
+        TxtDetalleCargasLote: Label '%1; tasa %2 (al cierre anterior %3)', Comment = '%1=detalle del lote, %2=tasa al cierre, %3=tasa al cierre anterior';
+        AvCargasSinTasa: Label 'Provisión %1: lotes de francos sin tasa de cargas (ni su liquidación ni otra del empleado hasta el cierre tiene %2 sobre %3); sus cargas no se provisionaron. El importe es el de los francos al cierre.', Comment = '%1=concepto, %2=concepto de las cargas, %3=concepto base';
+        AvCargasSinFrancos: Label 'Provisión %1: las cargas sobre lotes de francos necesitan un concepto con la provisión de lotes de francos y no hay ninguno; no se provisionaron.', Comment = '%1=concepto';
         ErrArgumentoOrigenes: Label 'El argumento es el período y la clave separados por punto y coma: 202601;6110002|PP-802-000006.';
         AvSinRegla: Label 'Concepto %1 %2 liquidó importe y no tiene regla del asiento.', Comment = '%1=concepto, %2=descripción';
         AvReglaAmbigua: Label 'Concepto %1: dos reglas igual de específicas coinciden ("%2" y "%3"). Acotá los filtros; el importe no se imputó.', Comment = '%1=concepto, %2 y %3=filtros';
